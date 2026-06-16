@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1781560200717,
+      "tag": "0000_wonderful_boomerang",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1781628406365,
+      "tag": "0001_violet_sharon_carter",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1781632107092,
+      "tag": "0002_spooky_proteus",
+      "breakpoints": true
+    }
+  ]
+}

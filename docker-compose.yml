@@ -1,0 +1,15 @@
+services:
+  munchbase:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_PATH: /data/munchbase.db
+      APP_ORIGIN: http://localhost:3000
+      OSM_USER_AGENT: munchbase/0.1 (self-hosted restaurant tracker)
+      NEXT_PUBLIC_TILE_URL: https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
+    volumes:
+      - munchbase-data:/data
+
+volumes:
+  munchbase-data:
