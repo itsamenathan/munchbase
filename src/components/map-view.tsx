@@ -14,7 +14,13 @@ const restaurantIcon = L.divIcon({
   popupAnchor: [0, -26],
 });
 
-export default function MapView({ restaurants }: { restaurants: RestaurantEntry[] }) {
+export default function MapView({
+  restaurants,
+  onSelectRestaurant,
+}: {
+  restaurants: RestaurantEntry[];
+  onSelectRestaurant: (id: number) => void;
+}) {
   const withCoords = restaurants.filter((restaurant) => restaurant.lat !== null && restaurant.lon !== null);
   const center = withCoords[0] ? [withCoords[0].lat!, withCoords[0].lon!] : [39.5, -98.35];
   return (
@@ -26,7 +32,9 @@ export default function MapView({ restaurants }: { restaurants: RestaurantEntry[
       {withCoords.map((restaurant) => (
         <Marker key={restaurant.id} position={[restaurant.lat!, restaurant.lon!]} icon={restaurantIcon}>
           <Popup>
-            <strong>{restaurant.name}</strong>
+            <button type="button" className="map-popup-title" onClick={() => onSelectRestaurant(restaurant.id)}>
+              {restaurant.name}
+            </button>
             <br />
             {restaurant.latestCheckIn ? `Last visit: ${formatWallDateTime(restaurant.latestCheckIn.visitedAt)}` : "No check-ins yet"}
             <br />

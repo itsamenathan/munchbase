@@ -3,7 +3,7 @@ import { currentUser } from "@/lib/auth";
 import { getAppState, getDb, userCount } from "@/lib/db";
 import AppShell from "@/components/app-shell";
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ list?: string; entry?: string }> }) {
+export default async function Home({ searchParams }: { searchParams: Promise<{ list?: string; entry?: string; edit?: string }> }) {
   const params = await searchParams;
   const user = await currentUser();
   const hasUsers = userCount().count > 0;
@@ -50,7 +50,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
 
   const state = getAppState(user, params.list ? Number(params.list) : undefined);
   const initialEntryId = params.entry ? Number(params.entry) : null;
-  return <AppShell state={state} initialEntryId={initialEntryId} />;
+  const initialEntryEdit = params.edit === "1";
+  return (
+    <AppShell
+      key={`${state.activeList?.id ?? "none"}:${initialEntryId ?? "none"}:${initialEntryEdit ? "edit" : "view"}`}
+      state={state}
+      initialEntryId={initialEntryId}
+      initialEntryEdit={initialEntryEdit}
+    />
+  );
 }
 
 function AuthFrame({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {

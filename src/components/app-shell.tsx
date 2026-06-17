@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import {
   Award,
   Beer,
+  CalendarClock,
   CheckCircle,
   ClipboardList,
   Cloud,
@@ -43,6 +44,7 @@ import {
   X,
   XCircle,
   Zap,
+  type LucideIcon,
 } from "lucide-react";
 import {
   addRestaurant,
@@ -108,7 +110,15 @@ type PlaceResult = {
   rawJson: string;
 };
 
-export default function AppShell({ state, initialEntryId }: { state: AppState; initialEntryId: number | null }) {
+export default function AppShell({
+  state,
+  initialEntryId,
+  initialEntryEdit,
+}: {
+  state: AppState;
+  initialEntryId: number | null;
+  initialEntryEdit: boolean;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [filterDefinition, setFilterDefinition] = useState("");
@@ -131,6 +141,7 @@ export default function AppShell({ state, initialEntryId }: { state: AppState; i
     if (id !== null) {
       const params = new URLSearchParams(window.location.search);
       params.set("entry", String(id));
+      params.delete("edit");
       const newUrl = `${window.location.pathname}?${params.toString()}`;
       router.push(newUrl, { scroll: false });
     }
@@ -140,8 +151,14 @@ export default function AppShell({ state, initialEntryId }: { state: AppState; i
     setSelectedEntryId(null);
     const params = new URLSearchParams(window.location.search);
     params.delete("entry");
+    params.delete("edit");
     const newUrl = `${window.location.pathname}?${params.toString()}`;
     router.replace(newUrl, { scroll: false });
+  };
+
+  const openEntryFromMap = (id: number) => {
+    selectEntry(id);
+    setMode("list");
   };
 
   useEffect(() => {
@@ -154,6 +171,32 @@ export default function AppShell({ state, initialEntryId }: { state: AppState; i
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
+  useEffect(() => {
+    if (!selectedEntryId || !window.matchMedia("(max-width: 760px)").matches) return;
+
+    const scrollY = window.scrollY;
+    const { body } = document;
+    const previousStyle = {
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+
+    return () => {
+      body.style.position = previousStyle.position;
+      body.style.top = previousStyle.top;
+      body.style.width = previousStyle.width;
+      body.style.overflow = previousStyle.overflow;
+      window.scrollTo(0, scrollY);
+    };
+  }, [selectedEntryId]);
+
   const restaurants = useMemo(() => {
     const needle = query.toLowerCase();
     return state.restaurants.filter((restaurant) => {
@@ -163,7 +206,6 @@ export default function AppShell({ state, initialEntryId }: { state: AppState; i
         restaurant.standingNotes,
         restaurant.favoriteItems,
         restaurant.orderingTips,
-        restaurant.latestCheckIn?.notes,
       ]
         .filter(Boolean)
         .join(" ")
@@ -254,7 +296,6 @@ export default function AppShell({ state, initialEntryId }: { state: AppState; i
               <Menu size={20} />
             </button>
             <div>
-              <p className="kicker">Shared list</p>
               <h2>{state.activeList.name}</h2>
             </div>
           </div>
@@ -280,6 +321,27 @@ export default function AppShell({ state, initialEntryId }: { state: AppState; i
           </div>
         </header>
 
+        {canWrite ? (
+          <details className="mobile-add-restaurants">
+            <summary>
+              <Plus size={16} />
+              Add restaurant
+            </summary>
+            <AddRestaurantsPanel
+              state={state}
+              canWrite={canWrite}
+              placeQuery={placeQuery}
+              setPlaceQuery={setPlaceQuery}
+              placeResults={placeResults}
+              placeSearchStatus={placeSearchStatus}
+              locationStatus={locationStatus}
+              useCurrentLocation={useCurrentLocation}
+              setUseCurrentLocation={setUseCurrentLocation}
+              searchPlaces={searchPlaces}
+            />
+          </details>
+        ) : null}
+
         <div className="toolbar">
           <label className="search-box">
             <Search size={17} />
@@ -304,7 +366,7 @@ export default function AppShell({ state, initialEntryId }: { state: AppState; i
         </div>
 
         {mode === "map" ? (
-          <MapView restaurants={restaurants} />
+          <MapView restaurants={restaurants} onSelectRestaurant={openEntryFromMap} />
         ) : (
           <div className="content-grid">
             <section className="results">
@@ -315,6 +377,12 @@ export default function AppShell({ state, initialEntryId }: { state: AppState; i
                   if (!rating || !rating.value) return null;
                   const presetIcon = definition.presetKey ? RATING_PRESETS.find((p) => p.key === definition.presetKey)?.icon : null;
                   const icon = (presetIcon ?? definition.icon) || "tag";
+                  if (definition.presetKey === "price") {
+                    return <span key={definition.id} className="rating-value price-value" title={`${definition.name}: ${rating.value}`}>{rating.value}</span>;
+                  }
+                  if (definition.presetKey === "stars") {
+                    return <span key={definition.id} className="rating-value stars-value" title={`${definition.name}: ${rating.value}/5`}>{"\u2605".repeat(Number(rating.value))}</span>;
+                  }
                   return (
                     <span key={definition.id} className="rating-icon" title={`${definition.name}: ${rating.value}`}>
                       {RATING_ICON_MAP[icon] ?? <Tag size={14} />}
@@ -340,11 +408,12 @@ export default function AppShell({ state, initialEntryId }: { state: AppState; i
             <section className="detail">
               {selectedEntry ? (
                 <RestaurantDetail
-                  key={selectedEntry.id}
+                  key={`${selectedEntry.id}:${initialEntryEdit ? "edit" : "view"}`}
                   canWrite={canWrite}
                   entry={selectedEntry}
                   listId={state.activeList.id}
                   ratingDefinitions={state.ratingDefinitions}
+                  initialEdit={initialEntryEdit}
                 />
               ) : (
                 <p className="muted">Select a restaurant.</p>
@@ -388,6 +457,7 @@ export default function AppShell({ state, initialEntryId }: { state: AppState; i
           entry={selectedEntry}
           listId={state.activeList.id}
           ratingDefinitions={state.ratingDefinitions}
+          initialEdit={initialEntryEdit}
           onClose={closeDetail}
         />
       ) : null}
@@ -778,58 +848,9 @@ function MobileListsDrawer({
   canWrite: boolean;
   onClose: () => void;
 }) {
-  const [placeQuery, setPlaceQuery] = useState("");
-  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
-  const [placeSearchStatus, setPlaceSearchStatus] = useState("");
-  const [useCurrentLocation, setUseCurrentLocation] = useState(true);
-  const [locationStatus, setLocationStatus] = useState("");
-  const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
-
-  async function requestCurrentLocation() {
-    const result = await getCurrentPosition();
-    if (result.ok) {
-      const coords = { lat: result.position.coords.latitude, lon: result.position.coords.longitude };
-      setLocationCoords(coords);
-      setLocationStatus("Location ready. Searches will prefer nearby results.");
-      return coords;
-    }
-    setLocationCoords(null);
-    setLocationStatus(result.reason);
-    return null;
-  }
-
-  async function searchPlaces(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
-    if (placeQuery.trim().length < 3) {
-      setPlaceSearchStatus("Type at least 3 characters.");
-      return;
-    }
-    setPlaceSearchStatus("Searching...");
-    setLocationStatus("");
-    const params = new URLSearchParams({ q: placeQuery });
-    if (useCurrentLocation) {
-      const coords = locationCoords ?? (await requestCurrentLocation());
-      if (coords) {
-        params.set("lat", String(coords.lat));
-        params.set("lon", String(coords.lon));
-        params.set("radiusKm", "25");
-        setLocationStatus("Searching within about 25 km of your current location.");
-      }
-    }
-    const response = await fetch(`/api/search?${params.toString()}`);
-    const data = (await response.json()) as { results?: PlaceResult[]; error?: string };
-    if (data.error) {
-      setPlaceSearchStatus(data.error);
-      setPlaceResults([]);
-      return;
-    }
-    setPlaceResults(data.results ?? []);
-    setPlaceSearchStatus(data.results?.length ? `${data.results.length} places found.` : "No places found.");
-  }
-
   return (
     <div className="drawer-backdrop lists-backdrop" onClick={onClose}>
-      <aside className="drawer" onClick={(event) => event.stopPropagation()} aria-label="Lists and add restaurant">
+      <aside className="drawer" onClick={(event) => event.stopPropagation()} aria-label="Lists menu">
         <header className="drawer-head">
           <div>
             <p className="kicker">Menu</p>
@@ -839,23 +860,6 @@ function MobileListsDrawer({
             <X size={18} />
           </button>
         </header>
-
-        <div className="drawer-section">
-          {canWrite ? (
-            <AddRestaurantsPanel
-              state={state}
-              canWrite={canWrite}
-              placeQuery={placeQuery}
-              setPlaceQuery={setPlaceQuery}
-              placeResults={placeResults}
-              placeSearchStatus={placeSearchStatus}
-              locationStatus={locationStatus}
-              useCurrentLocation={useCurrentLocation}
-              setUseCurrentLocation={setUseCurrentLocation}
-              searchPlaces={searchPlaces}
-            />
-          ) : null}
-        </div>
 
         <div className="drawer-section">
           <SidebarContent state={state} canWrite={canWrite} onCloseDrawer={onClose} />
@@ -870,12 +874,14 @@ function MobileDetailSheet({
   entry,
   listId,
   ratingDefinitions,
+  initialEdit,
   onClose,
 }: {
   canWrite: boolean;
   entry: RestaurantEntry;
   listId: number;
   ratingDefinitions: RatingDefinition[];
+  initialEdit: boolean;
   onClose: () => void;
 }) {
   return (
@@ -886,7 +892,14 @@ function MobileDetailSheet({
         </button>
       </div>
       <div className="detail-sheet-body">
-        <RestaurantDetail canWrite={canWrite} entry={entry} listId={listId} ratingDefinitions={ratingDefinitions} />
+        <RestaurantDetail
+          key={`${entry.id}:${initialEdit ? "edit" : "view"}`}
+          canWrite={canWrite}
+          entry={entry}
+          listId={listId}
+          ratingDefinitions={ratingDefinitions}
+          initialEdit={initialEdit}
+        />
       </div>
     </div>
   );
@@ -903,11 +916,9 @@ function CheckInCard({
 }) {
   const [mode, setMode] = useState<"preview" | "edit">("preview");
   const [visitedAt, setVisitedAt] = useState(checkIn.visitedAt);
-  const [notes, setNotes] = useState(checkIn.notes ?? "");
 
   const reset = () => {
     setVisitedAt(checkIn.visitedAt);
-    setNotes(checkIn.notes ?? "");
     setMode("preview");
   };
 
@@ -924,14 +935,8 @@ function CheckInCard({
         <input type="hidden" name="checkInId" value={checkIn.id} />
         <div className="checkin-meta">
           <strong>{checkIn.authorName}</strong>
-          <input
-            name="visitedAt"
-            type="datetime-local"
-            value={visitedAt}
-            onChange={(event) => setVisitedAt(event.target.value)}
-          />
+          <DateTimeField value={visitedAt} onChange={setVisitedAt} />
         </div>
-        <textarea name="notes" placeholder="Visit notes" value={notes} onChange={(event) => setNotes(event.target.value)} />
         <div className="checkin-actions">
           <button>Save</button>
           <button type="button" className="ghost-button" onClick={reset}>
@@ -949,23 +954,25 @@ function CheckInCard({
     <article className="checkin-card">
       <div className="checkin-meta">
         <strong>{checkIn.authorName}</strong>
-        <span className="checkin-date">{formatShortDateTime(checkIn.visitedAt)}</span>
-      </div>
-      {checkIn.notes ? <p className="checkin-notes">{checkIn.notes}</p> : null}
-      {canWrite ? (
-        <div className="checkin-actions">
-          <button type="button" className="ghost-button icon-button" onClick={() => setMode("edit")} aria-label="Edit check-in">
-            <Pencil size={16} />
-          </button>
-          <form action={deleteCheckIn} className="inline-form">
-            <input type="hidden" name="listId" value={listId} />
-            <input type="hidden" name="checkInId" value={checkIn.id} />
-            <button className="ghost-button icon-only" aria-label="Delete check-in">
-              <Trash2 size={16} />
+        <span className="checkin-date">
+          <CalendarClock size={14} />
+          {formatShortDateTime(checkIn.visitedAt)}
+        </span>
+        {canWrite ? (
+          <div className="checkin-actions">
+            <button type="button" className="ghost-button icon-button" onClick={() => setMode("edit")} aria-label="Edit check-in">
+              <Pencil size={16} />
             </button>
-          </form>
-        </div>
-      ) : null}
+            <form action={deleteCheckIn} className="inline-form">
+              <input type="hidden" name="listId" value={listId} />
+              <input type="hidden" name="checkInId" value={checkIn.id} />
+              <button className="ghost-button icon-only" aria-label="Delete check-in">
+                <Trash2 size={16} />
+              </button>
+            </form>
+          </div>
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -975,30 +982,39 @@ function RestaurantDetail({
   entry,
   listId,
   ratingDefinitions,
+  initialEdit,
 }: {
   canWrite: boolean;
   entry: RestaurantEntry;
   listId: number;
   ratingDefinitions: RatingDefinition[];
+  initialEdit: boolean;
 }) {
-  const [notesMode, setNotesMode] = useState<"edit" | "preview">("preview");
+  const [entryMode, setEntryMode] = useState<"edit" | "preview">(initialEdit && canWrite ? "edit" : "preview");
   const [standingNotes, setStandingNotes] = useState(entry.standingNotes ?? "");
   const [favoriteItems, setFavoriteItems] = useState(entry.favoriteItems ?? "");
   const [orderingTips, setOrderingTips] = useState(entry.orderingTips ?? "");
-  const resetNotes = () => {
+  const resetEntryEdit = () => {
     setStandingNotes(entry.standingNotes ?? "");
     setFavoriteItems(entry.favoriteItems ?? "");
     setOrderingTips(entry.orderingTips ?? "");
-    setNotesMode("preview");
+    setEntryMode("preview");
   };
+  const activeRatingDefinitions = ratingDefinitions.filter((definition) => definition.active);
   return (
     <>
       <div className="detail-head">
         <div className="detail-title-group">
           <h3>{entry.name}</h3>
           <span className="detail-location">{formatCityState(entry.address)}</span>
+          <RatingSummary entry={entry} definitions={activeRatingDefinitions} />
         </div>
         <div className="link-row">
+          {canWrite && entryMode === "preview" ? (
+            <button type="button" className="ghost-button icon-button" onClick={() => setEntryMode("edit")} aria-label="Edit notes and ratings">
+              <Pencil size={16} />
+            </button>
+          ) : null}
           <a href={entry.googleMapsUrl || googleMapsUrl(entry)} target="_blank" rel="noreferrer" className="icon-link" aria-label="Open in Google Maps">
             <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
               <path d="M19.527 4.799c1.212 2.608.937 5.678-.405 8.173-1.101 2.047-2.744 3.74-4.098 5.614-.619.858-1.244 1.75-1.669 2.727-.141.325-.263.658-.383.992-.121.333-.224.673-.34 1.008-.109.314-.236.684-.627.687h-.007c-.466-.001-.579-.53-.695-.887-.284-.874-.581-1.713-1.019-2.525-.51-.944-1.145-1.817-1.79-2.671L19.527 4.799zM8.545 7.705l-3.959 4.707c.724 1.54 1.821 2.863 2.871 4.18.247.31.494.622.737.936l4.984-5.925-.029.01c-1.741.601-3.691-.291-4.392-1.987a3.377 3.377 0 0 1-.209-.716c-.063-.437-.077-.761-.004-1.198l.001-.007zM5.492 3.149l-.003.004c-1.947 2.466-2.281 5.88-1.117 8.77l4.785-5.689-.058-.05-3.607-3.035zM14.661.436l-3.838 4.563a.295.295 0 0 1 .027-.01c1.6-.551 3.403.15 4.22 1.626.176.319.323.683.377 1.045.068.446.085.773.012 1.22l-.003.016 3.836-4.561A8.382 8.382 0 0 0 14.67.439l-.009-.003zM9.466 5.868L14.162.285l-.047-.012A8.31 8.31 0 0 0 11.986 0a8.439 8.439 0 0 0-6.169 2.766l-.016.018 3.665 3.084z" fill="#34A853"/>
@@ -1011,42 +1027,75 @@ function RestaurantDetail({
           </a>
         </div>
       </div>
-      {canWrite ? (
+      {canWrite && entryMode === "edit" ? (
+        <form
+          action={async (formData) => {
+            await updateEntry(formData);
+            await saveRatings(formData);
+            setEntryMode("preview");
+          }}
+          className="entry-edit-form"
+        >
+          <input type="hidden" name="listId" value={listId} />
+          <input type="hidden" name="entryId" value={entry.id} />
+          <div className="section-head">
+            <h4>Edit notes and ratings</h4>
+          </div>
+          <div className="entry-edit-grid">
+            <section className="entry-edit-section">
+              <h5>Notes</h5>
+              <NotesEditField
+                title="Order"
+                name="standingNotes"
+                value={standingNotes}
+                onChange={setStandingNotes}
+                placeholder="What to order"
+              />
+              <NotesEditField
+                title="Skip"
+                name="favoriteItems"
+                value={favoriteItems}
+                onChange={setFavoriteItems}
+                placeholder="What to avoid"
+              />
+              <NotesEditField
+                title="People"
+                name="orderingTips"
+                value={orderingTips}
+                onChange={setOrderingTips}
+                placeholder="Who likes this place or what group it fits"
+              />
+            </section>
+            <section className="entry-edit-section">
+              <h5>Ratings</h5>
+              <div className="rating-grid">
+                {activeRatingDefinitions.map((definition) => {
+                  const value = entry.ratings.find((rating) => rating.definitionId === definition.id)?.value ?? "";
+                  return (
+                    <div className="rating-field" key={definition.id}>
+                      <span>{definition.name}</span>
+                      <RatingInput definition={definition} value={value} disabled={false} />
+                    </div>
+                  );
+                })}
+                {!activeRatingDefinitions.length ? <p className="muted">No rating fields enabled.</p> : null}
+              </div>
+            </section>
+          </div>
+          <div className="form-actions">
+            <button>Save entry</button>
+            <button type="button" className="ghost-button" onClick={resetEntryEdit}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
         <section className="notes-panel">
           <div className="section-head">
             <h4>Notes</h4>
-            {notesMode === "preview" ? (
-              <button type="button" className="ghost-button icon-button" onClick={() => setNotesMode("edit")} aria-label="Edit notes">
-                <Pencil size={16} />
-              </button>
-            ) : null}
           </div>
-          {notesMode === "edit" ? (
-            <form
-              action={async (formData) => {
-                await updateEntry(formData);
-                setNotesMode("preview");
-              }}
-              className="stack-form"
-            >
-              <input type="hidden" name="listId" value={listId} />
-              <input type="hidden" name="entryId" value={entry.id} />
-              <textarea name="standingNotes" placeholder="Standing notes" value={standingNotes} onChange={(event) => setStandingNotes(event.target.value)} />
-              <textarea name="favoriteItems" placeholder="Food you enjoyed" value={favoriteItems} onChange={(event) => setFavoriteItems(event.target.value)} />
-              <textarea name="orderingTips" placeholder="Ordering tips" value={orderingTips} onChange={(event) => setOrderingTips(event.target.value)} />
-              <div className="form-actions">
-                <button>Save notes</button>
-                <button type="button" className="ghost-button" onClick={resetNotes}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <NotePreview standingNotes={standingNotes} favoriteItems={favoriteItems} orderingTips={orderingTips} />
-          )}
+          <NotePreview standingNotes={standingNotes} favoriteItems={favoriteItems} orderingTips={orderingTips} />
         </section>
-      ) : (
-        <NotePreview standingNotes={entry.standingNotes ?? ""} favoriteItems={entry.favoriteItems ?? ""} orderingTips={entry.orderingTips ?? ""} />
       )}
       {canWrite ? (
         <details className="external-links-panel">
@@ -1070,20 +1119,6 @@ function RestaurantDetail({
           </form>
         </details>
       ) : null}
-      <form action={saveRatings} className="rating-grid">
-        <input type="hidden" name="listId" value={listId} />
-        <input type="hidden" name="entryId" value={entry.id} />
-        {ratingDefinitions.filter((d) => d.active).map((definition) => {
-          const value = entry.ratings.find((rating) => rating.definitionId === definition.id)?.value ?? "";
-          return (
-            <label key={definition.id}>
-              {definition.name}
-              <RatingInput definition={definition} value={value} disabled={!canWrite} />
-            </label>
-          );
-        })}
-        {canWrite && ratingDefinitions.length ? <button>Save ratings</button> : null}
-      </form>
       <section className="checkin-box">
         <h4>Check-ins</h4>
         {entry.latestCheckIn ? (
@@ -1099,13 +1134,104 @@ function RestaurantDetail({
           <form action={createCheckIn} className="checkin-new">
             <input type="hidden" name="listId" value={listId} />
             <input type="hidden" name="entryId" value={entry.id} />
-            <input name="visitedAt" type="datetime-local" defaultValue={localDateTimeInputValue()} />
-            <textarea name="notes" placeholder="Visit notes" />
+            <label className="datetime-field">
+              <span>
+                <CalendarClock size={14} />
+                Visit time
+              </span>
+              <input name="visitedAt" type="datetime-local" defaultValue={localDateTimeInputValue()} />
+            </label>
             <button>Check in</button>
           </form>
         ) : null}
       </section>
     </>
+  );
+}
+
+function DateTimeField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="datetime-field compact">
+      <span>
+        <CalendarClock size={14} />
+        Visit time
+      </span>
+      <input
+        name="visitedAt"
+        type="datetime-local"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
+function NotesEditField({
+  title,
+  name,
+  value,
+  onChange,
+  placeholder,
+}: {
+  title: string;
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <label className="notes-edit-field">
+      <span>{title}</span>
+      <textarea name={name} placeholder={placeholder} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+function RatingSummary({ entry, definitions }: { entry: RestaurantEntry; definitions: RatingDefinition[] }) {
+  const badges = definitions
+    .map((definition) => {
+      const value = entry.ratings.find((rating) => rating.definitionId === definition.id)?.value ?? "";
+      if (!value) return null;
+      return <RatingBadge key={definition.id} definition={definition} value={value} />;
+    })
+    .filter(Boolean);
+
+  if (!badges.length) return <span className="rating-summary empty">No ratings yet</span>;
+  return <div className="rating-summary">{badges}</div>;
+}
+
+function RatingBadge({ definition, value }: { definition: RatingDefinition; value: string }) {
+  if (definition.presetKey === "go_back") {
+    const label = `Go back: ${value === "true" ? "yes" : "no"}`;
+    return (
+      <span className={`entry-rating-badge icon-badge ${value === "true" ? "positive" : "negative"}`} aria-label={label} title={label}>
+        <Undo2 size={14} />
+      </span>
+    );
+  }
+  if (definition.presetKey === "price") {
+    return (
+      <span className="entry-rating-badge price icon-badge" aria-label={`Price: ${value.length} dollar signs`} title={`Price: ${value}`}>
+        {repeatedIcon(DollarSign, value.length, 13)}
+      </span>
+    );
+  }
+  if (definition.presetKey === "stars") {
+    return (
+      <span className="entry-rating-badge stars icon-badge" aria-label={`${value} stars`} title={`${value} stars`}>
+        {repeatedIcon(Star, Number(value), 13, true)}
+      </span>
+    );
+  }
+
+  const presetIcon = definition.presetKey ? RATING_PRESETS.find((preset) => preset.key === definition.presetKey)?.icon : null;
+  const icon = (presetIcon ?? definition.icon) || "tag";
+  const displayValue = value === "true" ? "Yes" : value === "false" ? "No" : value;
+  return (
+    <span className="entry-rating-badge">
+      {RATING_ICON_MAP[icon] ?? <Tag size={14} />}
+      {definition.name}: {displayValue}
+    </span>
   );
 }
 
@@ -1119,9 +1245,9 @@ function NotePreview({
   orderingTips: string;
 }) {
   const sections = [
-    ["Standing notes", standingNotes],
-    ["Food enjoyed", favoriteItems],
-    ["Ordering tips", orderingTips],
+    ["Order", standingNotes],
+    ["Skip", favoriteItems],
+    ["People", orderingTips],
   ] as const;
   const hasNotes = sections.some(([, value]) => value.trim());
   if (!hasNotes) return <p className="muted">No notes yet.</p>;
@@ -1140,9 +1266,60 @@ function NotePreview({
 }
 
 function RatingInput({ definition, value, disabled }: { definition: RatingDefinition; value: string; disabled: boolean }) {
+  const fieldName = `rating:${definition.id}`;
+  if (definition.presetKey === "price") {
+    return (
+      <RatingScaleInput
+        name={fieldName}
+        value={value}
+        disabled={disabled}
+        options={definition.options.map((option) => ({ value: option, ariaLabel: `Price: ${option.length} dollar signs` }))}
+        Icon={DollarSign}
+      />
+    );
+  }
+  if (definition.presetKey === "stars") {
+    const min = definition.min ?? 1;
+    const max = definition.max ?? 5;
+    return (
+      <RatingScaleInput
+        name={fieldName}
+        value={value}
+        disabled={disabled}
+        options={Array.from({ length: max - min + 1 }, (_, index) => {
+          const rating = String(min + index);
+          return { value: rating, ariaLabel: `${rating} stars` };
+        })}
+        Icon={Star}
+        filled
+      />
+    );
+  }
+
+  const labelledOptions = ratingOptions(definition);
+  if (labelledOptions.length) {
+    return (
+      <div className={`rating-choice-group ${disabled ? "disabled" : ""}`} role="radiogroup" aria-label={definition.name}>
+        <RatingRadio name={fieldName} value="" checked={value === ""} disabled={disabled} label="Unset" />
+        {labelledOptions.map((option) => (
+          <RatingRadio
+            key={option.value}
+            name={fieldName}
+            value={option.value}
+            checked={value === option.value}
+            disabled={disabled}
+            label={option.label}
+            ariaLabel={option.ariaLabel}
+            title={option.ariaLabel}
+          />
+        ))}
+      </div>
+    );
+  }
+
   if (definition.type === "boolean") {
     return (
-      <select name={`rating:${definition.id}`} defaultValue={value} disabled={disabled}>
+      <select name={fieldName} defaultValue={value} disabled={disabled}>
         <option value="">Unset</option>
         <option value="true">Yes</option>
         <option value="false">No</option>
@@ -1151,7 +1328,7 @@ function RatingInput({ definition, value, disabled }: { definition: RatingDefini
   }
   if (definition.type === "choice") {
     return (
-      <select name={`rating:${definition.id}`} defaultValue={value} disabled={disabled}>
+      <select name={fieldName} defaultValue={value} disabled={disabled}>
         <option value="">Unset</option>
         {definition.options.map((option) => (
           <option key={option} value={option}>
@@ -1161,7 +1338,119 @@ function RatingInput({ definition, value, disabled }: { definition: RatingDefini
       </select>
     );
   }
-  return <input name={`rating:${definition.id}`} type="number" min={definition.min ?? undefined} max={definition.max ?? undefined} defaultValue={value} disabled={disabled} />;
+  return <input name={fieldName} type="number" min={definition.min ?? undefined} max={definition.max ?? undefined} defaultValue={value} disabled={disabled} />;
+}
+
+function RatingScaleInput({
+  name,
+  value,
+  disabled,
+  options,
+  Icon,
+  filled = false,
+}: {
+  name: string;
+  value: string;
+  disabled: boolean;
+  options: Array<{ value: string; ariaLabel: string }>;
+  Icon: LucideIcon;
+  filled?: boolean;
+}) {
+  const [selected, setSelected] = useState(value);
+  const selectedIndex = options.findIndex((option) => option.value === selected);
+
+  return (
+    <div className={`rating-scale ${disabled ? "disabled" : ""}`} role="radiogroup" aria-label={name}>
+      <label className="rating-scale-clear" title="Unset">
+        <input
+          type="radio"
+          name={name}
+          value=""
+          checked={selected === ""}
+          disabled={disabled}
+          onChange={() => setSelected("")}
+          aria-label="Unset"
+        />
+        <span>Unset</span>
+      </label>
+      <div className="rating-scale-icons">
+        {options.map((option, index) => {
+          const active = selectedIndex >= index;
+          return (
+            <label className={`rating-scale-icon ${active ? "active" : ""}`} key={option.value} title={option.ariaLabel}>
+              <input
+                type="radio"
+                name={name}
+                value={option.value}
+                checked={selected === option.value}
+                disabled={disabled}
+                onChange={() => setSelected(option.value)}
+                aria-label={option.ariaLabel}
+              />
+              <span>
+                <Icon size={17} fill={filled && active ? "currentColor" : "none"} />
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function RatingRadio({
+  name,
+  value,
+  checked,
+  disabled,
+  label,
+  ariaLabel,
+  title,
+}: {
+  name: string;
+  value: string;
+  checked: boolean;
+  disabled: boolean;
+  label: ReactNode;
+  ariaLabel?: string;
+  title?: string;
+}) {
+  const fallbackLabel = typeof label === "string" ? label : value || "Rating option";
+  return (
+    <label className="rating-choice" title={title}>
+      <input type="radio" name={name} value={value} defaultChecked={checked} disabled={disabled} aria-label={ariaLabel ?? fallbackLabel} />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+function ratingOptions(definition: RatingDefinition) {
+  if (definition.presetKey === "go_back") {
+    return [
+      { value: "true", label: <CheckCircle size={16} />, ariaLabel: "Go back: yes" },
+      { value: "false", label: <XCircle size={16} />, ariaLabel: "Go back: no" },
+    ];
+  }
+  if (definition.type === "boolean") {
+    return [
+      { value: "true", label: "Yes", ariaLabel: `${definition.name}: yes` },
+      { value: "false", label: "No", ariaLabel: `${definition.name}: no` },
+    ];
+  }
+  if (definition.type === "choice" && definition.options.length <= 5) {
+    return definition.options.map((option) => ({ value: option, label: option, ariaLabel: `${definition.name}: ${option}` }));
+  }
+  return [];
+}
+
+function repeatedIcon(Icon: LucideIcon, count: number, size: number, filled = false) {
+  return (
+    <span className="rating-icon-stack">
+      {Array.from({ length: count }, (_, index) => (
+        <Icon key={index} size={size} fill={filled ? "currentColor" : "none"} />
+      ))}
+    </span>
+  );
 }
 
 function RatingFilterOptions({ definition }: { definition?: RatingDefinition }) {

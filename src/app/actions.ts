@@ -230,7 +230,12 @@ export async function addRestaurant(formData: FormData) {
     text(formData, "orderingTips") || null,
     user.id,
   );
+  const entry = db
+    .prepare("SELECT id FROM restaurant_entries WHERE list_id = ? AND place_id = ?")
+    .get(listId, placeId) as { id: number } | undefined;
+  if (!entry) throw new Error("Restaurant entry could not be created.");
   revalidatePath("/");
+  redirect(`/?list=${listId}&entry=${entry.id}&edit=1`);
 }
 
 export async function updateEntry(formData: FormData) {
@@ -353,8 +358,8 @@ export async function createCheckIn(formData: FormData) {
   const entryId = Number(text(formData, "entryId"));
   const visitedAt = text(formData, "visitedAt") || localDateTimeInputValue();
   getDb()
-    .prepare("INSERT INTO checkins (entry_id, author_id, visited_at, notes) VALUES (?, ?, ?, ?)")
-    .run(entryId, user.id, visitedAt, text(formData, "notes") || null);
+    .prepare("INSERT INTO checkins (entry_id, author_id, visited_at) VALUES (?, ?, ?)")
+    .run(entryId, user.id, visitedAt);
   revalidatePath("/");
 }
 
@@ -376,12 +381,11 @@ export async function updateCheckIn(formData: FormData) {
   getDb()
     .prepare(
       `UPDATE checkins
-       SET visited_at = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+       SET visited_at = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND entry_id IN (SELECT id FROM restaurant_entries WHERE list_id = ?)`,
     )
     .run(
       text(formData, "visitedAt"),
-      text(formData, "notes") || null,
       Number(text(formData, "checkInId")),
       listId,
     );
