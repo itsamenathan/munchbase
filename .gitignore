@@ -3,17 +3,25 @@ node_modules/
 
 # Next.js
 .next/
+.turbo/
 out/
 
 # Build
 dist/
 build/
+coverage/
 
 # Database
 data/
 *.db
+*.sqlite
+*.sqlite3
 *.db-journal
 *.db-wal
+*.db-shm
+
+# Deployment
+.vercel/
 
 # Environment
 .env
