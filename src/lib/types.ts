@@ -82,6 +82,7 @@ export type AppState = {
   allRestaurants: Restaurant[];
   globalRatingDefinitions: RatingDefinition[];
   ratingDefinitions: RatingDefinition[];
+  allRatingDefinitions: RatingDefinition[];
   users: User[];
   appSettings: { selfSignupEnabled: boolean };
 };

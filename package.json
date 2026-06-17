@@ -20,9 +20,12 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "@serwist/next": "^9.5.11",
+    "@serwist/sw": "^9.5.11",
     "@types/leaflet": "^1.9.21",
     "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.45.2",
+    "idb": "^8.0.3",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.18.0",
     "next": "^16.2.9",

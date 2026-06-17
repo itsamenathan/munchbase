@@ -171,6 +171,12 @@ export function getAppState(user: User, listId?: number | null): AppState {
         )
         .all(activeList.id) as RatingDefinitionRow[]).map(parseRatingDefinition)
     : [];
+  const allRatingDefinitions = (database
+    .prepare(
+      `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active
+       FROM rating_definitions WHERE scope = 'list' ORDER BY id`,
+    )
+    .all() as RatingDefinitionRow[]).map(parseRatingDefinition);
 
   const restaurants = getRestaurants(activeListId);
   const allRestaurants = activeListId ? getRestaurants(null) : restaurants;
@@ -183,7 +189,7 @@ export function getAppState(user: User, listId?: number | null): AppState {
       .prepare("SELECT self_signup_enabled AS selfSignupEnabled FROM app_settings WHERE id = 1")
       .get() as AppState["appSettings"] | undefined) ?? { selfSignupEnabled: false };
 
-  return { user, lists, activeList, activeListId, restaurants, allRestaurants, globalRatingDefinitions, ratingDefinitions, users, appSettings };
+  return { user, lists, activeList, activeListId, restaurants, allRestaurants, globalRatingDefinitions, ratingDefinitions, allRatingDefinitions, users, appSettings };
 }
 
 export function getRestaurants(listId: number | null = null): Restaurant[] {

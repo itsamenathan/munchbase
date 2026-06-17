@@ -7,6 +7,7 @@ import { localDateTimeInputValue } from "@/lib/datetime";
 import { getDb, getUserByEmail, userCount } from "@/lib/db";
 import { normalizeExternalUrl } from "@/lib/external-links";
 import { normalizeRatingDefinition, presetByKey, validateRatingValue } from "@/lib/ratings";
+import { restaurantHref, tabHref } from "@/lib/routes";
 import type { RatingDefinition, RatingPresetKey, RatingType } from "@/lib/types";
 
 function text(formData: FormData, key: string) {
@@ -35,6 +36,10 @@ function parseCustomFields(json: string) {
       max: typeof input.max === "string" || typeof input.max === "number" ? input.max : null,
     });
   });
+}
+
+function revalidateApp() {
+  revalidatePath("/", "layout");
 }
 
 function parseRestaurantIds(json: string) {
@@ -124,7 +129,7 @@ export async function createUser(formData: FormData) {
   getDb()
     .prepare("INSERT INTO users (name, email, password_hash, role, active) VALUES (?, ?, ?, ?, 1)")
     .run(name, email, await hashPassword(password), role);
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function setUserActive(formData: FormData) {
@@ -134,7 +139,7 @@ export async function setUserActive(formData: FormData) {
   if (admin.id === userId && active === 0) throw new Error("You cannot deactivate your own account.");
   getDb().prepare("UPDATE users SET active = ? WHERE id = ?").run(active, userId);
   if (!active) getDb().prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function updateSelfSignup(formData: FormData) {
@@ -146,7 +151,7 @@ export async function updateSelfSignup(formData: FormData) {
        ON CONFLICT(id) DO UPDATE SET self_signup_enabled = excluded.self_signup_enabled, updated_at = CURRENT_TIMESTAMP`,
     )
     .run(enabled);
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function createList(formData: FormData) {
@@ -181,8 +186,8 @@ export async function createList(formData: FormData) {
     return listId;
   });
   const listId = create();
-  revalidatePath("/");
-  redirect(`/?list=${listId}`);
+  revalidateApp();
+  redirect(tabHref("list", listId));
 }
 
 export async function updateListDetails(formData: FormData) {
@@ -193,7 +198,7 @@ export async function updateListDetails(formData: FormData) {
   getDb()
     .prepare("UPDATE lists SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
     .run(name, text(formData, "description") || null, listId);
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function addRestaurant(formData: FormData) {
@@ -233,8 +238,8 @@ export async function addRestaurant(formData: FormData) {
   if (listId) {
     db.prepare("INSERT OR IGNORE INTO list_restaurants (list_id, restaurant_id) VALUES (?, ?)").run(listId, restaurant.id);
   }
-  revalidatePath("/");
-  redirect(`/?${listId ? `list=${listId}&` : ""}entry=${restaurant.id}&edit=1`);
+  revalidateApp();
+  redirect(restaurantHref(restaurant.id, listId, true));
 }
 
 export async function updateEntry(formData: FormData) {
@@ -252,7 +257,7 @@ export async function updateEntry(formData: FormData) {
       text(formData, "orderingTips") || null,
       restaurantId,
     );
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function updateExternalLinks(formData: FormData) {
@@ -267,7 +272,7 @@ export async function updateExternalLinks(formData: FormData) {
        WHERE id = ?`,
     )
     .run(googleMapsUrl, yelpUrl, restaurantId);
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function createRatingDefinition(formData: FormData) {
@@ -299,7 +304,7 @@ export async function createRatingDefinition(formData: FormData) {
       definition.type === "scale" ? definition.min : null,
       definition.type === "scale" ? definition.max : null,
     );
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function setRatingPresetEnabled(formData: FormData) {
@@ -319,7 +324,7 @@ export async function setRatingPresetEnabled(formData: FormData) {
   } else {
     db.prepare("UPDATE rating_definitions SET active = 0 WHERE scope = 'global' AND preset_key = ?").run(preset.key);
   }
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function updateRatingFieldActive(formData: FormData) {
@@ -327,7 +332,7 @@ export async function updateRatingFieldActive(formData: FormData) {
   const definitionId = Number(text(formData, "definitionId"));
   const active = text(formData, "active") === "1";
   getDb().prepare("UPDATE rating_definitions SET active = ? WHERE id = ?").run(active ? 1 : 0, definitionId);
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function saveRatings(formData: FormData) {
@@ -366,7 +371,7 @@ export async function saveRatings(formData: FormData) {
       ).run(restaurantId, definitionId, value);
     }
   }
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function createCheckIn(formData: FormData) {
@@ -376,13 +381,13 @@ export async function createCheckIn(formData: FormData) {
   getDb()
     .prepare("INSERT INTO checkins (restaurant_id, author_id, visited_at) VALUES (?, ?, ?)")
     .run(restaurantId, user.id, visitedAt);
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function deleteCheckIn(formData: FormData) {
   await requireUser();
   getDb().prepare("DELETE FROM checkins WHERE id = ?").run(Number(text(formData, "checkInId")));
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function updateCheckIn(formData: FormData) {
@@ -397,7 +402,7 @@ export async function updateCheckIn(formData: FormData) {
       text(formData, "visitedAt"),
       Number(text(formData, "checkInId")),
     );
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function attachRestaurantToList(formData: FormData) {
@@ -406,7 +411,7 @@ export async function attachRestaurantToList(formData: FormData) {
   const listId = Number(text(formData, "listId"));
   if (!restaurantId || !listId) throw new Error("Choose a list.");
   getDb().prepare("INSERT OR IGNORE INTO list_restaurants (list_id, restaurant_id) VALUES (?, ?)").run(listId, restaurantId);
-  revalidatePath("/");
+  revalidateApp();
 }
 
 export async function removeRestaurantFromList(formData: FormData) {
@@ -414,5 +419,5 @@ export async function removeRestaurantFromList(formData: FormData) {
   const restaurantId = Number(text(formData, "restaurantId"));
   const listId = Number(text(formData, "listId"));
   getDb().prepare("DELETE FROM list_restaurants WHERE list_id = ? AND restaurant_id = ?").run(listId, restaurantId);
-  revalidatePath("/");
+  revalidateApp();
 }
