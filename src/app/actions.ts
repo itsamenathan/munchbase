@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSession, currentUser, destroySession, hashPassword, verifyPassword } from "@/lib/auth";
 import { localDateTimeInputValue } from "@/lib/datetime";
-import { canWrite, getAccess, getAppState, getDb, getUserByEmail, userCount } from "@/lib/db";
+import { getDb, getUserByEmail, userCount } from "@/lib/db";
 import { normalizeExternalUrl } from "@/lib/external-links";
-import { normalizeRatingDefinition, presetByKey, RATING_PRESETS, validateRatingValue } from "@/lib/ratings";
+import { normalizeRatingDefinition, presetByKey, validateRatingValue } from "@/lib/ratings";
 import type { RatingDefinition, RatingPresetKey, RatingType } from "@/lib/types";
 
 function text(formData: FormData, key: string) {
@@ -14,26 +14,46 @@ function text(formData: FormData, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function insertDefaultRatingPresets(listId: number) {
-  const db = getDb();
-  for (const preset of RATING_PRESETS) {
-    db.prepare(
-      `INSERT OR IGNORE INTO rating_definitions (list_id, preset_key, name, type, icon, options_json, min, max)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(listId, preset.key, preset.name, preset.type, preset.icon, JSON.stringify(preset.options), preset.min, preset.max);
+function parseCustomFields(json: string) {
+  if (!json) return [];
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json);
+  } catch {
+    throw new Error("Custom fields could not be read.");
   }
+  if (!Array.isArray(raw)) throw new Error("Custom fields must be a list.");
+  return raw.map((field) => {
+    if (!field || typeof field !== "object") throw new Error("Custom field is invalid.");
+    const input = field as Record<string, unknown>;
+    return normalizeRatingDefinition({
+      name: typeof input.name === "string" ? input.name : "",
+      type: input.type as RatingType,
+      icon: typeof input.icon === "string" ? input.icon : undefined,
+      options: typeof input.options === "string" ? input.options : "",
+      min: typeof input.min === "string" || typeof input.min === "number" ? input.min : null,
+      max: typeof input.max === "string" || typeof input.max === "number" ? input.max : null,
+    });
+  });
+}
+
+function parseRestaurantIds(json: string) {
+  if (!json) return [];
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json);
+  } catch {
+    throw new Error("Restaurants could not be read.");
+  }
+  if (!Array.isArray(raw)) throw new Error("Restaurants must be a list.");
+  return raw
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0);
 }
 
 async function requireUser() {
   const user = await currentUser();
   if (!user) redirect("/");
-  return user;
-}
-
-async function requireWrite(listId: number) {
-  const user = await requireUser();
-  const access = getAccess(user.id, listId)?.access;
-  if (!canWrite(access)) throw new Error("You do not have write access to this list.");
   return user;
 }
 
@@ -49,15 +69,7 @@ export async function setup(formData: FormData) {
     .prepare("INSERT INTO users (name, email, password_hash, role, active) VALUES (?, ?, ?, 'admin', 1)")
     .run(name, email, passwordHash);
   const userId = Number(result.lastInsertRowid);
-  const list = db
-    .prepare("INSERT INTO lists (name, description, owner_id) VALUES ('Places to Eat', 'Default shared list', ?)")
-    .run(userId);
-  const listId = Number(list.lastInsertRowid);
-  db.prepare("INSERT INTO list_members (list_id, user_id, access) VALUES (?, ?, 'owner')").run(
-    listId,
-    userId,
-  );
-  insertDefaultRatingPresets(listId);
+  db.prepare("INSERT INTO lists (name, description, created_by) VALUES ('Places to Eat', 'Default shared list', ?)").run(userId);
   db.prepare("INSERT OR IGNORE INTO app_settings (id, self_signup_enabled) VALUES (1, 0)").run();
   await createSession(userId);
   redirect("/");
@@ -143,60 +155,51 @@ export async function createList(formData: FormData) {
   const description = text(formData, "description") || null;
   if (!name) throw new Error("List name is required.");
   const db = getDb();
-  const result = db.prepare("INSERT INTO lists (name, description, owner_id) VALUES (?, ?, ?)").run(name, description, user.id);
-  const listId = Number(result.lastInsertRowid);
-  db.prepare("INSERT INTO list_members (list_id, user_id, access) VALUES (?, ?, 'owner')").run(listId, user.id);
-  insertDefaultRatingPresets(listId);
+  const customFields = parseCustomFields(text(formData, "customFieldsJson"));
+  const restaurantIds = parseRestaurantIds(text(formData, "restaurantIdsJson"));
+  const create = db.transaction(() => {
+    const result = db.prepare("INSERT INTO lists (name, description, created_by) VALUES (?, ?, ?)").run(name, description, user.id);
+    const listId = Number(result.lastInsertRowid);
+    for (const field of customFields) {
+      db.prepare(
+        `INSERT INTO rating_definitions
+         (list_id, scope, preset_key, name, type, icon, options_json, min, max)
+         VALUES (?, 'list', NULL, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        listId,
+        field.name,
+        field.type,
+        field.icon ?? "tag",
+        JSON.stringify(field.options),
+        field.type === "scale" ? field.min : null,
+        field.type === "scale" ? field.max : null,
+      );
+    }
+    for (const restaurantId of restaurantIds) {
+      db.prepare("INSERT OR IGNORE INTO list_restaurants (list_id, restaurant_id) VALUES (?, ?)").run(listId, restaurantId);
+    }
+    return listId;
+  });
+  const listId = create();
   revalidatePath("/");
+  redirect(`/?list=${listId}`);
 }
 
 export async function updateListDetails(formData: FormData) {
   const listId = Number(text(formData, "listId"));
-  const user = await requireUser();
-  const access = getAccess(user.id, listId)?.access;
-  if (access !== "owner") throw new Error("Only list owners can edit list settings.");
+  await requireUser();
   const name = text(formData, "name");
   if (!name) throw new Error("List name is required.");
   getDb()
-    .prepare("UPDATE lists SET name = ?, description = ? WHERE id = ?")
+    .prepare("UPDATE lists SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
     .run(name, text(formData, "description") || null, listId);
   revalidatePath("/");
 }
 
-export async function shareList(formData: FormData) {
-  const listId = Number(text(formData, "listId"));
-  const user = await requireUser();
-  const access = getAccess(user.id, listId)?.access;
-  if (access !== "owner") throw new Error("Only list owners can share a list.");
-  const memberId = Number(text(formData, "userId"));
-  const memberAccess = text(formData, "access") === "read" ? "read" : "write";
-  const member = getDb().prepare("SELECT id, active FROM users WHERE id = ?").get(memberId) as
-    | { id: number; active: boolean }
-    | undefined;
-  if (!member || !member.active) throw new Error("Choose an active existing user.");
-  getDb()
-    .prepare(
-      `INSERT INTO list_members (list_id, user_id, access) VALUES (?, ?, ?)
-       ON CONFLICT(list_id, user_id) DO UPDATE SET access = excluded.access`,
-    )
-    .run(listId, member.id, memberAccess);
-  revalidatePath("/");
-}
-
-export async function removeListMember(formData: FormData) {
-  const listId = Number(text(formData, "listId"));
-  const memberId = Number(text(formData, "userId"));
-  const user = await requireUser();
-  const access = getAccess(user.id, listId)?.access;
-  if (access !== "owner") throw new Error("Only list owners can remove members.");
-  if (memberId === user.id) throw new Error("You cannot remove yourself from a list you own.");
-  getDb().prepare("DELETE FROM list_members WHERE list_id = ? AND user_id = ? AND access != 'owner'").run(listId, memberId);
-  revalidatePath("/");
-}
-
 export async function addRestaurant(formData: FormData) {
-  const listId = Number(text(formData, "listId"));
-  const user = await requireWrite(listId);
+  const listIdText = text(formData, "listId");
+  const listId = listIdText ? Number(listIdText) : null;
+  const user = await requireUser();
   const name = text(formData, "name");
   if (!name) throw new Error("Restaurant name is required.");
   const osmType = text(formData, "osmType") || null;
@@ -219,64 +222,59 @@ export async function addRestaurant(formData: FormData) {
     placeId = Number(result.lastInsertRowid);
   }
   db.prepare(
-    `INSERT OR IGNORE INTO restaurant_entries
-     (list_id, place_id, standing_notes, favorite_items, ordering_tips, created_by)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(
-    listId,
-    placeId,
-    text(formData, "standingNotes") || null,
-    text(formData, "favoriteItems") || null,
-    text(formData, "orderingTips") || null,
-    user.id,
-  );
-  const entry = db
-    .prepare("SELECT id FROM restaurant_entries WHERE list_id = ? AND place_id = ?")
-    .get(listId, placeId) as { id: number } | undefined;
-  if (!entry) throw new Error("Restaurant entry could not be created.");
+    `INSERT OR IGNORE INTO restaurants
+     (place_id, standing_notes, favorite_items, ordering_tips, created_by)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(placeId, text(formData, "standingNotes") || null, text(formData, "favoriteItems") || null, text(formData, "orderingTips") || null, user.id);
+  const restaurant = db
+    .prepare("SELECT id FROM restaurants WHERE place_id = ?")
+    .get(placeId) as { id: number } | undefined;
+  if (!restaurant) throw new Error("Restaurant could not be created.");
+  if (listId) {
+    db.prepare("INSERT OR IGNORE INTO list_restaurants (list_id, restaurant_id) VALUES (?, ?)").run(listId, restaurant.id);
+  }
   revalidatePath("/");
-  redirect(`/?list=${listId}&entry=${entry.id}&edit=1`);
+  redirect(`/?${listId ? `list=${listId}&` : ""}entry=${restaurant.id}&edit=1`);
 }
 
 export async function updateEntry(formData: FormData) {
-  const listId = Number(text(formData, "listId"));
-  await requireWrite(listId);
-  const entryId = Number(text(formData, "entryId"));
+  await requireUser();
+  const restaurantId = Number(text(formData, "restaurantId"));
   getDb()
     .prepare(
-      `UPDATE restaurant_entries
+      `UPDATE restaurants
        SET standing_notes = ?, favorite_items = ?, ordering_tips = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND list_id = ?`,
+       WHERE id = ?`,
     )
     .run(
       text(formData, "standingNotes") || null,
       text(formData, "favoriteItems") || null,
       text(formData, "orderingTips") || null,
-      entryId,
-      listId,
+      restaurantId,
     );
   revalidatePath("/");
 }
 
 export async function updateExternalLinks(formData: FormData) {
-  const listId = Number(text(formData, "listId"));
-  await requireWrite(listId);
-  const entryId = Number(text(formData, "entryId"));
+  await requireUser();
+  const restaurantId = Number(text(formData, "restaurantId"));
   const googleMapsUrl = normalizeExternalUrl(text(formData, "googleMapsUrl"), "google");
   const yelpUrl = normalizeExternalUrl(text(formData, "yelpUrl"), "yelp");
   getDb()
     .prepare(
-      `UPDATE restaurant_entries
+      `UPDATE restaurants
        SET google_maps_url = ?, yelp_url = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND list_id = ?`,
+       WHERE id = ?`,
     )
-    .run(googleMapsUrl, yelpUrl, entryId, listId);
+    .run(googleMapsUrl, yelpUrl, restaurantId);
   revalidatePath("/");
 }
 
 export async function createRatingDefinition(formData: FormData) {
-  const listId = Number(text(formData, "listId"));
-  await requireWrite(listId);
+  await requireUser();
+  const scope = text(formData, "scope") === "global" ? "global" : "list";
+  const listId = scope === "list" ? Number(text(formData, "listId")) : null;
+  if (scope === "list" && !listId) throw new Error("List is required.");
   const definition = normalizeRatingDefinition({
     name: text(formData, "name"),
     type: text(formData, "type") as RatingType,
@@ -286,9 +284,14 @@ export async function createRatingDefinition(formData: FormData) {
     max: text(formData, "max") || null,
   });
   getDb()
-    .prepare("INSERT INTO rating_definitions (list_id, preset_key, name, type, icon, options_json, min, max) VALUES (?, NULL, ?, ?, ?, ?, ?, ?)")
+    .prepare(
+      `INSERT INTO rating_definitions
+       (list_id, scope, preset_key, name, type, icon, options_json, min, max)
+       VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)`,
+    )
     .run(
       listId,
+      scope,
       definition.name,
       definition.type,
       definition.icon ?? "tag",
@@ -300,8 +303,7 @@ export async function createRatingDefinition(formData: FormData) {
 }
 
 export async function setRatingPresetEnabled(formData: FormData) {
-  const listId = Number(text(formData, "listId"));
-  await requireWrite(listId);
+  await requireUser();
   const presetKey = text(formData, "presetKey") as RatingPresetKey;
   const enabled = text(formData, "enabled") === "1";
   const preset = presetByKey(presetKey);
@@ -309,85 +311,108 @@ export async function setRatingPresetEnabled(formData: FormData) {
   const db = getDb();
   if (enabled) {
     db.prepare(
-      `INSERT OR IGNORE INTO rating_definitions (list_id, preset_key, name, type, icon, options_json, min, max)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(listId, preset.key, preset.name, preset.type, preset.icon, JSON.stringify(preset.options), preset.min, preset.max);
+      `INSERT INTO rating_definitions
+       (list_id, scope, preset_key, name, type, icon, options_json, min, max, active)
+       VALUES (NULL, 'global', ?, ?, ?, ?, ?, ?, ?, 1)
+       ON CONFLICT(scope, preset_key) DO UPDATE SET active = 1`,
+    ).run(preset.key, preset.name, preset.type, preset.icon, JSON.stringify(preset.options), preset.min, preset.max);
   } else {
-    db.prepare("DELETE FROM rating_definitions WHERE list_id = ? AND preset_key = ?").run(listId, preset.key);
+    db.prepare("UPDATE rating_definitions SET active = 0 WHERE scope = 'global' AND preset_key = ?").run(preset.key);
   }
   revalidatePath("/");
 }
 
 export async function updateRatingFieldActive(formData: FormData) {
-  const listId = Number(text(formData, "listId"));
-  await requireWrite(listId);
+  await requireUser();
   const definitionId = Number(text(formData, "definitionId"));
   const active = text(formData, "active") === "1";
-  getDb().prepare("UPDATE rating_definitions SET active = ? WHERE id = ? AND list_id = ?").run(active ? 1 : 0, definitionId, listId);
+  getDb().prepare("UPDATE rating_definitions SET active = ? WHERE id = ?").run(active ? 1 : 0, definitionId);
   revalidatePath("/");
 }
 
 export async function saveRatings(formData: FormData) {
-  const listId = Number(text(formData, "listId"));
-  await requireWrite(listId);
-  const entryId = Number(text(formData, "entryId"));
-  const state = getAppState(await requireUser(), listId);
-  const definitions = new Map<number, RatingDefinition>(state.ratingDefinitions.map((definition) => [definition.id, definition]));
+  await requireUser();
+  const restaurantId = Number(text(formData, "restaurantId"));
   const db = getDb();
+  const definitions = new Map<number, RatingDefinition>(
+    (db
+      .prepare(
+        `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active
+         FROM rating_definitions`,
+      )
+      .all() as Array<Omit<RatingDefinition, "options"> & { optionsJson: string }>).map((definition) => [
+      definition.id,
+      { ...definition, options: JSON.parse(definition.optionsJson) as string[] },
+    ]),
+  );
   for (const [key, formValue] of formData.entries()) {
     if (!key.startsWith("rating:") || typeof formValue !== "string") continue;
     const definitionId = Number(key.split(":")[1]);
     const definition = definitions.get(definitionId);
     if (!definition) continue;
+    if (definition.scope === "list" && definition.listId !== null) {
+      const membership = db
+        .prepare("SELECT 1 FROM list_restaurants WHERE restaurant_id = ? AND list_id = ?")
+        .get(restaurantId, definition.listId);
+      if (!membership) continue;
+    }
     const value = validateRatingValue(definition, formValue);
     if (!value) {
-      db.prepare("DELETE FROM rating_values WHERE entry_id = ? AND definition_id = ?").run(entryId, definitionId);
+      db.prepare("DELETE FROM rating_values WHERE restaurant_id = ? AND definition_id = ?").run(restaurantId, definitionId);
     } else {
       db.prepare(
-        `INSERT INTO rating_values (entry_id, definition_id, value) VALUES (?, ?, ?)
-         ON CONFLICT(entry_id, definition_id) DO UPDATE SET value = excluded.value`,
-      ).run(entryId, definitionId, value);
+        `INSERT INTO rating_values (restaurant_id, definition_id, value) VALUES (?, ?, ?)
+         ON CONFLICT(restaurant_id, definition_id) DO UPDATE SET value = excluded.value`,
+      ).run(restaurantId, definitionId, value);
     }
   }
   revalidatePath("/");
 }
 
 export async function createCheckIn(formData: FormData) {
-  const listId = Number(text(formData, "listId"));
-  const user = await requireWrite(listId);
-  const entryId = Number(text(formData, "entryId"));
+  const user = await requireUser();
+  const restaurantId = Number(text(formData, "restaurantId"));
   const visitedAt = text(formData, "visitedAt") || localDateTimeInputValue();
   getDb()
-    .prepare("INSERT INTO checkins (entry_id, author_id, visited_at) VALUES (?, ?, ?)")
-    .run(entryId, user.id, visitedAt);
+    .prepare("INSERT INTO checkins (restaurant_id, author_id, visited_at) VALUES (?, ?, ?)")
+    .run(restaurantId, user.id, visitedAt);
   revalidatePath("/");
 }
 
 export async function deleteCheckIn(formData: FormData) {
-  const listId = Number(text(formData, "listId"));
-  await requireWrite(listId);
-  getDb()
-    .prepare(
-      `DELETE FROM checkins
-       WHERE id = ? AND entry_id IN (SELECT id FROM restaurant_entries WHERE list_id = ?)`,
-    )
-    .run(Number(text(formData, "checkInId")), listId);
+  await requireUser();
+  getDb().prepare("DELETE FROM checkins WHERE id = ?").run(Number(text(formData, "checkInId")));
   revalidatePath("/");
 }
 
 export async function updateCheckIn(formData: FormData) {
-  const listId = Number(text(formData, "listId"));
-  await requireWrite(listId);
+  await requireUser();
   getDb()
     .prepare(
       `UPDATE checkins
        SET visited_at = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND entry_id IN (SELECT id FROM restaurant_entries WHERE list_id = ?)`,
+       WHERE id = ?`,
     )
     .run(
       text(formData, "visitedAt"),
       Number(text(formData, "checkInId")),
-      listId,
     );
+  revalidatePath("/");
+}
+
+export async function attachRestaurantToList(formData: FormData) {
+  await requireUser();
+  const restaurantId = Number(text(formData, "restaurantId"));
+  const listId = Number(text(formData, "listId"));
+  if (!restaurantId || !listId) throw new Error("Choose a list.");
+  getDb().prepare("INSERT OR IGNORE INTO list_restaurants (list_id, restaurant_id) VALUES (?, ?)").run(listId, restaurantId);
+  revalidatePath("/");
+}
+
+export async function removeRestaurantFromList(formData: FormData) {
+  await requireUser();
+  const restaurantId = Number(text(formData, "restaurantId"));
+  const listId = Number(text(formData, "listId"));
+  getDb().prepare("DELETE FROM list_restaurants WHERE list_id = ? AND restaurant_id = ?").run(listId, restaurantId);
   revalidatePath("/");
 }

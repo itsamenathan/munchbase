@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
@@ -48,15 +49,15 @@ import {
 } from "lucide-react";
 import {
   addRestaurant,
+  attachRestaurantToList,
   createCheckIn,
   createList,
   createRatingDefinition,
   createUser,
   deleteCheckIn,
   logout,
-  removeListMember,
+  removeRestaurantFromList,
   saveRatings,
-  shareList,
   setRatingPresetEnabled,
   setUserActive,
   updateCheckIn,
@@ -69,7 +70,7 @@ import {
 import { formatShortDateTime, localDateTimeInputValue } from "@/lib/datetime";
 import { formatCityState } from "@/lib/address";
 import { RATING_ICONS, RATING_PRESETS } from "@/lib/ratings";
-import type { AppState, CheckIn, RatingDefinition, RestaurantEntry } from "@/lib/types";
+import type { AppState, CheckIn, RatingDefinition, Restaurant } from "@/lib/types";
 
 const MapView = dynamic(() => import("./map-view"), { ssr: false });
 
@@ -110,6 +111,28 @@ type PlaceResult = {
   rawJson: string;
 };
 
+type CustomFieldDraft = {
+  id: string;
+  name: string;
+  type: RatingDefinition["type"];
+  icon: string;
+  options: string;
+  min: string;
+  max: string;
+};
+
+function emptyCustomFieldDraft(): CustomFieldDraft {
+  return {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    name: "",
+    type: "choice",
+    icon: "tag",
+    options: "",
+    min: "1",
+    max: "5",
+  };
+}
+
 export default function AppShell({
   state,
   initialEntryId,
@@ -133,8 +156,13 @@ export default function AppShell({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [listsOpen, setListsOpen] = useState(false);
+  const [addListOpen, setAddListOpen] = useState(false);
   const [selectedEntryId, setSelectedEntryId] = useState<number | null>(initialEntryId);
-  const canWrite = state.activeList?.access === "owner" || state.activeList?.access === "write";
+  const canWrite = true;
+  const activeDefinitions = useMemo(
+    () => [...state.globalRatingDefinitions, ...state.ratingDefinitions],
+    [state.globalRatingDefinitions, state.ratingDefinitions],
+  );
 
   const selectEntry = (id: number | null) => {
     setSelectedEntryId(id);
@@ -268,20 +296,10 @@ export default function AppShell({
     void requestCurrentLocation();
   }, [canWrite, locationCoords, useCurrentLocation]);
 
-  if (!state.activeList) {
-    return (
-      <main className="empty-app">
-        <h1>Munchbase</h1>
-        <p>Create your first restaurant list.</p>
-        <CreateListForm />
-      </main>
-    );
-  }
-
   return (
     <main className="app">
       <aside className="sidebar">
-        <SidebarContent state={state} canWrite={canWrite} onCloseDrawer={() => setListsOpen(false)} />
+        <SidebarContent state={state} canWrite={canWrite} onCloseDrawer={() => setListsOpen(false)} onOpenAddList={() => setAddListOpen(true)} />
       </aside>
 
       <section className="workbench">
@@ -296,7 +314,7 @@ export default function AppShell({
               <Menu size={20} />
             </button>
             <div>
-              <h2>{state.activeList.name}</h2>
+              <h2>{state.activeList?.name ?? "All restaurants"}</h2>
             </div>
           </div>
           <div className="top-actions">
@@ -308,11 +326,9 @@ export default function AppShell({
                 <Map size={16} /> Map
               </button>
             </div>
-            {state.activeList.access === "owner" ? (
-              <button className="ghost-button icon-button" onClick={() => setSettingsOpen(true)} aria-label="List settings">
-                <Settings size={16} />
-              </button>
-            ) : null}
+            <button className="ghost-button icon-button" onClick={() => setSettingsOpen(true)} aria-label={state.activeList ? "List settings" : "Global attributes"}>
+              <Settings size={16} />
+            </button>
             {state.user.role === "admin" ? (
               <button className="ghost-button icon-button" onClick={() => setAdminOpen(true)} aria-label="Admin">
                 <Shield size={16} />
@@ -351,7 +367,7 @@ export default function AppShell({
             <Filter size={16} />
             <select value={filterDefinition} onChange={(event) => setFilterDefinition(event.target.value)}>
               <option value="">Any rating</option>
-              {state.ratingDefinitions.filter((d) => d.active).map((definition) => (
+              {activeDefinitions.filter((d) => d.active).map((definition) => (
                 <option key={definition.id} value={definition.id}>
                   {definition.name}
                 </option>
@@ -360,7 +376,7 @@ export default function AppShell({
           </label>
           {filterDefinition ? (
             <select value={filterValue} onChange={(event) => setFilterValue(event.target.value)}>
-              <RatingFilterOptions definition={state.ratingDefinitions.find((definition) => String(definition.id) === filterDefinition)} />
+              <RatingFilterOptions definition={activeDefinitions.find((definition) => String(definition.id) === filterDefinition)} />
             </select>
           ) : null}
         </div>
@@ -372,7 +388,7 @@ export default function AppShell({
             <section className="results">
               <h3 className="results-heading">Restaurants</h3>
               {restaurants.map((restaurant) => {
-                const ratingIcons = state.ratingDefinitions.filter((d) => d.active).map((definition) => {
+                const ratingIcons = activeDefinitions.filter((d) => d.active).map((definition) => {
                   const rating = restaurant.ratings.find((r) => r.definitionId === definition.id);
                   if (!rating || !rating.value) return null;
                   const presetIcon = definition.presetKey ? RATING_PRESETS.find((p) => p.key === definition.presetKey)?.icon : null;
@@ -411,7 +427,9 @@ export default function AppShell({
                   key={`${selectedEntry.id}:${initialEntryEdit ? "edit" : "view"}`}
                   canWrite={canWrite}
                   entry={selectedEntry}
-                  listId={state.activeList.id}
+                  activeListId={state.activeListId}
+                  lists={state.lists}
+                  globalRatingDefinitions={state.globalRatingDefinitions}
                   ratingDefinitions={state.ratingDefinitions}
                   initialEdit={initialEntryEdit}
                 />
@@ -426,8 +444,8 @@ export default function AppShell({
       {canWrite ? (
         <aside className="utility">
           <header className="utility-header">
-            <p className="kicker">Add to this list</p>
-            <h2>{state.activeList.name}</h2>
+            <p className="kicker">Add restaurant</p>
+            <h2>{state.activeList?.name ?? "All restaurants"}</h2>
           </header>
           <AddRestaurantsPanel
             state={state}
@@ -446,16 +464,19 @@ export default function AppShell({
 
       {settingsOpen ? <ListSettingsDrawer state={state} onClose={() => setSettingsOpen(false)} /> : null}
       {adminOpen ? <AdminDrawer state={state} onClose={() => setAdminOpen(false)} /> : null}
+      {addListOpen ? <AddListModal state={state} onClose={() => setAddListOpen(false)} /> : null}
 
       {listsOpen ? (
-        <MobileListsDrawer state={state} canWrite={canWrite} onClose={() => setListsOpen(false)} />
+        <MobileListsDrawer state={state} canWrite={canWrite} onClose={() => setListsOpen(false)} onOpenAddList={() => setAddListOpen(true)} />
       ) : null}
 
       {selectedEntry ? (
         <MobileDetailSheet
           canWrite={canWrite}
           entry={selectedEntry}
-          listId={state.activeList.id}
+          activeListId={state.activeListId}
+          lists={state.lists}
+          globalRatingDefinitions={state.globalRatingDefinitions}
           ratingDefinitions={state.ratingDefinitions}
           initialEdit={initialEntryEdit}
           onClose={closeDetail}
@@ -484,130 +505,105 @@ function presetDescription(key: string) {
 }
 
 function ListSettingsDrawer({ state, onClose }: { state: AppState; onClose: () => void }) {
-  if (!state.activeList) return null;
-  const memberIds = new Set(state.listMembers.map((member) => member.id));
-  const shareableUsers = state.users.filter((user) => user.active && !memberIds.has(user.id));
+  const isGlobal = !state.activeList;
+  const definitions = isGlobal ? state.globalRatingDefinitions : state.ratingDefinitions;
   return (
     <div className="drawer-backdrop">
-      <aside className="settings-drawer" aria-label="List settings">
+      <aside className="settings-drawer" aria-label={isGlobal ? "Global attributes" : "List settings"}>
         <header className="drawer-head">
           <div>
-            <p className="kicker">List settings</p>
-            <h2>{state.activeList.name}</h2>
+            <p className="kicker">{isGlobal ? "Global attributes" : "List settings"}</p>
+            <h2>{state.activeList?.name ?? "All restaurants"}</h2>
           </div>
           <button className="ghost-button icon-button" onClick={onClose} aria-label="Close list settings">
             <X size={18} />
           </button>
         </header>
 
-        <section className="settings-section">
-          <PanelTitle icon={<Users size={17} />} title="Members" detail="Share this list with existing active users." />
-          <div className="member-list">
-            {state.listMembers.map((member) => (
-              <form action={member.access === "owner" ? undefined : shareList} className="member-row" key={member.id}>
-                <input type="hidden" name="listId" value={state.activeList!.id} />
-                <input type="hidden" name="userId" value={member.id} />
-                <div>
-                  <strong>{member.name}</strong>
-                  <small>
-                    {member.email} {member.active ? "" : " inactive"}
-                  </small>
-                </div>
-                {member.access === "owner" ? (
-                  <span className="pill">Owner</span>
-                ) : (
-                  <>
-                    <select name="access" defaultValue={member.access}>
-                      <option value="write">Read-write</option>
-                      <option value="read">Read only</option>
-                    </select>
-                    <button>Update</button>
-                    <button className="danger-button" formAction={removeListMember}>
-                      Remove
-                    </button>
-                  </>
-                )}
+        {isGlobal ? (
+          <>
+            <section className="settings-section">
+              <PanelTitle icon={<Star size={17} />} title="Built-ins" detail="Common attributes shown for every restaurant." />
+              <div className="preset-grid">
+                {RATING_PRESETS.map((preset) => {
+                  const definition = state.globalRatingDefinitions.find((item) => item.presetKey === preset.key);
+                  const enabled = definition?.active ?? false;
+                  return (
+                    <form action={setRatingPresetEnabled} className={`preset-card ${enabled ? "enabled" : ""}`} key={preset.key}>
+                      <input type="hidden" name="presetKey" value={preset.key} />
+                      <input type="hidden" name="enabled" value={enabled ? "0" : "1"} />
+                      <div>
+                        <strong>{preset.name}</strong>
+                        <small>{presetDescription(preset.key)}</small>
+                      </div>
+                      <button>{enabled ? "Disable" : "Enable"}</button>
+                    </form>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="settings-section">
+              <PanelTitle icon={<Tag size={17} />} title="Custom globals" detail="User-defined attributes shown for every restaurant." />
+              <AttributeCards definitions={definitions.filter((definition) => !definition.presetKey)} />
+              <details className="manual-add">
+                <summary>Add global attribute</summary>
+                <AddCustomFieldForm scope="global" />
+              </details>
+            </section>
+          </>
+        ) : null}
+
+        {!isGlobal && state.activeList ? (
+          <>
+            <section className="settings-section">
+              <PanelTitle icon={<Star size={17} />} title="Custom fields" detail="Add list-specific attributes for restaurants in this list." />
+              <AttributeCards definitions={definitions} />
+              <details className="manual-add">
+                <summary>Add new field</summary>
+                <AddCustomFieldForm scope="list" listId={state.activeList.id} />
+              </details>
+            </section>
+
+            <section className="settings-section">
+              <PanelTitle icon={<Settings size={17} />} title="List details" detail="Rename this list or update its description." />
+              <form action={updateListDetails} className="stack-form">
+                <input type="hidden" name="listId" value={state.activeList.id} />
+                <input name="name" defaultValue={state.activeList.name} required />
+                <textarea name="description" defaultValue={state.activeList.description ?? ""} placeholder="Description" />
+                <button>Save list details</button>
               </form>
-            ))}
-          </div>
-          <form action={shareList} className="stack-form">
-            <input type="hidden" name="listId" value={state.activeList.id} />
-            <select name="userId" required defaultValue="">
-              <option value="" disabled>
-                Add existing user
-              </option>
-              {shareableUsers.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.name} - {user.email}
-                </option>
-              ))}
-            </select>
-            <select name="access" defaultValue="write">
-              <option value="write">Read-write</option>
-              <option value="read">Read only</option>
-            </select>
-            <button>Share list</button>
-          </form>
-          {!shareableUsers.length ? <p className="microcopy">No other active users are available. Add users from Admin.</p> : null}
-        </section>
-
-        <section className="settings-section">
-          <PanelTitle icon={<Star size={17} />} title="Rating presets" detail="Enable common rating fields for this list." />
-          <div className="preset-grid">
-            {RATING_PRESETS.map((preset) => {
-              const enabled = state.ratingDefinitions.some((definition) => definition.presetKey === preset.key);
-              return (
-                <form action={setRatingPresetEnabled} className={`preset-card ${enabled ? "enabled" : ""}`} key={preset.key}>
-                  <input type="hidden" name="listId" value={state.activeList!.id} />
-                  <input type="hidden" name="presetKey" value={preset.key} />
-                  <input type="hidden" name="enabled" value={enabled ? "0" : "1"} />
-                  <div>
-                    <strong>{preset.name}</strong>
-                    <small>{presetDescription(preset.key)}</small>
-                  </div>
-                  <button>{enabled ? "Disable" : "Enable"}</button>
-                </form>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="settings-section">
-          <PanelTitle icon={<Star size={17} />} title="Custom fields" detail="Add a custom list-specific rating only when the presets do not cover it." />
-          <div className="preset-grid">
-            {state.ratingDefinitions
-              .filter((definition) => !definition.presetKey)
-              .map((definition) => (
-                <form action={updateRatingFieldActive} className={`preset-card ${definition.active ? "enabled" : ""}`} key={definition.id}>
-                  <input type="hidden" name="listId" value={state.activeList!.id} />
-                  <input type="hidden" name="definitionId" value={definition.id} />
-                  <input type="hidden" name="active" value={definition.active ? "0" : "1"} />
-                  <div>
-                    <strong>{definition.name}</strong>
-                    <small>{definition.type}{definition.type === "choice" ? `: ${definition.options.join(", ")}` : definition.type === "scale" ? ` (${definition.min}–${definition.max})` : ""}</small>
-                  </div>
-                  <button>{definition.active ? "Disable" : "Enable"}</button>
-                </form>
-              ))}
-          </div>
-          <details className="manual-add">
-            <summary>Add new field</summary>
-            <AddCustomFieldForm listId={state.activeList.id} />
-          </details>
-        </section>
-
-        <section className="settings-section">
-          <PanelTitle icon={<Settings size={17} />} title="List details" detail="Rename this list or update its description." />
-          <form action={updateListDetails} className="stack-form">
-            <input type="hidden" name="listId" value={state.activeList.id} />
-            <input name="name" defaultValue={state.activeList.name} required />
-            <textarea name="description" defaultValue={state.activeList.description ?? ""} placeholder="Description" />
-            <button>Save list details</button>
-          </form>
-        </section>
+            </section>
+          </>
+        ) : null}
       </aside>
     </div>
   );
+}
+
+function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
+  return (
+    <div className="preset-grid">
+      {definitions.map((definition) => (
+        <form action={updateRatingFieldActive} className={`preset-card ${definition.active ? "enabled" : ""}`} key={definition.id}>
+          <input type="hidden" name="definitionId" value={definition.id} />
+          <input type="hidden" name="active" value={definition.active ? "0" : "1"} />
+          <div>
+            <strong>{definition.name}</strong>
+            <small>{fieldDescription(definition)}</small>
+          </div>
+          <button>{definition.active ? "Disable" : "Enable"}</button>
+        </form>
+      ))}
+      {!definitions.length ? <p className="muted">No custom attributes yet.</p> : null}
+    </div>
+  );
+}
+
+function fieldDescription(definition: RatingDefinition) {
+  if (definition.type === "choice") return `choice: ${definition.options.join(", ")}`;
+  if (definition.type === "scale") return `scale (${definition.min}-${definition.max})`;
+  return "yes / no";
 }
 
 function AdminDrawer({ state, onClose }: { state: AppState; onClose: () => void }) {
@@ -636,7 +632,7 @@ function AdminDrawer({ state, onClose }: { state: AppState; onClose: () => void 
         </section>
 
         <section className="settings-section">
-          <PanelTitle icon={<Users size={17} />} title="Create user" detail="Create an account directly, then share lists with that user from list settings." />
+          <PanelTitle icon={<Users size={17} />} title="Create user" detail="Create an account directly. Active users can edit all restaurant data." />
           <form action={createUser} className="stack-form">
             <input name="name" placeholder="Name" required />
             <input name="email" type="email" placeholder="Email" required />
@@ -675,22 +671,153 @@ function AdminDrawer({ state, onClose }: { state: AppState; onClose: () => void 
   );
 }
 
-function CreateListForm() {
+function AddListModal({
+  state,
+  onClose,
+}: {
+  state: AppState;
+  onClose: () => void;
+}) {
+  const [step, setStep] = useState<"details" | "fields" | "restaurants">("details");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [fields, setFields] = useState<CustomFieldDraft[]>([emptyCustomFieldDraft()]);
+  const [restaurantQuery, setRestaurantQuery] = useState("");
+  const [selectedRestaurantIds, setSelectedRestaurantIds] = useState<number[]>([]);
+  const serializedFields = JSON.stringify(
+    fields
+      .filter((field) => field.name.trim())
+      .map(({ name, type, icon, options, min, max }) => ({ name, type, icon, options, min, max })),
+  );
+  const serializedRestaurantIds = JSON.stringify(selectedRestaurantIds);
+  const filteredRestaurants = state.allRestaurants.filter((restaurant) => {
+    const needle = restaurantQuery.trim().toLowerCase();
+    if (!needle) return true;
+    return [restaurant.name, restaurant.address].filter(Boolean).join(" ").toLowerCase().includes(needle);
+  });
+  const updateField = (id: string, patch: Partial<CustomFieldDraft>) => {
+    setFields((current) => current.map((field) => (field.id === id ? { ...field, ...patch } : field)));
+  };
+  const toggleRestaurant = (restaurantId: number) => {
+    setSelectedRestaurantIds((current) =>
+      current.includes(restaurantId) ? current.filter((id) => id !== restaurantId) : [...current, restaurantId],
+    );
+  };
   return (
-    <form action={createList} className="stack-form">
-      <input name="name" placeholder="New list name" required />
-      <input name="description" placeholder="Description" />
-      <button>Create list</button>
-    </form>
+    <div className="drawer-backdrop add-list-backdrop" onClick={onClose}>
+      <section className="add-list-modal" onClick={(event) => event.stopPropagation()} aria-label="Add list">
+        <header className="drawer-head">
+          <div>
+            <p className="kicker">Add list</p>
+            <h2>{step === "details" ? "List details" : step === "fields" ? "Custom attributes" : "Restaurants"}</h2>
+          </div>
+          <button className="ghost-button icon-button" onClick={onClose} aria-label="Close add list">
+            <X size={18} />
+          </button>
+        </header>
+        <form
+          action={createList}
+          className="add-list-form"
+          onSubmit={(event) => {
+            if (step !== "restaurants") {
+              event.preventDefault();
+              if (step === "details" && name.trim()) setStep("fields");
+              if (step === "fields") setStep("restaurants");
+            }
+          }}
+        >
+          <input type="hidden" name="name" value={name} />
+          <input type="hidden" name="description" value={description} />
+          <input type="hidden" name="customFieldsJson" value={serializedFields} />
+          <input type="hidden" name="restaurantIdsJson" value={serializedRestaurantIds} />
+          <div className="add-list-steps" aria-label="Add list steps">
+            <span className={step === "details" ? "active" : ""}>Details</span>
+            <span className={step === "fields" ? "active" : ""}>Attributes</span>
+            <span className={step === "restaurants" ? "active" : ""}>Restaurants</span>
+          </div>
+          {step === "details" ? (
+            <section className="stack-form">
+              <input placeholder="List name" required value={name} onChange={(event) => setName(event.target.value)} />
+              <input placeholder="Description" value={description} onChange={(event) => setDescription(event.target.value)} />
+            </section>
+          ) : null}
+          {step === "fields" ? (
+            <section className="stack-form">
+              <div className="wizard-field-list">
+                {fields.map((field) => (
+                  <div className="wizard-field-card" key={field.id}>
+                    <CustomFieldControls field={field} onChange={(patch) => updateField(field.id, patch)} />
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => setFields((current) => current.filter((item) => item.id !== field.id))}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" className="ghost-button" onClick={() => setFields((current) => [...current, emptyCustomFieldDraft()])}>
+                <Plus size={16} /> Add attribute
+              </button>
+            </section>
+          ) : null}
+          {step === "restaurants" ? (
+            <section className="stack-form">
+              <label className="search-box add-list-search">
+                <Search size={17} />
+                <input value={restaurantQuery} onChange={(event) => setRestaurantQuery(event.target.value)} placeholder="Search existing restaurants" />
+              </label>
+              <div className="restaurant-picker-list">
+                {filteredRestaurants.map((restaurant) => {
+                  const checked = selectedRestaurantIds.includes(restaurant.id);
+                  return (
+                    <label className={`restaurant-picker-row ${checked ? "selected" : ""}`} key={restaurant.id}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleRestaurant(restaurant.id)} />
+                      <span>
+                        <strong>{restaurant.name}</strong>
+                        <small>{restaurant.address}</small>
+                      </span>
+                    </label>
+                  );
+                })}
+                {!filteredRestaurants.length ? <p className="muted">No existing restaurants match.</p> : null}
+              </div>
+            </section>
+          ) : null}
+          <footer className="form-actions add-list-actions">
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => setStep(step === "restaurants" ? "fields" : "details")}
+              disabled={step === "details"}
+            >
+              Back
+            </button>
+            {step === "restaurants" ? (
+              <button disabled={!name.trim()}>Create list</button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setStep(step === "details" ? "fields" : "restaurants")}
+                disabled={step === "details" && !name.trim()}
+              >
+                Next
+              </button>
+            )}
+          </footer>
+        </form>
+      </section>
+    </div>
   );
 }
 
-function ManualRestaurantForm({ listId }: { listId: number }) {
+function ManualRestaurantForm({ listId }: { listId: number | null }) {
   return (
     <details className="manual-add">
       <summary>Manual add</summary>
       <form action={addRestaurant} className="stack-form">
-        <input type="hidden" name="listId" value={listId} />
+        {listId ? <input type="hidden" name="listId" value={listId} /> : null}
         <input name="name" placeholder="Restaurant name" required />
         <input name="address" placeholder="Address" />
         <div className="split">
@@ -703,39 +830,82 @@ function ManualRestaurantForm({ listId }: { listId: number }) {
   );
 }
 
-function AddCustomFieldForm({ listId }: { listId: number }) {
-  const [fieldType, setFieldType] = useState("choice");
-  const [fieldIcon, setFieldIcon] = useState("tag");
+function AddCustomFieldForm({ scope, listId }: { scope: "global" | "list"; listId?: number }) {
+  const [field, setField] = useState<CustomFieldDraft>(emptyCustomFieldDraft());
   return (
     <form action={createRatingDefinition} className="stack-form">
-      <input type="hidden" name="listId" value={listId} />
-      <input name="name" placeholder="Rating name" required />
-      <select name="type" value={fieldType} onChange={(event) => setFieldType(event.target.value)}>
+      <input type="hidden" name="scope" value={scope} />
+      {listId ? <input type="hidden" name="listId" value={listId} /> : null}
+      <CustomFieldControls field={field} onChange={(patch) => setField((current) => ({ ...current, ...patch }))} includeNames />
+      <button>Add custom field</button>
+    </form>
+  );
+}
+
+function CustomFieldControls({
+  field,
+  onChange,
+  includeNames = false,
+}: {
+  field: CustomFieldDraft;
+  onChange: (patch: Partial<CustomFieldDraft>) => void;
+  includeNames?: boolean;
+}) {
+  return (
+    <>
+      <input
+        name={includeNames ? "name" : undefined}
+        placeholder="Attribute name"
+        required={includeNames}
+        value={field.name}
+        onChange={(event) => onChange({ name: event.target.value })}
+      />
+      <select
+        name={includeNames ? "type" : undefined}
+        value={field.type}
+        onChange={(event) => onChange({ type: event.target.value as RatingDefinition["type"] })}
+      >
         <option value="choice">Choice</option>
         <option value="scale">Scale</option>
         <option value="boolean">Yes / no</option>
       </select>
       <div className="icon-picker-row">
-        <select name="icon" value={fieldIcon} onChange={(event) => setFieldIcon(event.target.value)}>
+        <select name={includeNames ? "icon" : undefined} value={field.icon} onChange={(event) => onChange({ icon: event.target.value })}>
           {RATING_ICONS.map((name) => (
             <option key={name} value={name}>
               {name}
             </option>
           ))}
         </select>
-        <span className="icon-preview">{RATING_ICON_MAP[fieldIcon] ?? <Tag size={14} />}</span>
+        <span className="icon-preview">{RATING_ICON_MAP[field.icon] ?? <Tag size={14} />}</span>
       </div>
-      {fieldType === "choice" ? (
-        <input name="options" placeholder="Choice options, comma separated" />
+      {field.type === "choice" ? (
+        <input
+          name={includeNames ? "options" : undefined}
+          placeholder="Choice options, comma separated"
+          value={field.options}
+          onChange={(event) => onChange({ options: event.target.value })}
+        />
       ) : null}
-      {fieldType === "scale" ? (
+      {field.type === "scale" ? (
         <div className="split">
-          <input name="min" type="number" placeholder="Min" defaultValue={1} />
-          <input name="max" type="number" placeholder="Max" defaultValue={5} />
+          <input
+            name={includeNames ? "min" : undefined}
+            type="number"
+            placeholder="Min"
+            value={field.min}
+            onChange={(event) => onChange({ min: event.target.value })}
+          />
+          <input
+            name={includeNames ? "max" : undefined}
+            type="number"
+            placeholder="Max"
+            value={field.max}
+            onChange={(event) => onChange({ max: event.target.value })}
+          />
         </div>
       ) : null}
-      <button>Add custom field</button>
-    </form>
+    </>
   );
 }
 
@@ -743,10 +913,12 @@ function SidebarContent({
   state,
   canWrite,
   onCloseDrawer,
+  onOpenAddList,
 }: {
   state: AppState;
   canWrite: boolean;
   onCloseDrawer?: () => void;
+  onOpenAddList: () => void;
 }) {
   return (
     <>
@@ -758,19 +930,36 @@ function SidebarContent({
         </div>
       </div>
       <nav className="list-nav">
+        <Link
+          className={state.activeListId === null ? "active" : ""}
+          href="/"
+          onClick={onCloseDrawer}
+        >
+          All restaurants
+          <span>{state.allRestaurants.length}</span>
+        </Link>
         {state.lists.map((list) => (
           <a
             key={list.id}
-            className={list.id === state.activeList?.id ? "active" : ""}
+            className={list.id === state.activeListId ? "active" : ""}
             href={`/?list=${list.id}`}
             onClick={onCloseDrawer}
           >
             {list.name}
-            <span>{list.access}</span>
+            <span>{state.allRestaurants.filter((restaurant) => restaurant.memberships.some((membership) => membership.id === list.id)).length}</span>
           </a>
         ))}
       </nav>
-      <CreateListForm />
+      <button
+        type="button"
+        className="ghost-button add-list-button"
+        onClick={() => {
+          onOpenAddList();
+          onCloseDrawer?.();
+        }}
+      >
+        <Plus size={16} /> Add List
+      </button>
       <form action={logout}>
         <button className="ghost-button">
           <LogOut size={16} /> Sign out
@@ -803,10 +992,16 @@ function AddRestaurantsPanel({
   setUseCurrentLocation: (value: boolean) => void;
   searchPlaces: (event?: FormEvent<HTMLFormElement>) => Promise<void>;
 }) {
-  if (!canWrite || !state.activeList) return null;
+  if (!canWrite) return null;
+  const existingMatches = placeQuery.trim().length >= 2
+    ? state.allRestaurants.filter((restaurant) => {
+        const needle = placeQuery.trim().toLowerCase();
+        return [restaurant.name, restaurant.address].filter(Boolean).join(" ").toLowerCase().includes(needle);
+      }).slice(0, 6)
+    : [];
   return (
     <section className="tool-panel add-restaurants-panel">
-      <PanelTitle icon={<Plus size={17} />} title="Add restaurants" detail={`Adds places only to ${state.activeList.name}.`} />
+      <PanelTitle icon={<Plus size={17} />} title="Add restaurants" detail={state.activeList ? `Adds places to ${state.activeList.name}.` : "Adds global restaurants."} />
       <form className="place-search" onSubmit={searchPlaces}>
         <input value={placeQuery} onChange={(event) => setPlaceQuery(event.target.value)} placeholder="Search OpenStreetMap" />
         <button type="submit">Search</button>
@@ -822,10 +1017,31 @@ function AddRestaurantsPanel({
       </label>
       {locationStatus ? <p className="microcopy">{locationStatus}</p> : null}
       {placeSearchStatus ? <p className="microcopy">{placeSearchStatus}</p> : null}
-      <ManualRestaurantForm listId={state.activeList.id} />
+      <ManualRestaurantForm listId={state.activeListId} />
+      {existingMatches.length ? (
+        <div className="member-list">
+          {existingMatches.map((restaurant) => {
+            const alreadyInList = state.activeListId
+              ? restaurant.memberships.some((membership) => membership.id === state.activeListId)
+              : true;
+            return (
+              <form action={state.activeListId && !alreadyInList ? attachRestaurantToList : undefined} className="place-result" key={restaurant.id}>
+                <input type="hidden" name="restaurantId" value={restaurant.id} />
+                {state.activeListId ? <input type="hidden" name="listId" value={state.activeListId} /> : null}
+                <button type={state.activeListId && !alreadyInList ? "submit" : "button"} onClick={() => {
+                  if (!state.activeListId || alreadyInList) window.location.href = `/?${state.activeListId ? `list=${state.activeListId}&` : ""}entry=${restaurant.id}`;
+                }}>
+                  <strong>{restaurant.name}</strong>
+                  <small>{alreadyInList ? "Open existing restaurant" : "Add existing restaurant to this list"}</small>
+                </button>
+              </form>
+            );
+          })}
+        </div>
+      ) : null}
       {placeResults.map((place) => (
         <form action={addRestaurant} className="place-result" key={`${place.osmType}-${place.osmId}`}>
-          <input type="hidden" name="listId" value={state.activeList!.id} />
+          {state.activeListId ? <input type="hidden" name="listId" value={state.activeListId} /> : null}
           {Object.entries(place).map(([key, value]) => (
             <input key={key} type="hidden" name={key} value={value} />
           ))}
@@ -843,10 +1059,12 @@ function MobileListsDrawer({
   state,
   canWrite,
   onClose,
+  onOpenAddList,
 }: {
   state: AppState;
   canWrite: boolean;
   onClose: () => void;
+  onOpenAddList: () => void;
 }) {
   return (
     <div className="drawer-backdrop lists-backdrop" onClick={onClose}>
@@ -854,7 +1072,7 @@ function MobileListsDrawer({
         <header className="drawer-head">
           <div>
             <p className="kicker">Menu</p>
-            <h2>{state.activeList?.name}</h2>
+            <h2>{state.activeList?.name ?? "All restaurants"}</h2>
           </div>
           <button className="ghost-button icon-button" onClick={onClose} aria-label="Close menu">
             <X size={18} />
@@ -862,7 +1080,7 @@ function MobileListsDrawer({
         </header>
 
         <div className="drawer-section">
-          <SidebarContent state={state} canWrite={canWrite} onCloseDrawer={onClose} />
+          <SidebarContent state={state} canWrite={canWrite} onCloseDrawer={onClose} onOpenAddList={onOpenAddList} />
         </div>
       </aside>
     </div>
@@ -872,14 +1090,18 @@ function MobileListsDrawer({
 function MobileDetailSheet({
   canWrite,
   entry,
-  listId,
+  activeListId,
+  lists,
+  globalRatingDefinitions,
   ratingDefinitions,
   initialEdit,
   onClose,
 }: {
   canWrite: boolean;
-  entry: RestaurantEntry;
-  listId: number;
+  entry: Restaurant;
+  activeListId: number | null;
+  lists: AppState["lists"];
+  globalRatingDefinitions: RatingDefinition[];
   ratingDefinitions: RatingDefinition[];
   initialEdit: boolean;
   onClose: () => void;
@@ -896,7 +1118,9 @@ function MobileDetailSheet({
           key={`${entry.id}:${initialEdit ? "edit" : "view"}`}
           canWrite={canWrite}
           entry={entry}
-          listId={listId}
+          activeListId={activeListId}
+          lists={lists}
+          globalRatingDefinitions={globalRatingDefinitions}
           ratingDefinitions={ratingDefinitions}
           initialEdit={initialEdit}
         />
@@ -908,11 +1132,9 @@ function MobileDetailSheet({
 function CheckInCard({
   canWrite,
   checkIn,
-  listId,
 }: {
   canWrite: boolean;
   checkIn: CheckIn;
-  listId: number;
 }) {
   const [mode, setMode] = useState<"preview" | "edit">("preview");
   const [visitedAt, setVisitedAt] = useState(checkIn.visitedAt);
@@ -931,7 +1153,6 @@ function CheckInCard({
         }}
         className="checkin-card checkin-card-editing"
       >
-        <input type="hidden" name="listId" value={listId} />
         <input type="hidden" name="checkInId" value={checkIn.id} />
         <div className="checkin-meta">
           <strong>{checkIn.authorName}</strong>
@@ -964,7 +1185,6 @@ function CheckInCard({
               <Pencil size={16} />
             </button>
             <form action={deleteCheckIn} className="inline-form">
-              <input type="hidden" name="listId" value={listId} />
               <input type="hidden" name="checkInId" value={checkIn.id} />
               <button className="ghost-button icon-only" aria-label="Delete check-in">
                 <Trash2 size={16} />
@@ -980,13 +1200,17 @@ function CheckInCard({
 function RestaurantDetail({
   canWrite,
   entry,
-  listId,
+  activeListId,
+  lists,
+  globalRatingDefinitions,
   ratingDefinitions,
   initialEdit,
 }: {
   canWrite: boolean;
-  entry: RestaurantEntry;
-  listId: number;
+  entry: Restaurant;
+  activeListId: number | null;
+  lists: AppState["lists"];
+  globalRatingDefinitions: RatingDefinition[];
   ratingDefinitions: RatingDefinition[];
   initialEdit: boolean;
 }) {
@@ -1000,7 +1224,15 @@ function RestaurantDetail({
     setOrderingTips(entry.orderingTips ?? "");
     setEntryMode("preview");
   };
-  const activeRatingDefinitions = ratingDefinitions.filter((definition) => definition.active);
+  const activeRatingDefinitions = [
+    ...globalRatingDefinitions,
+    ...(activeListId ? ratingDefinitions : entry.ratingGroups.flatMap((group) => group.definitions)),
+  ].filter((definition) => definition.active);
+  const ratingGroups = [
+    { list: { id: 0, name: "Global attributes" }, definitions: globalRatingDefinitions },
+    ...entry.ratingGroups,
+  ];
+  const availableLists = lists.filter((list) => !entry.memberships.some((membership) => membership.id === list.id));
   return (
     <>
       <div className="detail-head">
@@ -1036,8 +1268,7 @@ function RestaurantDetail({
           }}
           className="entry-edit-form"
         >
-          <input type="hidden" name="listId" value={listId} />
-          <input type="hidden" name="entryId" value={entry.id} />
+          <input type="hidden" name="restaurantId" value={entry.id} />
           <div className="section-head">
             <h4>Edit notes and ratings</h4>
           </div>
@@ -1068,18 +1299,7 @@ function RestaurantDetail({
             </section>
             <section className="entry-edit-section">
               <h5>Ratings</h5>
-              <div className="rating-grid">
-                {activeRatingDefinitions.map((definition) => {
-                  const value = entry.ratings.find((rating) => rating.definitionId === definition.id)?.value ?? "";
-                  return (
-                    <div className="rating-field" key={definition.id}>
-                      <span>{definition.name}</span>
-                      <RatingInput definition={definition} value={value} disabled={false} />
-                    </div>
-                  );
-                })}
-                {!activeRatingDefinitions.length ? <p className="muted">No rating fields enabled.</p> : null}
-              </div>
+              <RatingFields entry={entry} groups={ratingGroups} />
             </section>
           </div>
           <div className="form-actions">
@@ -1090,13 +1310,50 @@ function RestaurantDetail({
           </div>
         </form>
       ) : (
-        <section className="notes-panel">
-          <div className="section-head">
-            <h4>Notes</h4>
-          </div>
-          <NotePreview standingNotes={standingNotes} favoriteItems={favoriteItems} orderingTips={orderingTips} />
-        </section>
+        <>
+          <section className="notes-panel">
+            <div className="section-head">
+              <h4>Notes</h4>
+            </div>
+            <NotePreview standingNotes={standingNotes} favoriteItems={favoriteItems} orderingTips={orderingTips} />
+          </section>
+          <section className="notes-panel">
+            <div className="section-head">
+              <h4>Attributes</h4>
+            </div>
+            <AttributePreview entry={entry} groups={ratingGroups} />
+          </section>
+        </>
       )}
+      {canWrite ? (
+        <section className="settings-section">
+          <PanelTitle icon={<ClipboardList size={17} />} title="Lists" detail="Restaurant memberships." />
+          <div className="member-list">
+            {entry.memberships.map((membership) => (
+              <form action={removeRestaurantFromList} className="member-row list-membership-row" key={membership.id}>
+                <input type="hidden" name="restaurantId" value={entry.id} />
+                <input type="hidden" name="listId" value={membership.id} />
+                <strong>{membership.name}</strong>
+                <button className="ghost-button icon-button compact-icon-button" aria-label={`Remove ${membership.name} from this restaurant`}>
+                  <Trash2 size={15} />
+                </button>
+              </form>
+            ))}
+          </div>
+          {availableLists.length ? (
+            <form action={attachRestaurantToList} className="inline-form">
+              <input type="hidden" name="restaurantId" value={entry.id} />
+              <select name="listId" defaultValue="">
+                <option value="" disabled>Add to list</option>
+                {availableLists.map((list) => (
+                  <option key={list.id} value={list.id}>{list.name}</option>
+                ))}
+              </select>
+              <button>Add</button>
+            </form>
+          ) : null}
+        </section>
+      ) : null}
       {canWrite ? (
         <details className="external-links-panel">
           <summary>Advanced external links</summary>
@@ -1105,8 +1362,7 @@ function RestaurantDetail({
             {entry.yelpUrl ? "using a custom link" : "generated from name and address"}.
           </p>
           <form action={updateExternalLinks} className="stack-form">
-            <input type="hidden" name="listId" value={listId} />
-            <input type="hidden" name="entryId" value={entry.id} />
+            <input type="hidden" name="restaurantId" value={entry.id} />
             <label>
               Google Maps custom URL
               <input name="googleMapsUrl" placeholder={googleMapsUrl(entry)} defaultValue={entry.googleMapsUrl ?? ""} />
@@ -1124,7 +1380,7 @@ function RestaurantDetail({
         {entry.latestCheckIn ? (
           <div className="checkin-list">
             {entry.checkIns.map((checkIn) => (
-              <CheckInCard key={checkIn.id} canWrite={canWrite} checkIn={checkIn} listId={listId} />
+              <CheckInCard key={checkIn.id} canWrite={canWrite} checkIn={checkIn} />
             ))}
           </div>
         ) : (
@@ -1132,8 +1388,7 @@ function RestaurantDetail({
         )}
         {canWrite ? (
           <form action={createCheckIn} className="checkin-new">
-            <input type="hidden" name="listId" value={listId} />
-            <input type="hidden" name="entryId" value={entry.id} />
+            <input type="hidden" name="restaurantId" value={entry.id} />
             <label className="datetime-field">
               <span>
                 <CalendarClock size={14} />
@@ -1146,6 +1401,60 @@ function RestaurantDetail({
         ) : null}
       </section>
     </>
+  );
+}
+
+function RatingFields({ entry, groups }: { entry: Restaurant; groups: Restaurant["ratingGroups"] }) {
+  const activeGroups = groups
+    .map((group) => ({ ...group, definitions: group.definitions.filter((definition) => definition.active) }))
+    .filter((group) => group.definitions.length);
+  if (!activeGroups.length) return <p className="muted">No rating fields enabled.</p>;
+  return (
+    <div className="rating-grid">
+      {activeGroups.map((group) => (
+        <div className={`rating-field ${group.list.id === 0 ? "rating-field-global" : ""}`} key={group.list.id}>
+          {group.list.id === 0 ? null : <span>{group.list.name}</span>}
+          {group.definitions.map((definition) => {
+            const value = entry.ratings.find((rating) => rating.definitionId === definition.id)?.value ?? "";
+            return (
+              <label key={definition.id}>
+                <small>{definition.name}</small>
+                <RatingInput definition={definition} value={value} disabled={false} />
+              </label>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AttributePreview({ entry, groups }: { entry: Restaurant; groups: Restaurant["ratingGroups"] }) {
+  const activeGroups = groups
+    .map((group) => ({ ...group, definitions: group.definitions.filter((definition) => definition.active) }))
+    .filter((group) => group.definitions.length);
+  if (!activeGroups.length) return <p className="muted">No attributes enabled.</p>;
+  return (
+    <div className="markdown-sections">
+      {activeGroups.map((group) => (
+        <section key={group.list.id} className="markdown-section">
+          <h5>{group.list.name}</h5>
+          <div className="rating-summary">
+            {group.definitions.map((definition) => {
+              const value = entry.ratings.find((rating) => rating.definitionId === definition.id)?.value ?? "";
+              return value ? (
+                <RatingBadge key={definition.id} definition={definition} value={value} />
+              ) : (
+                <span key={definition.id} className="entry-rating-badge">
+                  {RATING_ICON_MAP[(definition.presetKey ? RATING_PRESETS.find((preset) => preset.key === definition.presetKey)?.icon : definition.icon) || "tag"] ?? <Tag size={14} />}
+                  {definition.name}: Unset
+                </span>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -1187,7 +1496,7 @@ function NotesEditField({
   );
 }
 
-function RatingSummary({ entry, definitions }: { entry: RestaurantEntry; definitions: RatingDefinition[] }) {
+function RatingSummary({ entry, definitions }: { entry: Restaurant; definitions: RatingDefinition[] }) {
   const badges = definitions
     .map((definition) => {
       const value = entry.ratings.find((rating) => rating.definitionId === definition.id)?.value ?? "";
@@ -1202,9 +1511,9 @@ function RatingSummary({ entry, definitions }: { entry: RestaurantEntry; definit
 
 function RatingBadge({ definition, value }: { definition: RatingDefinition; value: string }) {
   if (definition.presetKey === "go_back") {
-    const label = `Go back: ${value === "true" ? "yes" : "no"}`;
+    const label = "Go back";
     return (
-      <span className={`entry-rating-badge icon-badge ${value === "true" ? "positive" : "negative"}`} aria-label={label} title={label}>
+      <span className="entry-rating-badge icon-badge positive" aria-label={label} title={label}>
         <Undo2 size={14} />
       </span>
     );
@@ -1267,6 +1576,9 @@ function NotePreview({
 
 function RatingInput({ definition, value, disabled }: { definition: RatingDefinition; value: string; disabled: boolean }) {
   const fieldName = `rating:${definition.id}`;
+  if (definition.presetKey === "go_back") {
+    return <GoBackInput name={fieldName} value={value} disabled={disabled} />;
+  }
   if (definition.presetKey === "price") {
     return (
       <RatingScaleInput
@@ -1298,23 +1610,7 @@ function RatingInput({ definition, value, disabled }: { definition: RatingDefini
 
   const labelledOptions = ratingOptions(definition);
   if (labelledOptions.length) {
-    return (
-      <div className={`rating-choice-group ${disabled ? "disabled" : ""}`} role="radiogroup" aria-label={definition.name}>
-        <RatingRadio name={fieldName} value="" checked={value === ""} disabled={disabled} label="Unset" />
-        {labelledOptions.map((option) => (
-          <RatingRadio
-            key={option.value}
-            name={fieldName}
-            value={option.value}
-            checked={value === option.value}
-            disabled={disabled}
-            label={option.label}
-            ariaLabel={option.ariaLabel}
-            title={option.ariaLabel}
-          />
-        ))}
-      </div>
-    );
+    return <RatingChoiceInput name={fieldName} value={value} disabled={disabled} options={labelledOptions} label={definition.name} />;
   }
 
   if (definition.type === "boolean") {
@@ -1329,7 +1625,7 @@ function RatingInput({ definition, value, disabled }: { definition: RatingDefini
   if (definition.type === "choice") {
     return (
       <select name={fieldName} defaultValue={value} disabled={disabled}>
-        <option value="">Unset</option>
+        <option value=""></option>
         {definition.options.map((option) => (
           <option key={option} value={option}>
             {option}
@@ -1361,18 +1657,7 @@ function RatingScaleInput({
 
   return (
     <div className={`rating-scale ${disabled ? "disabled" : ""}`} role="radiogroup" aria-label={name}>
-      <label className="rating-scale-clear" title="Unset">
-        <input
-          type="radio"
-          name={name}
-          value=""
-          checked={selected === ""}
-          disabled={disabled}
-          onChange={() => setSelected("")}
-          aria-label="Unset"
-        />
-        <span>Unset</span>
-      </label>
+      <input type="hidden" name={name} value="" disabled={disabled || selected !== ""} />
       <div className="rating-scale-icons">
         {options.map((option, index) => {
           const active = selectedIndex >= index;
@@ -1384,6 +1669,12 @@ function RatingScaleInput({
                 value={option.value}
                 checked={selected === option.value}
                 disabled={disabled}
+                onClick={(event) => {
+                  if (selected === option.value) {
+                    event.preventDefault();
+                    setSelected("");
+                  }
+                }}
                 onChange={() => setSelected(option.value)}
                 aria-label={option.ariaLabel}
               />
@@ -1398,6 +1689,63 @@ function RatingScaleInput({
   );
 }
 
+function GoBackInput({ name, value, disabled }: { name: string; value: string; disabled: boolean }) {
+  const [checked, setChecked] = useState(value === "true");
+  return (
+    <div className={`rating-choice-group ${disabled ? "disabled" : ""}`} role="group" aria-label="Go Back">
+      <input type="hidden" name={name} value="" disabled={disabled || checked} />
+      <label className="rating-choice" title="Go back">
+        <input
+          type="checkbox"
+          name={name}
+          value="true"
+          checked={checked}
+          disabled={disabled}
+          aria-label="Go back"
+          onChange={(event) => setChecked(event.target.checked)}
+        />
+        <span>
+          <CheckCircle size={16} />
+        </span>
+      </label>
+    </div>
+  );
+}
+
+function RatingChoiceInput({
+  name,
+  value,
+  disabled,
+  options,
+  label,
+}: {
+  name: string;
+  value: string;
+  disabled: boolean;
+  options: Array<{ value: string; label: ReactNode; ariaLabel: string }>;
+  label: string;
+}) {
+  const [selected, setSelected] = useState(value);
+  return (
+    <div className={`rating-choice-group ${disabled ? "disabled" : ""}`} role="radiogroup" aria-label={label}>
+      <input type="hidden" name={name} value="" disabled={disabled || selected !== ""} />
+      {options.map((option) => (
+        <RatingRadio
+          key={option.value}
+          name={name}
+          value={option.value}
+          checked={selected === option.value}
+          disabled={disabled}
+          label={option.label}
+          ariaLabel={option.ariaLabel}
+          title={option.ariaLabel}
+          onSelect={(nextValue) => setSelected(selected === nextValue ? "" : nextValue)}
+        />
+      ))}
+    </div>
+  );
+}
+
 function RatingRadio({
   name,
   value,
@@ -1406,6 +1754,7 @@ function RatingRadio({
   label,
   ariaLabel,
   title,
+  onSelect,
 }: {
   name: string;
   value: string;
@@ -1414,23 +1763,30 @@ function RatingRadio({
   label: ReactNode;
   ariaLabel?: string;
   title?: string;
+  onSelect: (value: string) => void;
 }) {
   const fallbackLabel = typeof label === "string" ? label : value || "Rating option";
   return (
     <label className="rating-choice" title={title}>
-      <input type="radio" name={name} value={value} defaultChecked={checked} disabled={disabled} aria-label={ariaLabel ?? fallbackLabel} />
+      <input
+        type="radio"
+        name={name}
+        value={value}
+        checked={checked}
+        disabled={disabled}
+        aria-label={ariaLabel ?? fallbackLabel}
+        onClick={(event) => {
+          if (checked) event.preventDefault();
+          onSelect(value);
+        }}
+        onChange={() => onSelect(value)}
+      />
       <span>{label}</span>
     </label>
   );
 }
 
 function ratingOptions(definition: RatingDefinition) {
-  if (definition.presetKey === "go_back") {
-    return [
-      { value: "true", label: <CheckCircle size={16} />, ariaLabel: "Go back: yes" },
-      { value: "false", label: <XCircle size={16} />, ariaLabel: "Go back: no" },
-    ];
-  }
   if (definition.type === "boolean") {
     return [
       { value: "true", label: "Yes", ariaLabel: `${definition.name}: yes` },
@@ -1481,12 +1837,12 @@ function RatingFilterOptions({ definition }: { definition?: RatingDefinition }) 
   return options;
 }
 
-function googleMapsUrl(restaurant: RestaurantEntry) {
+function googleMapsUrl(restaurant: Restaurant) {
   const query = [restaurant.name, restaurant.address].filter(Boolean).join(" ");
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
-function yelpUrl(restaurant: RestaurantEntry) {
+function yelpUrl(restaurant: Restaurant) {
   return `https://www.yelp.com/search?find_desc=${encodeURIComponent(restaurant.name)}&find_loc=${encodeURIComponent(
     restaurant.address || [restaurant.lat, restaurant.lon].filter((value) => value !== null).join(","),
   )}`;

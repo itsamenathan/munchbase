@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import { formatWallDateTime } from "@/lib/datetime";
-import type { RestaurantEntry } from "@/lib/types";
+import type { Restaurant } from "@/lib/types";
 
 const restaurantIcon = L.divIcon({
   className: "restaurant-marker",
@@ -18,7 +18,7 @@ export default function MapView({
   restaurants,
   onSelectRestaurant,
 }: {
-  restaurants: RestaurantEntry[];
+  restaurants: Restaurant[];
   onSelectRestaurant: (id: number) => void;
 }) {
   const withCoords = restaurants.filter((restaurant) => restaurant.lat !== null && restaurant.lon !== null);
@@ -48,7 +48,7 @@ export default function MapView({
   );
 }
 
-function googleMapsUrl(restaurant: RestaurantEntry) {
+function googleMapsUrl(restaurant: Restaurant) {
   const query = [restaurant.name, restaurant.address].filter(Boolean).join(" ");
   return restaurant.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }

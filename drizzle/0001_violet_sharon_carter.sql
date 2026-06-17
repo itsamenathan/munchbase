@@ -1,1 +1,0 @@
-ALTER TABLE `rating_definitions` ADD `active` integer DEFAULT true NOT NULL;

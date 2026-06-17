@@ -1,4 +1,3 @@
-export type Access = "read" | "write" | "owner";
 export type RatingType = "choice" | "scale" | "boolean";
 export type RatingPresetKey = "go_back" | "price" | "stars";
 
@@ -14,12 +13,12 @@ export type List = {
   id: number;
   name: string;
   description: string | null;
-  access: Access;
 };
 
 export type RatingDefinition = {
   id: number;
-  listId: number;
+  listId: number | null;
+  scope: "global" | "list";
   presetKey: RatingPresetKey | null;
   name: string;
   type: RatingType;
@@ -42,9 +41,18 @@ export type CheckIn = {
   notes: string | null;
 };
 
-export type RestaurantEntry = {
+export type RestaurantListMembership = {
   id: number;
-  listId: number;
+  name: string;
+};
+
+export type RatingGroup = {
+  list: RestaurantListMembership;
+  definitions: RatingDefinition[];
+};
+
+export type Restaurant = {
+  id: number;
   placeId: number;
   name: string;
   address: string | null;
@@ -58,6 +66,8 @@ export type RestaurantEntry = {
   googleMapsUrl: string | null;
   yelpUrl: string | null;
   ratings: RatingValue[];
+  memberships: RestaurantListMembership[];
+  ratingGroups: RatingGroup[];
   latestCheckIn: CheckIn | null;
   checkIns: CheckIn[];
   checkInCount: number;
@@ -67,9 +77,11 @@ export type AppState = {
   user: User;
   lists: List[];
   activeList: List | null;
-  restaurants: RestaurantEntry[];
+  activeListId: number | null;
+  restaurants: Restaurant[];
+  allRestaurants: Restaurant[];
+  globalRatingDefinitions: RatingDefinition[];
   ratingDefinitions: RatingDefinition[];
   users: User[];
-  listMembers: Array<User & { access: Access }>;
   appSettings: { selfSignupEnabled: boolean };
 };

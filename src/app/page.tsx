@@ -53,7 +53,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
   const initialEntryEdit = params.edit === "1";
   return (
     <AppShell
-      key={`${state.activeList?.id ?? "none"}:${initialEntryId ?? "none"}:${initialEntryEdit ? "edit" : "view"}`}
+      key={`${state.activeListId ?? "all"}:${initialEntryId ?? "none"}:${initialEntryEdit ? "edit" : "view"}`}
       state={state}
       initialEntryId={initialEntryId}
       initialEntryEdit={initialEntryEdit}

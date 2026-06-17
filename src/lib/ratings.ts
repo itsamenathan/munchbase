@@ -12,7 +12,7 @@ export type RatingPreset = {
 };
 
 export const RATING_PRESETS: RatingPreset[] = [
-  { key: "go_back", name: "Go Back", type: "boolean", icon: "undo-2", options: [], min: null, max: null },
+  { key: "go_back", name: "Go Back", type: "boolean", icon: "check-circle", options: [], min: null, max: null },
   { key: "price", name: "Price", type: "choice", icon: "dollar-sign", options: ["$", "$$", "$$$", "$$$$"], min: null, max: null },
   { key: "stars", name: "Stars", type: "scale", icon: "star", options: [], min: 1, max: 5 },
 ];

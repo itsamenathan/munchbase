@@ -4,19 +4,26 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import fs from "node:fs";
 import path from "node:path";
 import * as schema from "@/db/schema";
+import { RATING_PRESETS } from "./ratings";
 import type {
-  Access,
   AppState,
   CheckIn,
   List,
   RatingDefinition,
   RatingValue,
-  RestaurantEntry,
+  Restaurant,
+  RestaurantListMembership,
   User,
 } from "./types";
 
 let db: Database.Database | null = null;
 let orm: ReturnType<typeof drizzle<typeof schema>> | null = null;
+
+type RatingDefinitionRow = Omit<RatingDefinition, "options"> & { optionsJson: string };
+
+function parseRatingDefinition(row: RatingDefinitionRow): RatingDefinition {
+  return { ...row, options: JSON.parse(row.optionsJson) as string[] };
+}
 
 export function getDb() {
   if (db) return db;
@@ -27,7 +34,89 @@ export function getDb() {
   db.pragma("foreign_keys = ON");
   orm = drizzle(db, { schema });
   migrate(orm, { migrationsFolder: "./drizzle" });
+  ensureRatingDefinitionScope(db);
+  seedGlobalRatingPresets(db);
   return db;
+}
+
+function ensureRatingDefinitionScope(database: Database.Database) {
+  const table = database
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'rating_definitions'")
+    .get();
+  if (!table) return;
+  const columns = database.prepare("PRAGMA table_info(rating_definitions)").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "scope")) {
+    database.prepare("ALTER TABLE rating_definitions ADD COLUMN scope text DEFAULT 'list' NOT NULL").run();
+  }
+  const listIdColumn = (database.prepare("PRAGMA table_info(rating_definitions)").all() as Array<{ name: string; notnull: number }>).find(
+    (column) => column.name === "list_id",
+  );
+  if (listIdColumn?.notnull) {
+    rebuildRatingDefinitionsWithNullableListId(database);
+  }
+  database
+    .prepare("CREATE UNIQUE INDEX IF NOT EXISTS rating_definitions_global_preset_key_unique ON rating_definitions (scope, preset_key)")
+    .run();
+}
+
+function rebuildRatingDefinitionsWithNullableListId(database: Database.Database) {
+  database.pragma("foreign_keys = OFF");
+  const rebuild = database.transaction(() => {
+    database.prepare("DROP INDEX IF EXISTS rating_definitions_list_id_preset_key_unique").run();
+    database.prepare("DROP INDEX IF EXISTS rating_definitions_global_preset_key_unique").run();
+    database
+      .prepare(
+        `CREATE TABLE rating_definitions_new (
+          id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+          list_id integer,
+          scope text DEFAULT 'list' NOT NULL,
+          preset_key text,
+          name text NOT NULL,
+          type text NOT NULL,
+          icon text DEFAULT 'tag' NOT NULL,
+          options_json text DEFAULT '[]' NOT NULL,
+          min integer,
+          max integer,
+          active integer DEFAULT true NOT NULL,
+          created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE cascade
+        )`,
+      )
+      .run();
+    database
+      .prepare(
+        `INSERT INTO rating_definitions_new
+         (id, list_id, scope, preset_key, name, type, icon, options_json, min, max, active, created_at)
+         SELECT id, list_id, COALESCE(scope, 'list'), preset_key, name, type, icon, options_json, min, max, active, created_at
+         FROM rating_definitions`,
+      )
+      .run();
+    database.prepare("DROP TABLE rating_definitions").run();
+    database.prepare("ALTER TABLE rating_definitions_new RENAME TO rating_definitions").run();
+    database.prepare("CREATE UNIQUE INDEX rating_definitions_list_id_preset_key_unique ON rating_definitions (list_id, preset_key)").run();
+    database.prepare("CREATE UNIQUE INDEX rating_definitions_global_preset_key_unique ON rating_definitions (scope, preset_key)").run();
+  });
+  rebuild();
+  database.pragma("foreign_keys = ON");
+}
+
+function seedGlobalRatingPresets(database: Database.Database) {
+  for (const preset of RATING_PRESETS) {
+    database
+      .prepare(
+        `INSERT INTO rating_definitions
+         (list_id, scope, preset_key, name, type, icon, options_json, min, max, active)
+         VALUES (NULL, 'global', ?, ?, ?, ?, ?, ?, ?, 1)
+         ON CONFLICT(scope, preset_key) DO UPDATE SET
+           name = excluded.name,
+           type = excluded.type,
+           icon = excluded.icon,
+           options_json = excluded.options_json,
+           min = excluded.min,
+           max = excluded.max`,
+      )
+      .run(preset.key, preset.name, preset.type, preset.icon, JSON.stringify(preset.options), preset.min, preset.max);
+  }
 }
 
 export function getOrm() {
@@ -56,118 +145,133 @@ export function getUserBySession(sessionId: string) {
     .get(sessionId) as User | undefined;
 }
 
-export function getAccess(userId: number, listId: number) {
-  return getDb()
-    .prepare("SELECT access FROM list_members WHERE user_id = ? AND list_id = ?")
-    .get(userId, listId) as { access: Access } | undefined;
-}
-
-export function canWrite(access: Access | undefined) {
-  return access === "owner" || access === "write";
-}
-
-export function getAppState(user: User, listId?: number): AppState {
+export function getAppState(user: User, listId?: number | null): AppState {
   const database = getDb();
   const lists = database
     .prepare(
-      `SELECT lists.id, lists.name, lists.description, list_members.access
-       FROM lists JOIN list_members ON list_members.list_id = lists.id
-       WHERE list_members.user_id = ?
+      `SELECT id, name, description
+       FROM lists
        ORDER BY lists.created_at DESC`,
     )
-    .all(user.id) as List[];
-  const activeList = lists.find((list) => list.id === listId) ?? lists[0] ?? null;
+    .all() as List[];
+  const activeList = listId ? (lists.find((list) => list.id === listId) ?? null) : null;
+  const activeListId = activeList?.id ?? null;
 
+  const globalRatingDefinitions = (database
+    .prepare(
+      `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active
+       FROM rating_definitions WHERE scope = 'global' ORDER BY id`,
+    )
+    .all() as RatingDefinitionRow[]).map(parseRatingDefinition);
   const ratingDefinitions = activeList
     ? (database
         .prepare(
-          `SELECT id, list_id AS listId, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active
-           FROM rating_definitions WHERE list_id = ? ORDER BY id`,
+          `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active
+           FROM rating_definitions WHERE scope = 'list' AND list_id = ? ORDER BY id`,
         )
-        .all(activeList.id) as Array<
-        Omit<RatingDefinition, "options"> & { optionsJson: string }
-      >).map((row) => ({ ...row, options: JSON.parse(row.optionsJson) as string[] }))
+        .all(activeList.id) as RatingDefinitionRow[]).map(parseRatingDefinition)
     : [];
 
-  const restaurants = activeList ? getRestaurants(activeList.id) : [];
-  const activeAccess = activeList ? getAccess(user.id, activeList.id)?.access : undefined;
+  const restaurants = getRestaurants(activeListId);
+  const allRestaurants = activeListId ? getRestaurants(null) : restaurants;
   const users =
     user.role === "admin"
       ? (database.prepare("SELECT id, name, email, role, active FROM users ORDER BY active DESC, name").all() as User[])
-      : activeAccess === "owner"
-        ? (database.prepare("SELECT id, name, email, role, active FROM users WHERE active = 1 ORDER BY name").all() as User[])
-        : [];
-  const listMembers = activeList
-    ? (database
-        .prepare(
-          `SELECT users.id, users.name, users.email, users.role, users.active, list_members.access
-           FROM list_members JOIN users ON users.id = list_members.user_id
-           WHERE list_members.list_id = ?
-           ORDER BY list_members.access = 'owner' DESC, users.name`,
-        )
-        .all(activeList.id) as AppState["listMembers"])
-    : [];
+      : [];
   const appSettings =
     (database
       .prepare("SELECT self_signup_enabled AS selfSignupEnabled FROM app_settings WHERE id = 1")
       .get() as AppState["appSettings"] | undefined) ?? { selfSignupEnabled: false };
 
-  return { user, lists, activeList, restaurants, ratingDefinitions, users, listMembers, appSettings };
+  return { user, lists, activeList, activeListId, restaurants, allRestaurants, globalRatingDefinitions, ratingDefinitions, users, appSettings };
 }
 
-export function getRestaurants(listId: number): RestaurantEntry[] {
+export function getRestaurants(listId: number | null = null): Restaurant[] {
   const database = getDb();
-  const entries = database
+  const whereClause = listId
+    ? "WHERE restaurants.id IN (SELECT restaurant_id FROM list_restaurants WHERE list_id = ?)"
+    : "";
+  const rows = database
     .prepare(
-      `SELECT restaurant_entries.id, restaurant_entries.list_id AS listId, places.id AS placeId,
+      `SELECT restaurants.id, places.id AS placeId,
               places.name, places.address, places.lat, places.lon, places.osm_type AS osmType,
-              places.osm_id AS osmId, restaurant_entries.standing_notes AS standingNotes,
-              restaurant_entries.favorite_items AS favoriteItems,
-              restaurant_entries.ordering_tips AS orderingTips,
-              restaurant_entries.google_maps_url AS googleMapsUrl,
-              restaurant_entries.yelp_url AS yelpUrl
-       FROM restaurant_entries
-       JOIN places ON places.id = restaurant_entries.place_id
-       WHERE restaurant_entries.list_id = ?
+              places.osm_id AS osmId, restaurants.standing_notes AS standingNotes,
+              restaurants.favorite_items AS favoriteItems,
+              restaurants.ordering_tips AS orderingTips,
+              restaurants.google_maps_url AS googleMapsUrl,
+              restaurants.yelp_url AS yelpUrl
+       FROM restaurants
+       JOIN places ON places.id = restaurants.place_id
+       ${whereClause}
        ORDER BY places.name COLLATE NOCASE`,
     )
-    .all(listId) as Omit<RestaurantEntry, "ratings" | "latestCheckIn" | "checkInCount">[];
+    .all(...(listId ? [listId] : [])) as Omit<Restaurant, "ratings" | "memberships" | "ratingGroups" | "latestCheckIn" | "checkIns" | "checkInCount">[];
 
-  return entries.map((entry) => ({
-    ...entry,
+  return rows.map((restaurant) => ({
+    ...restaurant,
     ratings: database
-      .prepare("SELECT definition_id AS definitionId, value FROM rating_values WHERE entry_id = ?")
-      .all(entry.id) as RatingValue[],
+      .prepare("SELECT definition_id AS definitionId, value FROM rating_values WHERE restaurant_id = ?")
+      .all(restaurant.id) as RatingValue[],
+    memberships: database
+      .prepare(
+        `SELECT lists.id, lists.name
+         FROM list_restaurants JOIN lists ON lists.id = list_restaurants.list_id
+         WHERE list_restaurants.restaurant_id = ?
+         ORDER BY lists.name COLLATE NOCASE`,
+      )
+      .all(restaurant.id) as RestaurantListMembership[],
+    ratingGroups: getRestaurantRatingGroups(restaurant.id),
     checkIns: database
       .prepare(
         `SELECT checkins.id, users.name AS authorName, checkins.visited_at AS visitedAt, checkins.notes
          FROM checkins JOIN users ON users.id = checkins.author_id
-         WHERE checkins.entry_id = ?
+         WHERE checkins.restaurant_id = ?
          ORDER BY checkins.visited_at DESC`,
       )
-      .all(entry.id) as CheckIn[],
+      .all(restaurant.id) as CheckIn[],
     latestCheckIn:
       (database
         .prepare(
           `SELECT checkins.id, users.name AS authorName, checkins.visited_at AS visitedAt, checkins.notes
            FROM checkins JOIN users ON users.id = checkins.author_id
-           WHERE checkins.entry_id = ?
+           WHERE checkins.restaurant_id = ?
            ORDER BY checkins.visited_at DESC LIMIT 1`,
         )
-        .get(entry.id) as CheckIn | undefined) ?? null,
+        .get(restaurant.id) as CheckIn | undefined) ?? null,
     checkInCount: (
-      database.prepare("SELECT COUNT(*) AS count FROM checkins WHERE entry_id = ?").get(entry.id) as { count: number }
+      database.prepare("SELECT COUNT(*) AS count FROM checkins WHERE restaurant_id = ?").get(restaurant.id) as { count: number }
     ).count,
   }));
 }
 
-export function getCheckIns(entryId: number) {
+export function getRestaurantRatingGroups(restaurantId: number) {
+  const database = getDb();
+  const memberships = database
+    .prepare(
+      `SELECT lists.id, lists.name
+       FROM list_restaurants JOIN lists ON lists.id = list_restaurants.list_id
+       WHERE list_restaurants.restaurant_id = ?
+       ORDER BY lists.name COLLATE NOCASE`,
+    )
+    .all(restaurantId) as RestaurantListMembership[];
+  return memberships.map((list) => ({
+    list,
+    definitions: (database
+      .prepare(
+        `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active
+         FROM rating_definitions WHERE scope = 'list' AND list_id = ? ORDER BY id`,
+      )
+      .all(list.id) as RatingDefinitionRow[]).map(parseRatingDefinition),
+  }));
+}
+
+export function getCheckIns(restaurantId: number) {
   return getDb()
     .prepare(
       `SELECT checkins.id, users.name AS authorName, checkins.visited_at AS visitedAt, checkins.notes
        FROM checkins JOIN users ON users.id = checkins.author_id
-       WHERE checkins.entry_id = ?
+       WHERE checkins.restaurant_id = ?
        ORDER BY checkins.visited_at DESC`,
     )
-    .all(entryId) as CheckIn[];
+    .all(restaurantId) as CheckIn[];
 }

@@ -1,1 +1,0 @@
-ALTER TABLE `rating_definitions` ADD `icon` text DEFAULT 'tag' NOT NULL;
