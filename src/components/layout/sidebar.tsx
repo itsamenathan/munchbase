@@ -12,6 +12,7 @@ export function SidebarContent({
   onOpenListSettings,
   showAccountActions = true,
   showListSettings = false,
+  showBrand = true,
 }: {
   state: AppState;
   canWrite: boolean;
@@ -20,19 +21,22 @@ export function SidebarContent({
   onOpenListSettings?: (listId: number | null) => void;
   showAccountActions?: boolean;
   showListSettings?: boolean;
+  showBrand?: boolean;
 }) {
   const restaurantCountForList = (listId: number) =>
     state.allRestaurants.filter((r) => r.memberships.some((m) => m.id === listId)).length;
 
   return (
     <>
-      <div className="brand">
-        <Utensils size={24} />
-        <div>
-          <h1>Munchbase</h1>
-          <p>{state.user.name}</p>
+      {showBrand ? (
+        <div className="brand">
+          <Utensils size={24} />
+          <div>
+            <h1>Munchbase</h1>
+            <p>{state.user.name}</p>
+          </div>
         </div>
-      </div>
+      ) : null}
       <nav className="list-nav">
         <div className={`list-nav-row ${state.activeListId === null ? "active" : ""}`}>
           <Link href={tabHref("list", null)} onClick={onCloseDrawer}>

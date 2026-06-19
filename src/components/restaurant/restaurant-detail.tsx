@@ -172,18 +172,23 @@ function RatingFields({ entry, groups }: { entry: Restaurant; groups: Restaurant
   return (
     <div className="rating-grid">
       {activeGroups.map((g) => (
-        <div className={`rating-field ${g.list.id === 0 ? "rating-field-global" : ""}`} key={g.list.id}>
-          {g.list.id === 0 ? null : <span>{g.list.name}</span>}
-          {g.definitions.map((d) => {
-            const value = entry.ratings.find((r) => r.definitionId === d.id)?.value ?? "";
-            return (
-              <label key={d.id}>
-                <small>{d.name}</small>
-                <RatingInput definition={d} value={value} disabled={false} />
-              </label>
-            );
-          })}
-        </div>
+        <section className={`rating-field-card ${g.list.id === 0 ? "rating-field-global" : ""}`} key={g.list.id}>
+          <div className="rating-field-card-head">
+            <span>{g.list.id === 0 ? "Global attributes" : g.list.name}</span>
+            <small>{g.definitions.length} fields</small>
+          </div>
+          <div className="rating-field-list">
+            {g.definitions.map((d) => {
+              const value = entry.ratings.find((r) => r.definitionId === d.id)?.value ?? "";
+              return (
+                <label className="rating-field-row" key={d.id}>
+                  <small>{d.name}</small>
+                  <RatingInput definition={d} value={value} disabled={false} />
+                </label>
+              );
+            })}
+          </div>
+        </section>
       ))}
     </div>
   );

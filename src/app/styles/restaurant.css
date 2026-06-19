@@ -64,41 +64,34 @@
 
 .rating-icons {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 3px;
   align-items: center;
   margin-left: 4px;
   vertical-align: middle;
+  max-width: 100%;
 }
 
-.rating-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  gap: 2px;
+.rating-icons .entry-rating-badge {
+  min-height: 20px;
+  padding: 2px 6px;
+  font-size: 11px;
+  box-shadow: none;
 }
 
-.rating-value {
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  line-height: 1;
+.rating-icons .entry-rating-badge.icon-badge {
+  padding: 2px 5px;
+  white-space: nowrap;
 }
 
-.price-value {
+.restaurant-row.active .rating-icons .entry-rating-badge {
+  border-color: var(--accent);
+  background: #f2f8f0;
   color: var(--accent);
-  font-size: var(--font-size-sm);
-  letter-spacing: 0.5px;
 }
 
-.stars-value {
-  color: #e8a317;
-  font-size: var(--font-size-xs);
-  letter-spacing: 1px;
-}
-
-.restaurant-row.active .rating-icon,
-.restaurant-row.active .price-value,
-.restaurant-row.active .stars-value {
+.restaurant-row.active .rating-icons .entry-rating-badge.price,
+.restaurant-row.active .rating-icons .entry-rating-badge.stars {
   color: var(--accent);
 }
 
@@ -182,10 +175,25 @@
 }
 
 .rating-icon-stack {
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
   align-items: center;
   gap: 1px;
   color: inherit;
+  white-space: nowrap;
+  line-height: 0;
+}
+
+.rating-icon-stack-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.rating-icon-stack-item svg {
+  display: block;
 }
 
 .entry-rating-badge.positive {
@@ -365,13 +373,67 @@
 }
 
 .entry-edit-section .rating-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  align-items: start;
+}
+
+.entry-edit-section .rating-field-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 82%, white), var(--field));
+  padding: 12px;
+  box-shadow: 0 8px 22px rgba(25, 30, 22, 0.04);
+}
+
+.entry-edit-section .rating-field-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.entry-edit-section .rating-field-card-head span {
+  font-size: var(--font-size-xs);
+  color: var(--warn);
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.entry-edit-section .rating-field-card-head small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.entry-edit-section .rating-field-list {
+  display: grid;
+  gap: 10px;
+}
+
+.entry-edit-section .rating-field-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.entry-edit-section .rating-field-row small {
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.entry-edit-section .rating-field-global .rating-field-row {
   grid-template-columns: 1fr;
 }
 
-.entry-edit-section .rating-field {
-  grid-template-columns: minmax(74px, 0.34fr) minmax(0, 1fr);
-  align-items: center;
-  gap: var(--touch-gap);
+.entry-edit-section .rating-field-global .rating-field-row small {
+  color: var(--warn);
 }
 
 .entry-edit-section h5 {
@@ -643,10 +705,6 @@
   margin-top: 0;
 }
 
-.entry-edit-section .rating-field-global {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .wizard-field-list {
   display: grid;
   gap: var(--touch-gap);
@@ -666,12 +724,17 @@
     grid-template-columns: 1fr;
   }
 
-  .entry-edit-section .rating-field {
-    grid-template-columns: 68px minmax(0, 1fr);
+  .entry-edit-section .rating-grid {
+    grid-template-columns: 1fr;
   }
 
-  .entry-edit-section .rating-field-global {
-    grid-template-columns: minmax(0, 1fr);
+  .entry-edit-section .rating-field-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .entry-edit-section .rating-field-card {
+    padding: 10px;
   }
 
   .rating-choice-group {

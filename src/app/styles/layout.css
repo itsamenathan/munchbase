@@ -94,14 +94,6 @@
   padding: 0;
 }
 
-.mobile-detail-head {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  padding-bottom: 4px;
-  background: var(--panel);
-}
-
 .mobile-add-view {
   padding: 0;
   overflow: hidden;

@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
@@ -11,6 +12,7 @@ import {
   Search,
   Shield,
   User,
+  Utensils,
 } from "lucide-react";
 import { logout } from "@/app/actions";
 import { SidebarContent } from "@/components/layout/sidebar";
@@ -20,14 +22,14 @@ import { ListSettingsDrawer } from "@/components/lists/list-settings";
 import { AddListModal } from "@/components/lists/add-list-modal";
 import { AdminDrawer } from "@/components/admin/admin-panel";
 import { RestaurantDetail } from "@/components/restaurant/restaurant-detail";
-import { RATING_ICON_MAP, RATING_PRESETS } from "@/components/restaurant/rating-common";
+import { RatingBadge } from "@/components/restaurant/rating-badge";
 import { NetworkStatus } from "@/components/shared/network-status";
 import { InstallPrompt } from "@/components/shared/install-prompt";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useHaptics } from "@/hooks/use-haptics";
+import { formatCityState } from "@/lib/address";
 import { listSettingsHref, restaurantHref, tabHref, type BottomTab } from "@/lib/routes";
 import type { AppState, RatingDefinition } from "@/lib/types";
-import { Tag } from "lucide-react";
 
 const MapView = dynamic(() => import("@/components/map-view"), { ssr: false });
 
@@ -117,10 +119,6 @@ export default function AppShell({
     }
   };
 
-  const closeDetail = () => {
-    router.push(tabHref("list", activeState.activeListId), { scroll: false });
-  };
-
   const openEntryFromMap = (id: number) => {
     router.push(restaurantHref(id, activeState.activeListId, false));
   };
@@ -190,9 +188,6 @@ export default function AppShell({
     return null;
   }
 
-  const pageTitle = selectedEntry
-    ? selectedEntry.name
-    : activeTab === "add" ? "Add restaurant" : "Munchbase";
   const activeListName = activeState.activeList?.name ?? "All restaurants";
 
   const openListSettings = (listId: number | null) => {
@@ -207,13 +202,21 @@ export default function AppShell({
     <main className="app">
       <NetworkStatus />
       <aside className="sidebar">
-        <SidebarContent state={activeState} canWrite={canWrite} onOpenAddList={() => setAddListOpen(true)} />
+        <SidebarContent
+          state={activeState}
+          canWrite={canWrite}
+          onOpenAddList={() => setAddListOpen(true)}
+          showBrand={activeTab !== "lists"}
+        />
       </aside>
 
       <section className="workbench">
         <header className="topbar">
           <div className="topbar-title">
-            <div><h2>{pageTitle}</h2></div>
+            <Link href={tabHref("list", activeState.activeListId)} className="topbar-brand" aria-label="Munchbase home">
+              <Utensils size={18} />
+              <h2>Munchbase</h2>
+            </Link>
           </div>
           <div className="top-actions">
             <div className="mode-toggle">
@@ -265,11 +268,6 @@ export default function AppShell({
 
         {selectedEntry ? (
           <section className="mobile-detail-view">
-            <div className="mobile-detail-head">
-              <button type="button" className="ghost-button back-button" onClick={closeDetail}>
-                &larr; Back to Explore
-              </button>
-            </div>
             <RestaurantDetail
               key={`${selectedEntry.id}:${initialEntryEdit ? "edit" : "view"}`}
               canWrite={canWrite}
@@ -293,6 +291,7 @@ export default function AppShell({
                 onOpenListSettings={openListSettings}
                 showAccountActions={false}
                 showListSettings
+                showBrand={false}
               />
             </section>
           ) : activeTab === "add" ? (
@@ -411,19 +410,7 @@ export default function AppShell({
                 const ratingIcons = activeDefinitions.filter((d) => d.active).map((d) => {
                   const rating = rst.ratings.find((r) => r.definitionId === d.id);
                   if (!rating || !rating.value) return null;
-                  const presetIcon = d.presetKey ? RATING_PRESETS.find((p) => p.key === d.presetKey)?.icon : null;
-                  const icon = (presetIcon ?? d.icon) || "tag";
-                  if (d.presetKey === "price") {
-                    return <span key={d.id} className="rating-value price-value" title={`${d.name}: ${rating.value}`}>{rating.value}</span>;
-                  }
-                  if (d.presetKey === "stars") {
-                    return <span key={d.id} className="rating-value stars-value" title={`${d.name}: ${rating.value}/5`}>{"\u2605".repeat(Number(rating.value))}</span>;
-                  }
-                  return (
-                    <span key={d.id} className="rating-icon" title={`${d.name}: ${rating.value}`}>
-                      {RATING_ICON_MAP[icon] ?? <Tag size={14} />}
-                    </span>
-                  );
+                  return <RatingBadge key={d.id} definition={d} value={rating.value} />;
                 });
                 return (
                     <button
@@ -436,7 +423,7 @@ export default function AppShell({
                           <strong>{rst.name}</strong>
                           <span className="rating-icons">{ratingIcons}</span>
                         </span>
-                        <small>{rst.address}</small>
+                        <small>{formatCityState(rst.address) || rst.address}</small>
                       </span>
                       <span className="meta">{rst.checkInCount ? `${rst.checkInCount} visit${rst.checkInCount === 1 ? "" : "s"}` : ""}</span>
                     </button>

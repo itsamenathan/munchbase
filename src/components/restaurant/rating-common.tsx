@@ -40,9 +40,11 @@ export type { RatingDefinition, CheckIn } from "@/lib/types";
 
 export function repeatedIcon(Icon: LucideIcon, count: number, size: number, filled = false) {
   return (
-    <span className="rating-icon-stack">
+    <span className="rating-icon-stack" aria-hidden="true">
       {Array.from({ length: count }, (_, index) => (
-        <Icon key={index} size={size} fill={filled ? "currentColor" : "none"} />
+        <span className="rating-icon-stack-item" key={index}>
+          <Icon size={size} fill={filled ? "currentColor" : "none"} />
+        </span>
       ))}
     </span>
   );

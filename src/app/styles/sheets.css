@@ -196,12 +196,6 @@
   flex-shrink: 0;
 }
 
-.back-button {
-  width: auto;
-  padding: 0 10px;
-  min-height: var(--touch-target);
-}
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
