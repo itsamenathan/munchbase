@@ -171,20 +171,43 @@ function PhotoViewer({
   onClose: () => void;
 }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const startX = useRef<number | null>(null);
-  const currentX = useRef<number | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+
+  // Swipe refs (single finger, zoom = 1)
+  const swipeStartX = useRef<number | null>(null);
+  const swipeCurrentX = useRef<number | null>(null);
+
+  // Pinch refs (two fingers)
+  const pinchStartDist = useRef<number | null>(null);
+  const pinchStartZoom = useRef(1);
+  const pinchStartPan = useRef({ x: 0, y: 0 });
+  const pinchFocal = useRef({ x: 0, y: 0 }); // midpoint of pinch relative to stage center
+  const stageRef = useRef<HTMLDivElement>(null);
+  const isPinching = useRef(false);
+
+  // Pan refs (single finger, zoom > 1)
+  const panStart = useRef<{ tx: number; ty: number; px: number; py: number } | null>(null);
+
+  // Double-tap ref
+  const lastTap = useRef(0);
 
   useEffect(() => {
     const { body } = document;
-    const previousOverflow = body.style.overflow;
-    const previousTouchAction = body.style.touchAction;
+    const prev = { overflow: body.style.overflow, touchAction: body.style.touchAction };
     body.style.overflow = "hidden";
     body.style.touchAction = "none";
     return () => {
-      body.style.overflow = previousOverflow;
-      body.style.touchAction = previousTouchAction;
+      body.style.overflow = prev.overflow;
+      body.style.touchAction = prev.touchAction;
     };
   }, []);
+
+  // Reset zoom/pan when navigating to a different photo
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, [currentIndex]);
 
   const index = currentIndex >= 0 && currentIndex < photos.length ? currentIndex : 0;
   const photo = photos[index] ?? photos[0];
@@ -196,23 +219,112 @@ function PhotoViewer({
     startTransition(() => setCurrentIndex(bounded));
   };
 
+  function touchDist(touches: React.TouchList) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
   const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
-    startX.current = event.touches[0].clientX;
-    currentX.current = event.touches[0].clientX;
+    if (event.touches.length === 2) {
+      isPinching.current = true;
+      swipeStartX.current = null;
+      pinchStartDist.current = touchDist(event.touches);
+      pinchStartZoom.current = zoom;
+      pinchStartPan.current = { x: pan.x, y: pan.y };
+      // Capture pinch midpoint relative to stage center
+      const stage = stageRef.current;
+      if (stage) {
+        const rect = stage.getBoundingClientRect();
+        const midX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+        const midY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+        pinchFocal.current = { x: midX - (rect.left + rect.width / 2), y: midY - (rect.top + rect.height / 2) };
+      }
+    } else if (event.touches.length === 1 && !isPinching.current) {
+      const t = event.touches[0];
+      if (zoom > 1) {
+        panStart.current = { tx: t.clientX, ty: t.clientY, px: pan.x, py: pan.y };
+      } else {
+        swipeStartX.current = t.clientX;
+        swipeCurrentX.current = t.clientX;
+      }
+    }
   };
 
   const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
-    currentX.current = event.touches[0].clientX;
+    if (event.touches.length === 2 && pinchStartDist.current !== null) {
+      const dist = touchDist(event.touches);
+      const next = Math.min(5, Math.max(1, pinchStartZoom.current * (dist / pinchStartDist.current)));
+      if (next <= 1) {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+      } else {
+        const s0 = pinchStartZoom.current;
+        const { x: fx, y: fy } = pinchFocal.current;
+        const { x: p0x, y: p0y } = pinchStartPan.current;
+        const ratio = next / s0;
+        setZoom(next);
+        setPan({ x: fx * (1 - ratio) + p0x * ratio, y: fy * (1 - ratio) + p0y * ratio });
+      }
+    } else if (event.touches.length === 1) {
+      const t = event.touches[0];
+      if (zoom > 1 && panStart.current) {
+        setPan({ x: panStart.current.px + t.clientX - panStart.current.tx, y: panStart.current.py + t.clientY - panStart.current.ty });
+      } else if (!isPinching.current) {
+        swipeCurrentX.current = t.clientX;
+      }
+    }
   };
 
-  const handleTouchEnd = () => {
-    if (startX.current === null || currentX.current === null) return;
-    const delta = currentX.current - startX.current;
-    if (Math.abs(delta) > 40) {
-      moveTo(index + (delta < 0 ? 1 : -1));
+  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    // Pinch ended (one or both fingers lifted)
+    if (isPinching.current && event.touches.length < 2) {
+      isPinching.current = false;
+      pinchStartDist.current = null;
+      if (zoom < 1.15) { setZoom(1); setPan({ x: 0, y: 0 }); }
+      swipeStartX.current = null;
+      swipeCurrentX.current = null;
+      panStart.current = null;
+      return;
     }
-    startX.current = null;
-    currentX.current = null;
+
+    if (event.touches.length === 0) {
+      const changedTouch = event.changedTouches[0];
+
+      if (zoom > 1) {
+        // While zoomed: detect double-tap to reset
+        if (panStart.current && changedTouch) {
+          const moved = Math.abs(changedTouch.clientX - panStart.current.tx) + Math.abs(changedTouch.clientY - panStart.current.ty);
+          if (moved < 10) {
+            const now = Date.now();
+            if (now - lastTap.current < 300) { setZoom(1); setPan({ x: 0, y: 0 }); lastTap.current = 0; }
+            else lastTap.current = now;
+          }
+        }
+      } else if (swipeStartX.current !== null && swipeCurrentX.current !== null) {
+        const delta = swipeCurrentX.current - swipeStartX.current;
+        if (Math.abs(delta) > 40) {
+          moveTo(index + (delta < 0 ? 1 : -1));
+        } else {
+          // Detect double-tap to zoom in
+          const now = Date.now();
+          if (now - lastTap.current < 300) { setZoom(2.5); lastTap.current = 0; }
+          else lastTap.current = now;
+        }
+      }
+
+      swipeStartX.current = null;
+      swipeCurrentX.current = null;
+      panStart.current = null;
+    }
+  };
+
+  const imageStyle: React.CSSProperties = {
+    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+    transformOrigin: "center center",
+    cursor: zoom > 1 ? "grab" : "default",
+    touchAction: zoom > 1 ? "none" : "pan-x",
+    transition: isPinching.current ? "none" : "transform 0.15s ease-out",
   };
 
   return (
@@ -233,14 +345,14 @@ function PhotoViewer({
             <X size={18} />
           </button>
         </div>
-        <div className="photo-viewer-stage">
-          {photos.length > 1 ? (
+        <div ref={stageRef} className="photo-viewer-stage" style={{ overflow: "hidden" }}>
+          {photos.length > 1 && zoom === 1 ? (
             <button type="button" className="photo-viewer-nav photo-viewer-prev" onClick={() => moveTo(index - 1)} aria-label="Previous photo">
               <ChevronLeft size={18} />
             </button>
           ) : null}
-          <img src={photo.imageUrl} alt={photo.description || "Restaurant photo"} className="photo-viewer-image" />
-          {photos.length > 1 ? (
+          <img src={photo.imageUrl} alt={photo.description || "Restaurant photo"} className="photo-viewer-image" style={imageStyle} />
+          {photos.length > 1 && zoom === 1 ? (
             <button type="button" className="photo-viewer-nav photo-viewer-next" onClick={() => moveTo(index + 1)} aria-label="Next photo">
               <ChevronRight size={18} />
             </button>

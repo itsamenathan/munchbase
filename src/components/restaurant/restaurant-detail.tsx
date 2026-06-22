@@ -85,29 +85,55 @@ export function RestaurantDetail({
       </div>
 
       {canWrite && entryMode === "edit" ? (
-        <form
-          action={async (fd) => { await updateEntry(fd); await saveRatings(fd); haptics.success(); setEntryMode("preview"); }}
-          className="entry-edit-form"
-        >
-          <input type="hidden" name="restaurantId" value={entry.id} />
-          <div className="section-head"><h4>Edit notes and ratings</h4></div>
-          <div className="entry-edit-grid">
-            <section className="entry-edit-section">
-              <h5>Notes</h5>
-              <NotesEditField title="What to order" name="standingNotes" value={standingNotes} onChange={setStandingNotes} placeholder="Dishes, drinks, specials worth getting" />
-              <NotesEditField title="What to avoid" name="favoriteItems" value={favoriteItems} onChange={setFavoriteItems} placeholder="Things to skip" />
-              <NotesEditField title="People" name="orderingTips" value={orderingTips} onChange={setOrderingTips} placeholder="Date night, groups, quick lunch…" />
-            </section>
-            <section className="entry-edit-section">
-              <h5>Ratings</h5>
-              <RatingFields entry={entry} groups={ratingGroups} />
-            </section>
-          </div>
-          <div className="form-actions">
-            <button>Save entry</button>
-            <button type="button" className="ghost-button" onClick={resetEntryEdit}>Cancel</button>
-          </div>
-        </form>
+        <>
+          <form
+            action={async (fd) => { await updateEntry(fd); await saveRatings(fd); haptics.success(); setEntryMode("preview"); }}
+            className="entry-edit-form"
+          >
+            <input type="hidden" name="restaurantId" value={entry.id} />
+            <div className="section-head"><h4>Edit notes and ratings</h4></div>
+            <div className="entry-edit-grid">
+              <section className="entry-edit-section">
+                <h5>Notes</h5>
+                <NotesEditField title="What to order" name="standingNotes" value={standingNotes} onChange={setStandingNotes} placeholder="Dishes, drinks, specials worth getting" />
+                <NotesEditField title="What to avoid" name="favoriteItems" value={favoriteItems} onChange={setFavoriteItems} placeholder="Things to skip" />
+                <NotesEditField title="People" name="orderingTips" value={orderingTips} onChange={setOrderingTips} placeholder="Date night, groups, quick lunch…" />
+              </section>
+              <section className="entry-edit-section">
+                <h5>Ratings</h5>
+                <RatingFields entry={entry} groups={ratingGroups} />
+              </section>
+            </div>
+            <div className="form-actions">
+              <button>Save entry</button>
+              <button type="button" className="ghost-button" onClick={resetEntryEdit}>Cancel</button>
+            </div>
+          </form>
+          <section className="settings-section restaurant-lists-section">
+            <div className="section-head"><h4>Lists</h4></div>
+            {lists.length === 0 ? (
+              <p className="muted" style={{ margin: 0 }}>No lists yet.</p>
+            ) : (
+              <div className="list-toggle-grid">
+                {lists.map((list) => {
+                  const inList = entry.memberships.some((m) => m.id === list.id);
+                  return (
+                    <form key={list.id} action={inList ? removeRestaurantFromList : attachRestaurantToList} className="list-toggle-form">
+                      <input type="hidden" name="restaurantId" value={entry.id} />
+                      <input type="hidden" name="listId" value={list.id} />
+                      <button type="submit" className={`list-toggle-btn${inList ? " active" : ""}`} aria-pressed={inList}>
+                        <span className="list-toggle-check" aria-hidden="true">
+                          {inList ? <Check size={13} /> : <Plus size={13} />}
+                        </span>
+                        <span className="list-toggle-name">{list.name}</span>
+                      </button>
+                    </form>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </>
       ) : (
         <>
           <section className="notes-panel">
@@ -121,37 +147,6 @@ export function RestaurantDetail({
           <RestaurantPhotos canWrite={canWrite} entry={entry} />
         </>
       )}
-
-      {canWrite ? (
-        <section className="settings-section restaurant-lists-section">
-          <div className="section-head"><h4>Lists</h4></div>
-          {lists.length === 0 ? (
-            <p className="muted" style={{ margin: 0 }}>No lists yet.</p>
-          ) : (
-            <div className="list-toggle-grid">
-              {lists.map((list) => {
-                const inList = entry.memberships.some((m) => m.id === list.id);
-                return (
-                  <form
-                    key={list.id}
-                    action={inList ? removeRestaurantFromList : attachRestaurantToList}
-                    className="list-toggle-form"
-                  >
-                    <input type="hidden" name="restaurantId" value={entry.id} />
-                    <input type="hidden" name="listId" value={list.id} />
-                    <button type="submit" className={`list-toggle-btn${inList ? " active" : ""}`} aria-pressed={inList}>
-                      <span className="list-toggle-check" aria-hidden="true">
-                        {inList ? <Check size={13} /> : <Plus size={13} />}
-                      </span>
-                      <span className="list-toggle-name">{list.name}</span>
-                    </button>
-                  </form>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      ) : null}
 
       <section className="checkin-box">
         <div className="section-head"><h4>Check-ins</h4></div>
