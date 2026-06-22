@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { updateEntry, saveRatings, removeRestaurantFromList, attachRestaurantToList, updateExternalLinks } from "@/app/actions";
 import { formatCityState } from "@/lib/address";
 import { NotePreview, NotesEditField } from "./notes";
@@ -137,14 +137,7 @@ export function RestaurantDetail({
             ))}
           </div>
           {availableLists.length ? (
-            <form action={attachRestaurantToList} className="inline-form">
-              <input type="hidden" name="restaurantId" value={entry.id} />
-              <select name="listId" defaultValue="">
-                <option value="" disabled>Add to list</option>
-                {availableLists.map((l) => (<option key={l.id} value={l.id}>{l.name}</option>))}
-              </select>
-              <button>Add</button>
-            </form>
+            <ListAttachPicker restaurantId={entry.id} availableLists={availableLists} />
           ) : null}
         </section>
       ) : null}
@@ -160,6 +153,42 @@ export function RestaurantDetail({
         )}
         {canWrite ? <CheckInForm entry={entry} /> : null}
       </section>
+    </div>
+  );
+}
+
+function ListAttachPicker({ restaurantId, availableLists }: { restaurantId: number; availableLists: AppState["lists"] }) {
+  return (
+    <div className="list-attach-form">
+      <div className="list-attach-card">
+        <div className="list-attach-copy">
+          <strong>Add to list</strong>
+          <small>{availableLists.length} available {availableLists.length === 1 ? "list" : "lists"}</small>
+        </div>
+        <details className="list-attach-picker">
+          <summary className="list-attach-trigger">
+            <span className="list-attach-trigger-copy">
+              <strong>Choose a list</strong>
+              <small>Tap to view all lists</small>
+            </span>
+            <ChevronDown size={18} aria-hidden="true" />
+          </summary>
+          <div className="list-attach-options" role="list">
+            {availableLists.map((list) => (
+              <form action={attachRestaurantToList} className="list-attach-option-form" key={list.id}>
+                <input type="hidden" name="restaurantId" value={restaurantId} />
+                <button type="submit" className="list-attach-option" name="listId" value={list.id}>
+                  <span className="list-attach-option-copy">
+                    <strong>{list.name}</strong>
+                    {list.description?.trim() ? <small>{list.description}</small> : <small>Add this restaurant to {list.name}</small>}
+                  </span>
+                  <span className="list-attach-option-action">Add</span>
+                </button>
+              </form>
+            ))}
+          </div>
+        </details>
+      </div>
     </div>
   );
 }

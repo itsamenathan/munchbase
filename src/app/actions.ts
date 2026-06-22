@@ -335,6 +335,18 @@ export async function updateRatingFieldActive(formData: FormData) {
   revalidateApp();
 }
 
+export async function deleteRatingField(formData: FormData) {
+  await requireUser();
+  const definitionId = Number(text(formData, "definitionId"));
+  const definition = getDb()
+    .prepare("SELECT id, preset_key AS presetKey FROM rating_definitions WHERE id = ?")
+    .get(definitionId) as { id: number; presetKey: string | null } | undefined;
+  if (!definition) throw new Error("Custom field not found.");
+  if (definition.presetKey) throw new Error("Built-in fields cannot be removed.");
+  getDb().prepare("DELETE FROM rating_definitions WHERE id = ?").run(definitionId);
+  revalidateApp();
+}
+
 export async function saveRatings(formData: FormData) {
   await requireUser();
   const restaurantId = Number(text(formData, "restaurantId"));
