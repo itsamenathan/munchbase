@@ -12,21 +12,11 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "10px",
-        padding: "28px 16px",
-        textAlign: "center",
-      }}
-    >
-      {icon ? <div style={{ color: "var(--muted)" }}>{icon}</div> : null}
+    <div className="empty-state">
+      {icon ? <div className="empty-state-icon">{icon}</div> : null}
       <div>
-        <p style={{ margin: 0, fontWeight: 700 }}>{title}</p>
-        {description ? <p className="muted" style={{ margin: "4px 0 0", fontSize: "var(--font-size-sm)" }}>{description}</p> : null}
+        <p className="empty-state-title">{title}</p>
+        {description ? <p className="muted empty-state-description">{description}</p> : null}
       </div>
       {action}
     </div>

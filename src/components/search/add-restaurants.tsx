@@ -71,8 +71,13 @@ export function AddRestaurantsPanel({
   return (
     <section className="tool-panel add-restaurants-panel">
       <form className="place-search" onSubmit={searchPlaces}>
-        <input value={placeQuery} onChange={(e) => setPlaceQuery(e.target.value)} placeholder="Search for a restaurant" />
-        <button type="submit"><Search size={16} /></button>
+        <input
+          aria-label="Search for a restaurant to add"
+          value={placeQuery}
+          onChange={(e) => setPlaceQuery(e.target.value)}
+          placeholder="Search for a restaurant"
+        />
+        <button type="submit" aria-label="Search places"><Search size={16} /></button>
       </form>
       <label className="toggle-row">
         <input type="checkbox" checked={useCurrentLocation} onChange={(e) => setUseCurrentLocation(e.target.checked)} />

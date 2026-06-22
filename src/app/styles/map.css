@@ -16,7 +16,7 @@
   display: block;
   width: 28px;
   height: 28px;
-  border: 3px solid #fffdf6;
+  border: 3px solid var(--map-marker-border);
   border-radius: 50% 50% 50% 4px;
   background: var(--warn);
   box-shadow: 0 5px 15px rgba(31, 38, 31, 0.28);

@@ -9,8 +9,11 @@ import {
   Filter,
   Map,
   LogOut,
+  Monitor,
+  Moon,
   Search,
   Shield,
+  Sun,
   User,
   Utensils,
 } from "lucide-react";
@@ -27,6 +30,7 @@ import { NetworkStatus } from "@/components/shared/network-status";
 import { InstallPrompt } from "@/components/shared/install-prompt";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useHaptics } from "@/hooks/use-haptics";
+import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
 import { formatCityState } from "@/lib/address";
 import { listSettingsHref, restaurantHref, tabHref, type BottomTab } from "@/lib/routes";
 import type { AppState, RatingDefinition } from "@/lib/types";
@@ -54,6 +58,7 @@ export default function AppShell({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const haptics = useHaptics();
+  const theme = useTheme();
   const [query, setQuery] = useState("");
   const [filterDefinition, setFilterDefinition] = useState("");
   const [filterValue, setFilterValue] = useState("");
@@ -243,6 +248,7 @@ export default function AppShell({
                     <strong>{activeState.user.name}</strong>
                     <span>{activeState.user.role}</span>
                   </div>
+                  <ThemePicker choice={theme.choice} onChange={theme.setChoice} />
                   {activeState.user.role === "admin" ? (
                     <button
                       type="button"
@@ -317,13 +323,20 @@ export default function AppShell({
             <>
             <div className="toolbar">
               <label className="search-box">
+                <span className="sr-only">Search restaurants</span>
                 <Search size={17} />
-                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search restaurants, notes, tips" />
+                <input
+                  aria-label="Search restaurants"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search restaurants, notes, tips"
+                />
               </label>
               <button
                 type="button"
                 className={`filter-toggle ${filterDefinition ? "active" : ""}`}
                 onClick={() => setFiltersOpen((open) => !open)}
+                aria-label={filterDefinition ? "Open active Explore filters" : "Open Explore filters"}
                 aria-expanded={filtersOpen}
                 aria-controls="explore-filters"
               >
@@ -490,6 +503,40 @@ export default function AppShell({
       <InstallPrompt />
       {children ? <span hidden>{children}</span> : null}
     </main>
+  );
+}
+
+function ThemePicker({
+  choice,
+  onChange,
+}: {
+  choice: ThemeChoice;
+  onChange: (choice: ThemeChoice) => void;
+}) {
+  const options: Array<{ value: ThemeChoice; label: string; icon: React.ReactNode }> = [
+    { value: "system", label: "System", icon: <Monitor size={15} /> },
+    { value: "light", label: "Light", icon: <Sun size={15} /> },
+    { value: "dark", label: "Dark", icon: <Moon size={15} /> },
+  ];
+
+  return (
+    <div className="theme-picker" role="group" aria-label="Theme">
+      <span>Theme</span>
+      <div className="theme-picker-options">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={choice === option.value ? "active" : ""}
+            aria-pressed={choice === option.value}
+            onClick={() => onChange(option.value)}
+          >
+            {option.icon}
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -59,7 +59,14 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
               />
             ))}
           </div>
-          <PhotoViewer photos={entry.photos} activeIndex={viewerIndex} onClose={() => setViewerIndex(null)} />
+          {viewerIndex !== null ? (
+            <PhotoViewer
+              key={viewerIndex}
+              photos={entry.photos}
+              initialIndex={viewerIndex}
+              onClose={() => setViewerIndex(null)}
+            />
+          ) : null}
         </>
       ) : (
         <p className="muted">No photos yet.</p>
@@ -139,23 +146,18 @@ function PhotoCard({
 
 function PhotoViewer({
   photos,
-  activeIndex,
+  initialIndex,
   onClose,
 }: {
   photos: RestaurantPhoto[];
-  activeIndex: number | null;
+  initialIndex: number;
   onClose: () => void;
 }) {
-  const [currentIndex, setCurrentIndex] = useState(activeIndex ?? 0);
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const startX = useRef<number | null>(null);
   const currentX = useRef<number | null>(null);
 
   useEffect(() => {
-    if (activeIndex !== null) setCurrentIndex(activeIndex);
-  }, [activeIndex]);
-
-  useEffect(() => {
-    if (activeIndex === null) return;
     const { body } = document;
     const previousOverflow = body.style.overflow;
     const previousTouchAction = body.style.touchAction;
@@ -165,9 +167,8 @@ function PhotoViewer({
       body.style.overflow = previousOverflow;
       body.style.touchAction = previousTouchAction;
     };
-  }, [activeIndex]);
+  }, []);
 
-  if (activeIndex === null) return null;
   const index = currentIndex >= 0 && currentIndex < photos.length ? currentIndex : 0;
   const photo = photos[index] ?? photos[0];
   if (!photo) return null;

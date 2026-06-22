@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { NetworkProvider } from "@/hooks/use-network-status";
+import { ThemeProvider } from "@/hooks/use-theme";
 import "./styles/index.css";
 
 export const metadata: Metadata = {
@@ -24,7 +25,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#2f6f4e",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#2d7550" },
+    { media: "(prefers-color-scheme: dark)", color: "#16231b" },
+  ],
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -34,12 +38,31 @@ export const viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  var choice = localStorage.getItem("munchbase-theme") || "system";
+                  if (choice !== "light" && choice !== "dark" && choice !== "system") choice = "system";
+                  var system = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                  var theme = choice === "system" ? system : choice;
+                  document.documentElement.dataset.themeChoice = choice;
+                  document.documentElement.dataset.theme = theme;
+                  document.documentElement.style.colorScheme = theme;
+                } catch (_) {}
+              })();
+            `,
+          }}
+        />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
       <body>
-        <NetworkProvider>{children}</NetworkProvider>
+        <ThemeProvider>
+          <NetworkProvider>{children}</NetworkProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

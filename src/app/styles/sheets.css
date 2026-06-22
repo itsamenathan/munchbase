@@ -4,7 +4,7 @@
   z-index: var(--z-drawer);
   display: flex;
   justify-content: flex-end;
-  background: rgba(31, 38, 31, 0.32);
+  background: var(--overlay-bg);
   animation: fadeIn 0.2s ease;
 }
 
@@ -62,7 +62,7 @@
 .drawer-section {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #fbfaf3;
+  background: var(--panel-wash);
   padding: 10px;
   display: grid;
   align-content: start;
@@ -115,7 +115,7 @@
 
 .add-list-steps span.active {
   border-color: var(--accent);
-  background: #eef4ec;
+  background: var(--selected-surface);
   color: var(--ink);
 }
 
@@ -144,7 +144,7 @@
 
 .restaurant-picker-row.selected {
   border-color: var(--accent);
-  background: #eef4ec;
+  background: var(--selected-surface);
 }
 
 .restaurant-picker-row span {
@@ -170,7 +170,7 @@
   z-index: var(--z-sheet);
   display: flex;
   align-items: flex-end;
-  background: rgba(31, 38, 31, 0.32);
+  background: var(--overlay-bg);
   animation: fadeIn 0.2s ease;
 }
 

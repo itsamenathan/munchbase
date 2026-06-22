@@ -1,30 +1,60 @@
 :root {
-  --ink: #1f261f;
-  --muted: #687266;
-  --line: #dbe1d4;
-  --paper: #f8f7f0;
-  --panel: #fffdf6;
-  --field: #f1f0e7;
-  --accent: #2f6f4e;
+  --ink: #1d241d;
+  --muted: #657060;
+  --line: #d9dfd1;
+  --paper: #f7f4e9;
+  --panel: #fffdf5;
+  --field: #f0eee3;
+  --accent: #2d7550;
+  --accent-soft: #e7f1e8;
   --accent-ink: #ffffff;
-  --warn: #b45832;
-  --shadow: 0 18px 40px rgba(34, 42, 31, 0.1);
+  --warn: #b65b32;
+  --gold: #ad7600;
+  --shadow: 0 18px 48px rgba(35, 43, 30, 0.12);
+  --shadow-soft: 0 10px 26px rgba(35, 43, 30, 0.08);
+  --body-glow-warn: rgba(182, 91, 50, 0.13);
+  --body-glow-accent: rgba(45, 117, 80, 0.12);
+  --grid-line: rgba(47, 111, 78, 0.055);
+  --panel-sheen: rgba(255, 255, 255, 0.72);
+  --panel-sheen-soft: rgba(255, 255, 255, 0.44);
+  --inset-highlight: rgba(255, 255, 255, 0.72);
+  --topbar-bg: linear-gradient(180deg, rgba(247, 244, 233, 0.96), rgba(247, 244, 233, 0.72) 74%, transparent);
+  --sidebar-bg: rgba(255, 253, 246, 0.82);
+  --utility-bg: rgba(255, 253, 246, 0.86);
+  --bottom-nav-bg: rgba(255, 253, 246, 0.9);
+  --panel-wash: #fbfaf3;
+  --selected-surface: #eef4ec;
+  --selected-surface-strong: #213f31;
+  --selected-ink: #ffffff;
+  --danger-ink: #ffffff;
+  --overlay-bg: rgba(31, 38, 31, 0.32);
+  --viewer-bg: rgba(21, 26, 22, 0.92);
+  --viewer-ink: #f7f6ef;
+  --viewer-muted: rgba(247, 246, 239, 0.72);
+  --viewer-control-bg: rgba(20, 24, 21, 0.58);
+  --map-marker-border: #fffdf6;
+  --selection-bg: #b8d4c3;
+  --button-hover-shadow: rgba(34, 42, 31, 0.1);
 
   --touch-target: 48px;
   --touch-target-sm: 44px;
   --touch-gap: 8px;
-  --radius-sm: 6px;
-  --radius: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 22px;
   --radius-full: 999px;
 
-  --font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-size-xs: 0.72rem;
-  --font-size-sm: 0.84rem;
-  --font-size-base: 0.95rem;
-  --font-size-lg: 1.1rem;
-  --font-size-xl: 1.25rem;
-  --font-size-2xl: 1.5rem;
+  --font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-size-xs: clamp(0.72rem, 0.7rem + 0.1vw, 0.78rem);
+  --font-size-sm: clamp(0.84rem, 0.8rem + 0.18vw, 0.94rem);
+  --font-size-base: clamp(0.96rem, 0.9rem + 0.24vw, 1.05rem);
+  --font-size-lg: clamp(1.08rem, 1rem + 0.45vw, 1.28rem);
+  --font-size-xl: clamp(1.28rem, 1.1rem + 0.9vw, 1.72rem);
+  --font-size-2xl: clamp(1.62rem, 1.24rem + 1.9vw, 2.45rem);
+  --space-1: clamp(0.45rem, 0.4rem + 0.25vw, 0.65rem);
+  --space-2: clamp(0.75rem, 0.65rem + 0.45vw, 1rem);
+  --space-3: clamp(1rem, 0.84rem + 0.8vw, 1.45rem);
+  --space-4: clamp(1.35rem, 1rem + 1.4vw, 2.2rem);
 
   --safe-inset-top: env(safe-area-inset-top, 0px);
   --safe-inset-bottom: env(safe-area-inset-bottom, 0px);
@@ -37,5 +67,85 @@
   --z-modal: 1050;
   --z-toast: 1100;
 
-  --nav-height: 56px;
+  --nav-height: 72px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --ink: #edf2e8;
+    --muted: #aeb9a7;
+    --line: #354536;
+    --paper: #10170f;
+    --panel: #172119;
+    --field: #202b20;
+    --accent: #73d394;
+    --accent-soft: #203b2a;
+    --accent-ink: #0c160f;
+    --warn: #e48a5f;
+    --gold: #ffc24a;
+    --shadow: 0 18px 52px rgba(0, 0, 0, 0.38);
+    --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.26);
+    --body-glow-warn: rgba(228, 138, 95, 0.1);
+    --body-glow-accent: rgba(115, 211, 148, 0.1);
+    --grid-line: rgba(131, 180, 143, 0.075);
+    --panel-sheen: rgba(255, 255, 255, 0.07);
+    --panel-sheen-soft: rgba(255, 255, 255, 0.05);
+    --inset-highlight: rgba(255, 255, 255, 0.08);
+    --topbar-bg: linear-gradient(180deg, rgba(16, 23, 15, 0.96), rgba(16, 23, 15, 0.72) 74%, transparent);
+    --sidebar-bg: rgba(20, 29, 21, 0.84);
+    --utility-bg: rgba(20, 29, 21, 0.88);
+    --bottom-nav-bg: rgba(23, 33, 25, 0.9);
+    --panel-wash: #1b261c;
+    --selected-surface: #203b2a;
+    --selected-surface-strong: #75d696;
+    --selected-ink: #0b150e;
+    --danger-ink: #160c08;
+    --overlay-bg: rgba(3, 7, 4, 0.58);
+    --viewer-bg: rgba(3, 7, 4, 0.94);
+    --viewer-ink: #f4f7f0;
+    --viewer-muted: rgba(244, 247, 240, 0.68);
+    --viewer-control-bg: rgba(8, 13, 9, 0.72);
+    --map-marker-border: #172119;
+    --selection-bg: #2d5c3d;
+    --button-hover-shadow: rgba(0, 0, 0, 0.28);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ink: #edf2e8;
+  --muted: #aeb9a7;
+  --line: #354536;
+  --paper: #10170f;
+  --panel: #172119;
+  --field: #202b20;
+  --accent: #73d394;
+  --accent-soft: #203b2a;
+  --accent-ink: #0c160f;
+  --warn: #e48a5f;
+  --gold: #ffc24a;
+  --shadow: 0 18px 52px rgba(0, 0, 0, 0.38);
+  --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.26);
+  --body-glow-warn: rgba(228, 138, 95, 0.1);
+  --body-glow-accent: rgba(115, 211, 148, 0.1);
+  --grid-line: rgba(131, 180, 143, 0.075);
+  --panel-sheen: rgba(255, 255, 255, 0.07);
+  --panel-sheen-soft: rgba(255, 255, 255, 0.05);
+  --inset-highlight: rgba(255, 255, 255, 0.08);
+  --topbar-bg: linear-gradient(180deg, rgba(16, 23, 15, 0.96), rgba(16, 23, 15, 0.72) 74%, transparent);
+  --sidebar-bg: rgba(20, 29, 21, 0.84);
+  --utility-bg: rgba(20, 29, 21, 0.88);
+  --bottom-nav-bg: rgba(23, 33, 25, 0.9);
+  --panel-wash: #1b261c;
+  --selected-surface: #203b2a;
+  --selected-surface-strong: #75d696;
+  --selected-ink: #0b150e;
+  --danger-ink: #160c08;
+  --overlay-bg: rgba(3, 7, 4, 0.58);
+  --viewer-bg: rgba(3, 7, 4, 0.94);
+  --viewer-ink: #f4f7f0;
+  --viewer-muted: rgba(244, 247, 240, 0.68);
+  --viewer-control-bg: rgba(8, 13, 9, 0.72);
+  --map-marker-border: #172119;
+  --selection-bg: #2d5c3d;
+  --button-hover-shadow: rgba(0, 0, 0, 0.28);
 }

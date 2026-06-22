@@ -1,18 +1,20 @@
 .bottom-nav {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: max(8px, var(--safe-inset-bottom));
+  left: max(10px, var(--safe-inset-left));
+  right: max(10px, var(--safe-inset-right));
   z-index: var(--z-drawer);
   display: flex;
   align-items: center;
   justify-content: space-around;
-  height: var(--nav-height);
-  padding-bottom: var(--safe-inset-bottom);
-  background: rgba(255, 253, 246, 0.97);
-  border-top: 1px solid var(--line);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  height: 64px;
+  padding: 6px;
+  background: var(--bottom-nav-bg);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: 0 14px 36px rgba(31, 38, 31, 0.16);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .bottom-nav a {
@@ -22,7 +24,7 @@
   align-items: center;
   justify-content: center;
   gap: 2px;
-  min-height: var(--nav-height);
+  min-height: 52px;
   padding: 4px 8px;
   background: transparent;
   color: var(--muted);
@@ -30,24 +32,26 @@
   font-size: 0.65rem;
   font-weight: 700;
   text-decoration: none;
-  border-radius: 0;
-  transition: color 0.15s ease;
+  border-radius: 18px;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
   position: relative;
 }
 
 .bottom-nav a.active {
   color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .bottom-nav a.active::after {
   content: "";
   position: absolute;
-  top: 0;
-  left: 25%;
-  right: 25%;
-  height: 3px;
-  border-radius: 0 0 3px 3px;
+  top: 6px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
   background: var(--accent);
+  transform: translateX(-50%);
 }
 
 .bottom-nav a svg {

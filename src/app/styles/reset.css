@@ -14,10 +14,12 @@ body {
   margin: 0;
   color: var(--ink);
   background:
-    linear-gradient(90deg, rgba(47, 111, 78, 0.05) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(47, 111, 78, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at top left, var(--body-glow-warn), transparent 28rem),
+    radial-gradient(circle at 88% 8%, var(--body-glow-accent), transparent 24rem),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(180deg, var(--grid-line) 1px, transparent 1px),
     var(--paper);
-  background-size: 28px 28px;
+  background-size: auto, auto, 28px 28px, 28px 28px, auto;
   font-family: var(--font-family);
   font-size: var(--font-size-base);
   line-height: 1.5;
@@ -55,7 +57,13 @@ button {
   font-weight: 700;
   font-size: var(--font-size-base);
   line-height: 1.2;
-  transition: opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+@media (hover: hover) {
+  button:hover {
+    box-shadow: 0 8px 20px var(--button-hover-shadow);
+  }
 }
 
 button:active {
@@ -83,6 +91,7 @@ textarea {
   color: var(--ink);
   padding: 10px 12px;
   font-size: var(--font-size-base);
+  box-shadow: 0 1px 0 var(--inset-highlight) inset;
 }
 
 textarea {
@@ -114,7 +123,7 @@ img {
 }
 
 ::selection {
-  background: #b8d4c3;
+  background: var(--selection-bg);
   color: var(--ink);
 }
 
