@@ -216,7 +216,7 @@
 }
 
 .entry-rating-badge.positive {
-  border-color: rgba(47, 111, 78, 0.38);
+  border-color: color-mix(in srgb, var(--positive) 38%, var(--line));
   background: var(--selected-surface);
   color: var(--accent);
 }
@@ -836,7 +836,7 @@
 
 .datetime-field input {
   min-height: 36px;
-  border-color: rgba(47, 111, 78, 0.24);
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
   background: var(--panel-wash);
   padding: 6px 9px;
   font-size: var(--font-size-sm);

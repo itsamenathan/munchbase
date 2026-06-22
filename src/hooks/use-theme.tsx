@@ -6,8 +6,8 @@ export type ThemeChoice = "system" | "light" | "dark";
 type EffectiveTheme = "light" | "dark";
 
 const THEME_STORAGE_KEY = "munchbase-theme";
-const DARK_THEME_COLOR = "#16231b";
-const LIGHT_THEME_COLOR = "#2d7550";
+const DARK_THEME_COLOR = "#090c1b";
+const LIGHT_THEME_COLOR = "#0055da";
 
 type ThemeContextValue = {
   choice: ThemeChoice;

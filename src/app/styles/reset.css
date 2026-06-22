@@ -13,13 +13,7 @@ html {
 body {
   margin: 0;
   color: var(--ink);
-  background:
-    radial-gradient(circle at top left, var(--body-glow-warn), transparent 28rem),
-    radial-gradient(circle at 88% 8%, var(--body-glow-accent), transparent 24rem),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
-    linear-gradient(180deg, var(--grid-line) 1px, transparent 1px),
-    var(--paper);
-  background-size: auto, auto, 28px 28px, 28px 28px, auto;
+  background: var(--paper);
   font-family: var(--font-family);
   font-size: var(--font-size-base);
   line-height: 1.5;

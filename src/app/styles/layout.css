@@ -2,7 +2,7 @@
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(var(--nav-height) + var(--safe-inset-bottom) + 10px);
+  padding-bottom: calc(64px + var(--safe-inset-bottom));
 }
 
 .workbench {
