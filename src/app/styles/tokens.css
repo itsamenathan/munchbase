@@ -72,6 +72,86 @@
   --nav-float-gap: 8px;
 }
 
+:root[data-theme="lavender"] {
+  --ink: #1e1b4b;
+  --muted: #6c6ba5;
+  --line: #cdd0ff;
+  --paper: #f5f5ff;
+  --panel: #ededff;
+  --field: #e3e5ff;
+  --accent: #9fa1ff;
+  --accent-soft: #e8e8ff;
+  --accent-ink: #1e1b4b;
+  --warn: #ff0052;
+  --gold: #aee2ff;
+  --positive: #4ecb8e;
+  --shadow: 0 18px 48px rgba(159, 161, 255, 0.18);
+  --shadow-soft: 0 10px 26px rgba(159, 161, 255, 0.12);
+  --body-glow-warn: rgba(255, 0, 82, 0.08);
+  --body-glow-accent: rgba(159, 161, 255, 0.22);
+  --body-glow-gold: rgba(174, 226, 255, 0.28);
+  --panel-sheen: rgba(255, 255, 255, 0.82);
+  --panel-sheen-soft: rgba(255, 255, 255, 0.54);
+  --inset-highlight: rgba(255, 255, 255, 0.82);
+  --topbar-bg: linear-gradient(180deg, rgba(245, 245, 255, 0.96), rgba(245, 245, 255, 0.74) 74%, transparent);
+  --sidebar-bg: rgba(237, 237, 255, 0.86);
+  --utility-bg: rgba(237, 237, 255, 0.9);
+  --bottom-nav-bg: rgba(237, 237, 255, 0.92);
+  --panel-wash: #d9f9df;
+  --selected-surface: #e0e0ff;
+  --selected-surface-strong: #9fa1ff;
+  --selected-ink: #1e1b4b;
+  --danger-ink: #ffffff;
+  --overlay-bg: rgba(30, 27, 75, 0.3);
+  --viewer-bg: rgba(30, 27, 75, 0.92);
+  --viewer-ink: #f5f5ff;
+  --viewer-muted: rgba(245, 245, 255, 0.72);
+  --viewer-control-bg: rgba(30, 27, 75, 0.62);
+  --map-marker-border: #ededff;
+  --selection-bg: #b5baff;
+  --button-hover-shadow: rgba(159, 161, 255, 0.18);
+}
+
+:root[data-theme="lavender-dark"] {
+  --ink: #eeeeff;
+  --muted: #9494cc;
+  --line: #2c2855;
+  --paper: #0d0b1e;
+  --panel: #151232;
+  --field: #1d1a45;
+  --accent: #b5baff;
+  --accent-soft: #1e1d50;
+  --accent-ink: #0d0b1e;
+  --warn: #ff7aa5;
+  --gold: #aee2ff;
+  --positive: #4ecb8e;
+  --shadow: 0 18px 52px rgba(0, 0, 0, 0.5);
+  --shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.36);
+  --body-glow-warn: rgba(255, 122, 165, 0.1);
+  --body-glow-accent: rgba(181, 186, 255, 0.15);
+  --body-glow-gold: rgba(174, 226, 255, 0.1);
+  --panel-sheen: rgba(255, 255, 255, 0.06);
+  --panel-sheen-soft: rgba(255, 255, 255, 0.04);
+  --inset-highlight: rgba(255, 255, 255, 0.07);
+  --topbar-bg: linear-gradient(180deg, rgba(13, 11, 30, 0.96), rgba(13, 11, 30, 0.74) 74%, transparent);
+  --sidebar-bg: rgba(18, 15, 44, 0.88);
+  --utility-bg: rgba(18, 15, 44, 0.92);
+  --bottom-nav-bg: rgba(21, 18, 50, 0.92);
+  --panel-wash: #1a163a;
+  --selected-surface: #201d55;
+  --selected-surface-strong: #b5baff;
+  --selected-ink: #0d0b1e;
+  --danger-ink: #0d0b1e;
+  --overlay-bg: rgba(5, 4, 15, 0.68);
+  --viewer-bg: rgba(5, 4, 15, 0.94);
+  --viewer-ink: #eeeeff;
+  --viewer-muted: rgba(238, 238, 255, 0.7);
+  --viewer-control-bg: rgba(5, 4, 15, 0.74);
+  --map-marker-border: #151232;
+  --selection-bg: #1e1d50;
+  --button-hover-shadow: rgba(0, 0, 0, 0.3);
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     --ink: #f7f9ff;

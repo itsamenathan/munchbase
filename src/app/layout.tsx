@@ -46,12 +46,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               (function () {
                 try {
                   var choice = localStorage.getItem("munchbase-theme") || "system";
-                  if (choice !== "light" && choice !== "dark" && choice !== "system") choice = "system";
+                  if (choice !== "light" && choice !== "dark" && choice !== "system" && choice !== "lavender" && choice !== "lavender-dark") choice = "system";
                   var system = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-                  var theme = choice === "system" ? system : choice;
+                  var effective = choice === "system" ? system : (choice === "dark" || choice === "lavender-dark" ? "dark" : "light");
                   document.documentElement.dataset.themeChoice = choice;
-                  document.documentElement.dataset.theme = theme;
-                  document.documentElement.style.colorScheme = theme;
+                  document.documentElement.dataset.theme = choice === "system" ? effective : choice;
+                  document.documentElement.style.colorScheme = effective;
                 } catch (_) {}
               })();
             `,

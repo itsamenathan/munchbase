@@ -10,10 +10,8 @@ import {
   Map,
   LogOut,
   Monitor,
-  Moon,
   Search,
   Shield,
-  Sun,
   User,
   Utensils,
   X,
@@ -530,10 +528,12 @@ function ThemePicker({
   choice: ThemeChoice;
   onChange: (choice: ThemeChoice) => void;
 }) {
-  const options: Array<{ value: ThemeChoice; label: string; icon: React.ReactNode }> = [
-    { value: "system", label: "System", icon: <Monitor size={15} /> },
-    { value: "light", label: "Light", icon: <Sun size={15} /> },
-    { value: "dark", label: "Dark", icon: <Moon size={15} /> },
+  const options: Array<{ value: ThemeChoice; label: string; swatches: string[] }> = [
+    { value: "system", label: "Auto", swatches: ["#fff8df", "#fffdf4", "#111833", "#090c1b"] },
+    { value: "light", label: "Classic", swatches: ["#fff8df", "#fffdf4", "#0055da"] },
+    { value: "dark", label: "Midnight", swatches: ["#090c1b", "#111833", "#ffd400"] },
+    { value: "lavender", label: "Lavender", swatches: ["#f5f5ff", "#ededff", "#9fa1ff"] },
+    { value: "lavender-dark", label: "Lavender Dark", swatches: ["#0d0b1e", "#151232", "#b5baff"] },
   ];
 
   return (
@@ -548,7 +548,11 @@ function ThemePicker({
             aria-pressed={choice === option.value}
             onClick={() => onChange(option.value)}
           >
-            {option.icon}
+            <span className="theme-swatch" aria-hidden="true">
+              {option.swatches.map((color, i) => (
+                <span key={i} style={{ background: color }} />
+              ))}
+            </span>
             {option.label}
           </button>
         ))}
