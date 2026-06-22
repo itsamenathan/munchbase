@@ -4,6 +4,7 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import fs from "node:fs";
 import path from "node:path";
 import * as schema from "@/db/schema";
+import "./env"; // validate env vars on first DB access
 import { getPhotoMediaUrl } from "./restaurant-photos";
 import { RATING_PRESETS } from "./ratings";
 import type {

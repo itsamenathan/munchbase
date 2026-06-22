@@ -2,14 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createSession, currentUser, destroySession, hashPassword, verifyPassword } from "@/lib/auth";
 import { localDateTimeInputValue } from "@/lib/datetime";
 import { getDb, getUserByEmail, userCount } from "@/lib/db";
+import { logger } from "@/lib/logger";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { normalizeExternalUrl } from "@/lib/external-links";
 import { deletePhotoFiles, saveRestaurantPhotoFiles } from "@/lib/restaurant-photos";
 import { normalizeRatingDefinition, presetByKey, validateRatingValue } from "@/lib/ratings";
 import { restaurantHref, tabHref } from "@/lib/routes";
 import type { RatingDefinition, RatingPresetKey, RatingType } from "@/lib/types";
+
+async function clientIp() {
+  const h = await headers();
+  return h.get("x-forwarded-for")?.split(",")[0].trim() ?? h.get("x-real-ip") ?? "unknown";
+}
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -64,6 +72,8 @@ async function requireUser() {
 }
 
 export async function setup(formData: FormData) {
+  const ip = await clientIp();
+  checkRateLimit(`setup:${ip}`, 5, 60 * 60 * 1000);
   if (userCount().count > 0) throw new Error("Setup is already complete.");
   const name = text(formData, "name");
   const email = text(formData, "email").toLowerCase();
@@ -82,6 +92,8 @@ export async function setup(formData: FormData) {
 }
 
 export async function signup(formData: FormData) {
+  const ip = await clientIp();
+  checkRateLimit(`signup:${ip}`, 5, 60 * 60 * 1000);
   const db = getDb();
   const settings = db
     .prepare("SELECT self_signup_enabled AS selfSignupEnabled FROM app_settings WHERE id = 1")
@@ -99,12 +111,16 @@ export async function signup(formData: FormData) {
 }
 
 export async function login(formData: FormData) {
+  const ip = await clientIp();
+  checkRateLimit(`login:${ip}`, 10, 15 * 60 * 1000);
   const email = text(formData, "email").toLowerCase();
   const password = text(formData, "password");
   const user = getUserByEmail(email);
   if (!user || !user.active || !(await verifyPassword(password, user.passwordHash))) {
+    logger.warn("Failed login attempt", { email, ip });
     throw new Error("Invalid email or password.");
   }
+  logger.info("User logged in", { userId: user.id, email, ip });
   await createSession(user.id);
   redirect("/");
 }

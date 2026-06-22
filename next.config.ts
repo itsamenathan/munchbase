@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "15mb",
     },
   },
-  allowedDevOrigins: ["endeavour.n.vpn", "10.7.14.202","192.168.1.160", "munchbase.h.frcv.net", "munchbase.n.frcv.net"],
+  allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean) ?? [],
   headers: async () => [
     {
       source: "/icons/:path*",
