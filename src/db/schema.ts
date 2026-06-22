@@ -119,6 +119,18 @@ export const checkins = sqliteTable("checkins", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const restaurantPhotos = sqliteTable("restaurant_photos", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  restaurantId: integer("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
+  storageKey: text("storage_key").notNull(),
+  originalStorageKey: text("original_storage_key").notNull(),
+  thumbnailStorageKey: text("thumbnail_storage_key").notNull(),
+  description: text("description"),
+  uploadedBy: integer("uploaded_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   checkins: many(checkins),
 }));

@@ -4,6 +4,7 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import fs from "node:fs";
 import path from "node:path";
 import * as schema from "@/db/schema";
+import { getPhotoMediaUrl } from "./restaurant-photos";
 import { RATING_PRESETS } from "./ratings";
 import type {
   AppState,
@@ -13,6 +14,7 @@ import type {
   RatingValue,
   Restaurant,
   RestaurantListMembership,
+  RestaurantPhoto,
   User,
 } from "./types";
 
@@ -211,7 +213,7 @@ export function getRestaurants(listId: number | null = null): Restaurant[] {
        ${whereClause}
        ORDER BY places.name COLLATE NOCASE`,
     )
-    .all(...(listId ? [listId] : [])) as Omit<Restaurant, "ratings" | "memberships" | "ratingGroups" | "latestCheckIn" | "checkIns" | "checkInCount">[];
+    .all(...(listId ? [listId] : [])) as Omit<Restaurant, "ratings" | "memberships" | "ratingGroups" | "latestCheckIn" | "checkIns" | "checkInCount" | "photos">[];
 
   return rows.map((restaurant) => ({
     ...restaurant,
@@ -247,6 +249,34 @@ export function getRestaurants(listId: number | null = null): Restaurant[] {
     checkInCount: (
       database.prepare("SELECT COUNT(*) AS count FROM checkins WHERE restaurant_id = ?").get(restaurant.id) as { count: number }
     ).count,
+    photos: (database
+      .prepare(
+        `SELECT restaurant_photos.id,
+                restaurant_photos.description,
+                users.name AS uploadedByName,
+                restaurant_photos.storage_key AS storageKey,
+                restaurant_photos.thumbnail_storage_key AS thumbnailStorageKey,
+                restaurant_photos.created_at AS createdAt
+         FROM restaurant_photos
+         JOIN users ON users.id = restaurant_photos.uploaded_by
+         WHERE restaurant_photos.restaurant_id = ?
+         ORDER BY restaurant_photos.created_at DESC, restaurant_photos.id DESC`,
+      )
+      .all(restaurant.id) as Array<{
+      id: number;
+      description: string | null;
+      uploadedByName: string;
+      storageKey: string;
+      thumbnailStorageKey: string;
+      createdAt: string;
+    }>).map((photo): RestaurantPhoto => ({
+      id: photo.id,
+      description: photo.description,
+      uploadedByName: photo.uploadedByName,
+      imageUrl: getPhotoMediaUrl(photo.storageKey),
+      thumbnailUrl: getPhotoMediaUrl(photo.thumbnailStorageKey),
+      createdAt: photo.createdAt,
+    })),
   }));
 }
 

@@ -16,7 +16,12 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: {},
-  allowedDevOrigins: ["endeavour.n.vpn", "10.7.14.202", "munchbase.h.frcv.net"],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "15mb",
+    },
+  },
+  allowedDevOrigins: ["endeavour.n.vpn", "10.7.14.202", "munchbase.h.frcv.net", "munchbase.n.frcv.net"],
   headers: async () => [
     {
       source: "/icons/:path*",

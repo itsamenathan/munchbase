@@ -6,6 +6,7 @@ import { NotePreview, NotesEditField } from "./notes";
 import { RatingSummary, AttributePreview } from "./rating-display";
 import { RatingInput } from "./rating-input";
 import { CheckInCard, CheckInForm } from "./checkin";
+import { RestaurantPhotos } from "./restaurant-photos";
 import { RATING_ICON_MAP, RATING_PRESETS, type RatingDefinition, repeatedIcon } from "./rating-common";
 import { useHaptics } from "@/hooks/use-haptics";
 import type { AppState, Restaurant } from "@/lib/types";
@@ -120,6 +121,7 @@ export function RestaurantDetail({
             <div className="section-head"><h4>Attributes</h4></div>
             <AttributePreview entry={entry} groups={ratingGroups} />
           </section>
+          <RestaurantPhotos canWrite={canWrite} entry={entry} />
         </>
       )}
 

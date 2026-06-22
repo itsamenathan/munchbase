@@ -6,6 +6,7 @@ import { createSession, currentUser, destroySession, hashPassword, verifyPasswor
 import { localDateTimeInputValue } from "@/lib/datetime";
 import { getDb, getUserByEmail, userCount } from "@/lib/db";
 import { normalizeExternalUrl } from "@/lib/external-links";
+import { deletePhotoFiles, saveRestaurantPhotoFiles } from "@/lib/restaurant-photos";
 import { normalizeRatingDefinition, presetByKey, validateRatingValue } from "@/lib/ratings";
 import { restaurantHref, tabHref } from "@/lib/routes";
 import type { RatingDefinition, RatingPresetKey, RatingType } from "@/lib/types";
@@ -431,5 +432,68 @@ export async function removeRestaurantFromList(formData: FormData) {
   const restaurantId = Number(text(formData, "restaurantId"));
   const listId = Number(text(formData, "listId"));
   getDb().prepare("DELETE FROM list_restaurants WHERE list_id = ? AND restaurant_id = ?").run(listId, restaurantId);
+  revalidateApp();
+}
+
+export async function uploadRestaurantPhoto(formData: FormData) {
+  const user = await requireUser();
+  const restaurantId = Number(text(formData, "restaurantId"));
+  if (!restaurantId) throw new Error("Restaurant is required.");
+  const file = formData.get("photo");
+  if (!(file instanceof File)) throw new Error("Choose an image to upload.");
+  const description = text(formData, "description") || null;
+
+  const restaurant = getDb().prepare("SELECT id FROM restaurants WHERE id = ?").get(restaurantId) as { id: number } | undefined;
+  if (!restaurant) throw new Error("Restaurant not found.");
+
+  const saved = await saveRestaurantPhotoFiles(restaurantId, file);
+  try {
+    getDb()
+      .prepare(
+        `INSERT INTO restaurant_photos
+         (restaurant_id, storage_key, original_storage_key, thumbnail_storage_key, description, uploaded_by)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(restaurantId, saved.storageKey, saved.originalStorageKey, saved.thumbnailStorageKey, description, user.id);
+  } catch (error) {
+    await deletePhotoFiles([saved.originalStorageKey, saved.storageKey, saved.thumbnailStorageKey]);
+    throw error;
+  }
+
+  revalidateApp();
+}
+
+export async function updateRestaurantPhotoDescription(formData: FormData) {
+  await requireUser();
+  const photoId = Number(text(formData, "photoId"));
+  if (!photoId) throw new Error("Photo is required.");
+  getDb()
+    .prepare(
+      `UPDATE restaurant_photos
+       SET description = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+    )
+    .run(text(formData, "description") || null, photoId);
+  revalidateApp();
+}
+
+export async function deleteRestaurantPhoto(formData: FormData) {
+  await requireUser();
+  const photoId = Number(text(formData, "photoId"));
+  if (!photoId) throw new Error("Photo is required.");
+
+  const photo = getDb()
+    .prepare(
+      `SELECT original_storage_key AS originalStorageKey,
+              storage_key AS storageKey,
+              thumbnail_storage_key AS thumbnailStorageKey
+       FROM restaurant_photos
+       WHERE id = ?`,
+    )
+    .get(photoId) as { originalStorageKey: string; storageKey: string; thumbnailStorageKey: string } | undefined;
+  if (!photo) throw new Error("Photo not found.");
+
+  getDb().prepare("DELETE FROM restaurant_photos WHERE id = ?").run(photoId);
+  await deletePhotoFiles([photo.originalStorageKey, photo.storageKey, photo.thumbnailStorageKey]);
   revalidateApp();
 }

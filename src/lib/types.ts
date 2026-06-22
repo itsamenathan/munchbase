@@ -41,6 +41,15 @@ export type CheckIn = {
   notes: string | null;
 };
 
+export type RestaurantPhoto = {
+  id: number;
+  description: string | null;
+  uploadedByName: string;
+  imageUrl: string;
+  thumbnailUrl: string;
+  createdAt: string;
+};
+
 export type RestaurantListMembership = {
   id: number;
   name: string;
@@ -71,6 +80,7 @@ export type Restaurant = {
   latestCheckIn: CheckIn | null;
   checkIns: CheckIn[];
   checkInCount: number;
+  photos: RestaurantPhoto[];
 };
 
 export type AppState = {
