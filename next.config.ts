@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
   turbopack: {},
   experimental: {
     serverActions: {
-      bodySizeLimit: "15mb",
+      bodySizeLimit: (Number(process.env.PHOTO_MAX_SIZE_MB ?? 10) * 1024 * 1024),
     },
   },
   allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean) ?? [],

@@ -39,6 +39,7 @@ export function getDb() {
   migrate(orm, { migrationsFolder: "./drizzle" });
   ensureRatingDefinitionScope(db);
   seedGlobalRatingPresets(db);
+  db.prepare("DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP").run();
   return db;
 }
 

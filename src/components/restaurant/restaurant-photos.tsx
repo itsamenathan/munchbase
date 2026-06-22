@@ -184,7 +184,8 @@ function PhotoViewer({
   const pinchStartPan = useRef({ x: 0, y: 0 });
   const pinchFocal = useRef({ x: 0, y: 0 }); // midpoint of pinch relative to stage center
   const stageRef = useRef<HTMLDivElement>(null);
-  const isPinching = useRef(false);
+  const isPinching = useRef(false); // used synchronously in touch handlers
+  const [pinching, setPinching] = useState(false); // mirrors isPinching for render
 
   // Pan refs (single finger, zoom > 1)
   const panStart = useRef<{ tx: number; ty: number; px: number; py: number } | null>(null);
@@ -203,11 +204,6 @@ function PhotoViewer({
     };
   }, []);
 
-  // Reset zoom/pan when navigating to a different photo
-  useEffect(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  }, [currentIndex]);
 
   const index = currentIndex >= 0 && currentIndex < photos.length ? currentIndex : 0;
   const photo = photos[index] ?? photos[0];
@@ -216,7 +212,11 @@ function PhotoViewer({
   const moveTo = (nextIndex: number) => {
     if (!photos.length) return;
     const bounded = (nextIndex + photos.length) % photos.length;
-    startTransition(() => setCurrentIndex(bounded));
+    startTransition(() => {
+      setCurrentIndex(bounded);
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+    });
   };
 
   function touchDist(touches: React.TouchList) {
@@ -228,6 +228,7 @@ function PhotoViewer({
   const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     if (event.touches.length === 2) {
       isPinching.current = true;
+      setPinching(true);
       swipeStartX.current = null;
       pinchStartDist.current = touchDist(event.touches);
       pinchStartZoom.current = zoom;
@@ -280,6 +281,7 @@ function PhotoViewer({
     // Pinch ended (one or both fingers lifted)
     if (isPinching.current && event.touches.length < 2) {
       isPinching.current = false;
+      setPinching(false);
       pinchStartDist.current = null;
       if (zoom < 1.15) { setZoom(1); setPan({ x: 0, y: 0 }); }
       swipeStartX.current = null;
@@ -324,7 +326,7 @@ function PhotoViewer({
     transformOrigin: "center center",
     cursor: zoom > 1 ? "grab" : "default",
     touchAction: zoom > 1 ? "none" : "pan-x",
-    transition: isPinching.current ? "none" : "transform 0.15s ease-out",
+    transition: pinching ? "none" : "transform 0.15s ease-out",
   };
 
   return (
