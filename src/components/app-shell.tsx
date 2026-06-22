@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   ClipboardList,
   Filter,
@@ -72,6 +72,7 @@ export default function AppShell({
   const [adminOpen, setAdminOpen] = useState(false);
   const [addListOpen, setAddListOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const canWrite = true;
 
   const routeListId = Number(searchParams.get("list"));
@@ -95,6 +96,17 @@ export default function AppShell({
       window.scrollTo({ top: 0, left: 0 });
     }
   }, [selectedEntryId]);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [userMenuOpen]);
 
   const activeState = useMemo(() => {
     const activeListRestaurants = activeListId
@@ -232,7 +244,7 @@ export default function AppShell({
                 <Map size={16} /> Map
               </button>
             </div>
-            <div className="user-menu-wrap">
+            <div className="user-menu-wrap" ref={userMenuRef}>
               <button
                 type="button"
                 className="ghost-button icon-button user-menu-button"

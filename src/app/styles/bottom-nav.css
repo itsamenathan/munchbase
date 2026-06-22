@@ -29,7 +29,7 @@
   background: transparent;
   color: var(--muted);
   border: 0;
-  font-size: 0.65rem;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   text-decoration: none;
   border-radius: 18px;

@@ -149,6 +149,11 @@
 
 .section-head h4 {
   margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
 }
 
 .split {
@@ -546,7 +551,7 @@ code {
 .list-nav-row.active {
   background: var(--selected-surface-strong);
   color: var(--selected-ink);
-  box-shadow: 0 12px 22px rgba(31, 63, 49, 0.18);
+  box-shadow: 0 8px 20px var(--button-hover-shadow);
 }
 
 .list-nav-row > a:first-child {

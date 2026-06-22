@@ -29,7 +29,6 @@ function emptyCustomFieldDraft(): CustomFieldDraft {
 export function AddListModal({ state, onClose }: { state: AppState; onClose: () => void }) {
   const [step, setStep] = useState<"details" | "fields" | "restaurants">("details");
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [fields, setFields] = useState<CustomFieldDraft[]>([emptyCustomFieldDraft()]);
   const [restaurantQuery, setRestaurantQuery] = useState("");
   const [selectedRestaurantIds, setSelectedRestaurantIds] = useState<number[]>([]);
@@ -68,7 +67,6 @@ export function AddListModal({ state, onClose }: { state: AppState; onClose: () 
           onSubmit={(e) => { if (step !== "restaurants") { e.preventDefault(); if (step === "details" && name.trim()) setStep("fields"); if (step === "fields") setStep("restaurants"); } }}
         >
           <input type="hidden" name="name" value={name} />
-          <input type="hidden" name="description" value={description} />
           <input type="hidden" name="customFieldsJson" value={serializedFields} />
           <input type="hidden" name="restaurantIdsJson" value={serializedRestaurantIds} />
           <div className="add-list-steps" aria-label="Add list steps">
@@ -79,7 +77,6 @@ export function AddListModal({ state, onClose }: { state: AppState; onClose: () 
           {step === "details" ? (
             <section className="stack-form">
               <input placeholder="List name" required value={name} onChange={(e) => setName(e.target.value)} />
-              <input placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
             </section>
           ) : null}
           {step === "fields" ? (

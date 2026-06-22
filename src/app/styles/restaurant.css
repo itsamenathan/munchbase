@@ -22,7 +22,7 @@
   background:
     radial-gradient(circle at 0 0, color-mix(in srgb, var(--accent) 16%, transparent), transparent 44%),
     var(--accent-soft);
-  box-shadow: 0 14px 30px rgba(31, 63, 49, 0.12);
+  box-shadow: 0 10px 26px var(--button-hover-shadow);
 }
 
 @media (min-width: 760px) {
@@ -73,10 +73,10 @@
 }
 
 .meta {
-  color: var(--warn);
+  color: var(--muted);
   white-space: nowrap;
   font-size: var(--font-size-sm);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .rating-icons {
@@ -962,225 +962,75 @@
   margin-bottom: 0;
 }
 
-.restaurant-lists-section .member-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.list-toggle-grid {
+  display: grid;
+  gap: 5px;
+}
+
+.list-toggle-form {
   margin: 0;
 }
 
-.restaurant-lists-section .list-membership-row {
-  display: inline-flex;
-  align-items: center;
-  width: auto;
-  max-width: 100%;
-  gap: 6px;
-  border-radius: 999px;
-  padding: 4px 4px 4px 10px;
-  background: color-mix(in srgb, var(--field) 78%, var(--panel));
-}
-
-.restaurant-lists-section .list-membership-row strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-size-sm);
-}
-
-.restaurant-lists-section .compact-icon-button {
-  width: 34px;
-  height: 34px;
-  min-height: 34px;
-  border-radius: 999px;
-}
-
-.restaurant-lists-section .inline-form {
-  margin-top: 0;
-}
-
-.restaurant-lists-section .list-attach-form {
-  display: grid;
-  gap: 10px;
-  margin-top: 2px;
-}
-
-.restaurant-lists-section .list-attach-card {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--panel) 94%, var(--paper)), var(--field));
-  box-shadow: 0 8px 22px rgba(34, 42, 31, 0.05);
-}
-
-.restaurant-lists-section .list-attach-copy {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.restaurant-lists-section .list-attach-copy strong {
-  font-size: var(--font-size-base);
-  color: var(--ink);
-  line-height: 1.2;
-}
-
-.restaurant-lists-section .list-attach-copy small {
-  color: var(--muted);
-  font-weight: 700;
-  font-size: var(--font-size-sm);
-}
-
-.restaurant-lists-section .list-attach-picker {
-  display: grid;
-  gap: 8px;
-}
-
-.restaurant-lists-section .list-attach-picker summary {
-  list-style: none;
-}
-
-.restaurant-lists-section .list-attach-picker summary::-webkit-details-marker {
-  display: none;
-}
-
-.restaurant-lists-section .list-attach-trigger {
+.list-toggle-btn {
   width: 100%;
-  min-height: var(--touch-target);
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
+  min-height: var(--touch-target-sm);
+  padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--panel);
-  color: var(--ink);
-  padding: 10px 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
-}
-
-.restaurant-lists-section .list-attach-trigger:hover {
-  border-color: color-mix(in srgb, var(--accent) 25%, var(--line));
-  background: color-mix(in srgb, var(--panel) 80%, var(--paper));
-}
-
-.restaurant-lists-section .list-attach-trigger:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.restaurant-lists-section .list-attach-trigger-copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.restaurant-lists-section .list-attach-trigger-copy strong {
-  font-size: var(--font-size-sm);
-  line-height: 1.2;
-}
-
-.restaurant-lists-section .list-attach-trigger-copy small {
+  background: color-mix(in srgb, var(--field) 80%, var(--panel));
   color: var(--muted);
+  font-weight: 600;
   font-size: var(--font-size-sm);
-  font-weight: 700;
-}
-
-.restaurant-lists-section .list-attach-trigger svg {
-  flex-shrink: 0;
-  color: var(--muted);
-  transition: transform 0.2s ease, color 0.2s ease;
-}
-
-.restaurant-lists-section .list-attach-picker[open] .list-attach-trigger {
-  border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
-  background: color-mix(in srgb, var(--accent) 6%, var(--panel));
-}
-
-.restaurant-lists-section .list-attach-picker[open] .list-attach-trigger svg {
-  color: var(--accent);
-  transform: rotate(180deg);
-}
-
-.restaurant-lists-section .list-attach-options {
-  display: grid;
-  gap: 8px;
-}
-
-.restaurant-lists-section .list-attach-option-form {
-  margin: 0;
-}
-
-.restaurant-lists-section .list-attach-option {
-  width: 100%;
-  min-height: var(--touch-target);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--field) 84%, var(--panel));
-  color: var(--ink);
   text-align: left;
   box-shadow: none;
 }
 
-.restaurant-lists-section .list-attach-option:hover {
-  border-color: color-mix(in srgb, var(--accent) 18%, var(--line));
-  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+@media (hover: hover) {
+  .list-toggle-btn:hover {
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+    background: color-mix(in srgb, var(--accent) 5%, var(--panel));
+    color: var(--ink);
+    box-shadow: none;
+  }
 }
 
-.restaurant-lists-section .list-attach-option:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.list-toggle-btn.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: var(--selected-surface);
+  color: var(--ink);
 }
 
-.restaurant-lists-section .list-attach-option-copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.restaurant-lists-section .list-attach-option-copy strong,
-.restaurant-lists-section .list-attach-option-copy small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.restaurant-lists-section .list-attach-option-copy strong {
-  font-size: var(--font-size-sm);
-  line-height: 1.2;
-}
-
-.restaurant-lists-section .list-attach-option-copy small {
-  color: var(--muted);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.restaurant-lists-section .list-attach-option-action {
-  min-height: 30px;
+.list-toggle-check {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
-  color: var(--accent);
-  font-size: var(--font-size-xs);
-  font-weight: 800;
-  white-space: nowrap;
+  border: 1.5px solid var(--line);
+  color: var(--muted);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
+
+.list-toggle-btn.active .list-toggle-check {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.list-toggle-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+}
+
 
 .wizard-field-list {
   display: grid;
@@ -1270,19 +1120,6 @@
 
   .compact-button {
     width: 100%;
-  }
-
-  .restaurant-lists-section .list-attach-trigger {
-    padding: 12px;
-  }
-
-  .restaurant-lists-section .list-attach-option {
-    grid-template-columns: 1fr;
-    align-items: start;
-  }
-
-  .restaurant-lists-section .list-attach-option-action {
-    justify-self: start;
   }
 
   .member-row {

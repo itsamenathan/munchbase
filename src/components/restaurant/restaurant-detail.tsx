@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ChevronDown, Pencil, Trash2 } from "lucide-react";
-import { updateEntry, saveRatings, removeRestaurantFromList, attachRestaurantToList, updateExternalLinks } from "@/app/actions";
+import { Check, Pencil, Plus } from "lucide-react";
+import { updateEntry, saveRatings, removeRestaurantFromList, attachRestaurantToList } from "@/app/actions";
 import { formatCityState } from "@/lib/address";
 import { NotePreview, NotesEditField } from "./notes";
 import { RatingSummary, AttributePreview } from "./rating-display";
@@ -10,7 +10,6 @@ import { RestaurantPhotos } from "./restaurant-photos";
 import { RATING_ICON_MAP, RATING_PRESETS, type RatingDefinition, repeatedIcon } from "./rating-common";
 import { useHaptics } from "@/hooks/use-haptics";
 import type { AppState, Restaurant } from "@/lib/types";
-import { DollarSign, Star, Undo2, Tag } from "lucide-react";
 
 function googleMapsUrl(r: Restaurant) {
   const query = [r.name, r.address].filter(Boolean).join(" ");
@@ -57,8 +56,6 @@ export function RestaurantDetail({
     { list: { id: 0, name: "Global attributes" }, definitions: globalRatingDefinitions },
     ...entry.ratingGroups,
   ];
-
-  const availableLists = lists.filter((l) => !entry.memberships.some((m) => m.id === l.id));
 
   return (
     <div className="detail-content">
@@ -128,19 +125,31 @@ export function RestaurantDetail({
       {canWrite ? (
         <section className="settings-section restaurant-lists-section">
           <div className="section-head"><h4>Lists</h4></div>
-          <div className="member-list">
-            {entry.memberships.map((m) => (
-              <form action={removeRestaurantFromList} className="member-row list-membership-row" key={m.id}>
-                <input type="hidden" name="restaurantId" value={entry.id} />
-                <input type="hidden" name="listId" value={m.id} />
-                <strong>{m.name}</strong>
-                <button className="ghost-button icon-button compact-icon-button" aria-label={`Remove ${m.name} from this restaurant`}><Trash2 size={15} /></button>
-              </form>
-            ))}
-          </div>
-          {availableLists.length ? (
-            <ListAttachPicker restaurantId={entry.id} availableLists={availableLists} />
-          ) : null}
+          {lists.length === 0 ? (
+            <p className="muted" style={{ margin: 0 }}>No lists yet.</p>
+          ) : (
+            <div className="list-toggle-grid">
+              {lists.map((list) => {
+                const inList = entry.memberships.some((m) => m.id === list.id);
+                return (
+                  <form
+                    key={list.id}
+                    action={inList ? removeRestaurantFromList : attachRestaurantToList}
+                    className="list-toggle-form"
+                  >
+                    <input type="hidden" name="restaurantId" value={entry.id} />
+                    <input type="hidden" name="listId" value={list.id} />
+                    <button type="submit" className={`list-toggle-btn${inList ? " active" : ""}`} aria-pressed={inList}>
+                      <span className="list-toggle-check" aria-hidden="true">
+                        {inList ? <Check size={13} /> : <Plus size={13} />}
+                      </span>
+                      <span className="list-toggle-name">{list.name}</span>
+                    </button>
+                  </form>
+                );
+              })}
+            </div>
+          )}
         </section>
       ) : null}
 
@@ -159,41 +168,6 @@ export function RestaurantDetail({
   );
 }
 
-function ListAttachPicker({ restaurantId, availableLists }: { restaurantId: number; availableLists: AppState["lists"] }) {
-  return (
-    <div className="list-attach-form">
-      <div className="list-attach-card">
-        <div className="list-attach-copy">
-          <strong>Add to list</strong>
-          <small>{availableLists.length} available {availableLists.length === 1 ? "list" : "lists"}</small>
-        </div>
-        <details className="list-attach-picker">
-          <summary className="list-attach-trigger">
-            <span className="list-attach-trigger-copy">
-              <strong>Choose a list</strong>
-              <small>Tap to view all lists</small>
-            </span>
-            <ChevronDown size={18} aria-hidden="true" />
-          </summary>
-          <div className="list-attach-options" role="list">
-            {availableLists.map((list) => (
-              <form action={attachRestaurantToList} className="list-attach-option-form" key={list.id}>
-                <input type="hidden" name="restaurantId" value={restaurantId} />
-                <button type="submit" className="list-attach-option" name="listId" value={list.id}>
-                  <span className="list-attach-option-copy">
-                    <strong>{list.name}</strong>
-                    {list.description?.trim() ? <small>{list.description}</small> : <small>Add this restaurant to {list.name}</small>}
-                  </span>
-                  <span className="list-attach-option-action">Add</span>
-                </button>
-              </form>
-            ))}
-          </div>
-        </details>
-      </div>
-    </div>
-  );
-}
 
 function RatingFields({ entry, groups }: { entry: Restaurant; groups: Restaurant["ratingGroups"] }) {
   const activeGroups = groups
