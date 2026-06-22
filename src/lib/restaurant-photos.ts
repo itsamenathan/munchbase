@@ -9,7 +9,10 @@ const ALLOWED_MIME_TYPES = new Map([
   ["image/webp", ".webp"],
 ]);
 
-export const MAX_PHOTO_UPLOAD_BYTES = 10 * 1024 * 1024;
+export function getMaxPhotoUploadBytes() {
+  const mb = Number(process.env.PHOTO_MAX_SIZE_MB ?? 10);
+  return (Number.isFinite(mb) && mb > 0 ? mb : 10) * 1024 * 1024;
+}
 
 export function getPhotoStorageRoot() {
   const databasePath = process.env.DATABASE_PATH ?? "./data/munchbase.db";
@@ -22,7 +25,9 @@ export function getPhotoMediaUrl(storageKey: string) {
 
 export function assertPhotoUpload(file: File | null | undefined) {
   if (!file || !file.size) throw new Error("Choose an image to upload.");
-  if (file.size > MAX_PHOTO_UPLOAD_BYTES) throw new Error("Photos must be 10 MB or smaller.");
+  const maxBytes = getMaxPhotoUploadBytes();
+  const maxMb = Math.round(maxBytes / (1024 * 1024));
+  if (file.size > maxBytes) throw new Error(`Photos must be ${maxMb} MB or smaller.`);
   const extension = ALLOWED_MIME_TYPES.get(file.type);
   if (!extension) throw new Error("Only JPEG, PNG, and WebP images are supported.");
   return extension;

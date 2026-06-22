@@ -94,9 +94,9 @@ export function RestaurantDetail({
           <div className="entry-edit-grid">
             <section className="entry-edit-section">
               <h5>Notes</h5>
-              <NotesEditField title="Order" name="standingNotes" value={standingNotes} onChange={setStandingNotes} placeholder="What to order" />
-              <NotesEditField title="Skip" name="favoriteItems" value={favoriteItems} onChange={setFavoriteItems} placeholder="What to avoid" />
-              <NotesEditField title="People" name="orderingTips" value={orderingTips} onChange={setOrderingTips} placeholder="Who likes this place or what group it fits" />
+              <NotesEditField title="What to order" name="standingNotes" value={standingNotes} onChange={setStandingNotes} placeholder="Dishes, drinks, specials worth getting" />
+              <NotesEditField title="What to avoid" name="favoriteItems" value={favoriteItems} onChange={setFavoriteItems} placeholder="Things to skip" />
+              <NotesEditField title="People" name="orderingTips" value={orderingTips} onChange={setOrderingTips} placeholder="Date night, groups, quick lunch…" />
             </section>
             <section className="entry-edit-section">
               <h5>Ratings</h5>
@@ -154,7 +154,7 @@ export function RestaurantDetail({
       ) : null}
 
       <section className="checkin-box">
-        <h4>Check-ins</h4>
+        <div className="section-head"><h4>Check-ins</h4></div>
         {entry.latestCheckIn ? (
           <div className="checkin-list">
             {entry.checkIns.map((c) => (<CheckInCard key={c.id} canWrite={canWrite} checkIn={c} />))}

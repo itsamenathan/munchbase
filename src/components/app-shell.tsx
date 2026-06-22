@@ -16,6 +16,7 @@ import {
   Sun,
   User,
   Utensils,
+  X,
 } from "lucide-react";
 import { logout } from "@/app/actions";
 import { SidebarContent } from "@/components/layout/sidebar";
@@ -359,22 +360,26 @@ export default function AppShell({
             {filtersOpen ? (
               <section className="filter-panel" id="explore-filters" aria-label="Explore filters">
                 <div className="filter-panel-head">
-                  <div>
-                    <p className="kicker">Filter</p>
-                    <h3>Ratings</h3>
-                  </div>
-                  {filterDefinition ? (
+                  <h3>Filter by ratings</h3>
+                  <div className="filter-panel-actions">
+                    {filterDefinition ? (
+                      <button
+                        type="button"
+                        className="ghost-button compact-button"
+                        onClick={() => { setFilterDefinition(""); setFilterValue(""); }}
+                      >
+                        Clear
+                      </button>
+                    ) : null}
                     <button
                       type="button"
-                      className="ghost-button compact-button"
-                      onClick={() => {
-                        setFilterDefinition("");
-                        setFilterValue("");
-                      }}
+                      className="ghost-button icon-button"
+                      onClick={() => setFiltersOpen(false)}
+                      aria-label="Close filters"
                     >
-                      Clear
+                      <X size={16} />
                     </button>
-                  ) : null}
+                  </div>
                 </div>
                 <label>
                   <span>Attribute</span>

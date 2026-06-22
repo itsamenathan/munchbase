@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useEffect, useRef, useState, type TouchEvent } from "react";
-import { ChevronLeft, ChevronRight, Pencil, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImagePlus, Pencil, Trash2, X } from "lucide-react";
 import { deleteRestaurantPhoto, updateRestaurantPhotoDescription, uploadRestaurantPhoto } from "@/app/actions";
 import { formatShortDateTime } from "@/lib/datetime";
 import { useHaptics } from "@/hooks/use-haptics";
@@ -11,6 +11,8 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
   const haptics = useHaptics();
   const uploadFormRef = useRef<HTMLFormElement>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   return (
     <section className="photo-section">
@@ -23,17 +25,32 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
         <form
           ref={uploadFormRef}
           action={async (formData) => {
-            await uploadRestaurantPhoto(formData);
-            haptics.success();
-            uploadFormRef.current?.reset();
+            setUploadError(null);
+            try {
+              await uploadRestaurantPhoto(formData);
+              haptics.success();
+              uploadFormRef.current?.reset();
+              setSelectedFileName(null);
+            } catch (err) {
+              setUploadError(err instanceof Error ? err.message : "Upload failed.");
+            }
           }}
           className="photo-upload-form"
         >
           <input type="hidden" name="restaurantId" value={entry.id} />
-          <label className="photo-upload-field">
-            <span>Add restaurant photo</span>
-            <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required />
+          <label className={`photo-upload-zone${selectedFileName ? " has-file" : ""}`}>
+            <input
+              name="photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              required
+              className="photo-upload-input"
+              onChange={(e) => { setSelectedFileName(e.target.files?.[0]?.name ?? null); setUploadError(null); }}
+            />
+            <ImagePlus size={18} />
+            <span>{selectedFileName ?? "Choose photo"}</span>
           </label>
+          {uploadError ? <p className="upload-error">{uploadError}</p> : null}
           <label className="photo-upload-field photo-upload-description">
             <span>Description</span>
             <textarea name="description" rows={2} placeholder="What is shown in this photo?" maxLength={280} />

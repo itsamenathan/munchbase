@@ -513,17 +513,16 @@
 .photo-upload-form {
   display: grid;
   gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--line);
+  padding: var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--line) 84%, transparent);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 94%, var(--paper)), var(--field));
-  box-shadow: 0 8px 22px rgba(34, 42, 31, 0.05);
+  background: color-mix(in srgb, var(--panel) 72%, var(--field));
 }
 
 .photo-upload-field {
   display: grid;
   gap: 6px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .photo-upload-field span {
@@ -531,12 +530,48 @@
   font-size: var(--font-size-sm);
 }
 
-.photo-upload-field input[type="file"] {
+.photo-upload-zone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-height: var(--touch-target);
-  padding: 10px 12px;
-  border: 1px solid var(--line);
+  padding: 10px 14px;
+  border: 1.5px dashed var(--line);
   border-radius: var(--radius);
-  background: var(--panel);
+  background: var(--field);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--muted);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.photo-upload-zone:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--field));
+}
+
+.photo-upload-zone.has-file {
+  border-color: var(--positive);
+  color: var(--positive);
+  background: color-mix(in srgb, var(--positive) 6%, var(--field));
+}
+
+.photo-upload-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.upload-error {
+  font-size: var(--font-size-sm);
+  color: var(--warn);
+  margin: 0;
 }
 
 .photo-upload-description textarea {
@@ -867,15 +902,25 @@
 }
 
 .checkin-new {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
-  align-items: end;
-  margin-top: 6px;
+  margin-top: 10px;
 }
 
-.checkin-new button {
+.checkin-new-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.checkin-datetime {
+  flex: 1;
+  min-width: 0;
+}
+
+.checkin-log-btn {
+  flex-shrink: 0;
   min-height: var(--touch-target-sm);
+  padding: 0 16px;
+  white-space: nowrap;
 }
 
 .place-search {
@@ -1047,8 +1092,9 @@
 }
 
 @media (max-width: 759px) {
-  .checkin-new {
-    grid-template-columns: 1fr;
+  .checkin-new-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .entry-edit-section .rating-grid {

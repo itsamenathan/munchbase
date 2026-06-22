@@ -859,6 +859,12 @@ code {
   font-size: var(--font-size-lg);
 }
 
+.filter-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .filter-panel label {
   display: grid;
   gap: 6px;

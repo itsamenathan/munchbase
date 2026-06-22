@@ -52,11 +52,13 @@ export function CheckInForm({ entry }: { entry: Restaurant }) {
   return (
     <form action={async (fd) => { await createCheckIn(fd); haptics.success(); }} className="checkin-new">
       <input type="hidden" name="restaurantId" value={entry.id} />
-      <label className="datetime-field">
-        <span><CalendarClock size={14} />Visit time</span>
-        <input name="visitedAt" type="datetime-local" defaultValue={localDateTimeInputValue()} />
-      </label>
-      <button>Check in</button>
+      <div className="checkin-new-row">
+        <label className="datetime-field checkin-datetime">
+          <span><CalendarClock size={14} />When</span>
+          <input name="visitedAt" type="datetime-local" defaultValue={localDateTimeInputValue()} />
+        </label>
+        <button className="checkin-log-btn">Log visit</button>
+      </div>
     </form>
   );
 }

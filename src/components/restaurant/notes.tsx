@@ -6,8 +6,8 @@ export function NotePreview({ standingNotes, favoriteItems, orderingTips }: {
   orderingTips: string;
 }) {
   const sections = [
-    ["Order", standingNotes],
-    ["Skip", favoriteItems],
+    ["What to order", standingNotes],
+    ["What to avoid", favoriteItems],
     ["People", orderingTips],
   ] as const;
   const hasNotes = sections.some(([, v]) => v.trim());
