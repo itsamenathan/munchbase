@@ -36,6 +36,4 @@ COPY --from=builder --chown=nextjs:nextjs /app/node_modules/sharp ./node_modules
 COPY --from=builder --chown=nextjs:nextjs /app/node_modules/@img ./node_modules/@img
 USER nextjs
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -qO- http://localhost:3000/api/health || exit 1
 CMD ["node", "server.js"]
