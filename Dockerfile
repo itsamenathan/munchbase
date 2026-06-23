@@ -1,7 +1,10 @@
 FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# Install deps, then force-install the musl sharp binary regardless of what
+# the lockfile (generated on macOS) recorded for the optional platform packages.
+RUN npm ci && \
+    npm install --os=linux --libc=musl --cpu=x64 sharp
 
 FROM node:26-alpine AS builder
 WORKDIR /app
@@ -19,6 +22,9 @@ RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+# Next.js standalone omits sharp's native @img modules — copy them explicitly.
+COPY --from=builder /app/node_modules/sharp ./node_modules/sharp
+COPY --from=builder /app/node_modules/@img ./node_modules/@img
 RUN mkdir -p /data && chown nextjs:nextjs /data
 USER nextjs
 EXPOSE 3000
