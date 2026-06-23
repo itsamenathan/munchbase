@@ -1,7 +1,8 @@
-import { login, setup, signup } from "../actions";
+import { setup, signup } from "../actions";
 import { currentUser } from "@/lib/auth";
 import { getAppState, getDb, userCount } from "@/lib/db";
 import AppShell from "@/components/app-shell";
+import { LoginForm } from "@/components/auth/login-form";
 
 export default async function AuthenticatedAppLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
@@ -27,11 +28,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   if (!user) {
     return (
       <AuthFrame title="Munchbase" subtitle="Your private map of places worth remembering.">
-        <form action={login} className="auth-form">
-          <input name="email" type="email" placeholder="Email" required />
-          <input name="password" type="password" placeholder="Password" required />
-          <button>Sign in</button>
-        </form>
+        <LoginForm />
         {selfSignupEnabled ? (
           <details className="signup-panel" style={{ marginTop: "16px" }}>
             <summary style={{ cursor: "pointer", fontWeight: 700, minHeight: "44px", display: "inline-flex", alignItems: "center" }}>Create an account</summary>

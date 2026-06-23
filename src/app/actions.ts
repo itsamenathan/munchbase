@@ -110,15 +110,23 @@ export async function signup(formData: FormData) {
   redirect("/");
 }
 
-export async function login(formData: FormData) {
+export type LoginState = {
+  error?: string;
+};
+
+export async function login(_state: LoginState, formData: FormData): Promise<LoginState> {
   const ip = await clientIp();
-  checkRateLimit(`login:${ip}`, 10, 15 * 60 * 1000);
+  try {
+    checkRateLimit(`login:${ip}`, 10, 15 * 60 * 1000);
+  } catch {
+    return { error: "Too many sign-in attempts. Try again later." };
+  }
   const email = text(formData, "email").toLowerCase();
   const password = text(formData, "password");
   const user = getUserByEmail(email);
   if (!user || !user.active || !(await verifyPassword(password, user.passwordHash))) {
     logger.warn("Failed login attempt", { email, ip });
-    throw new Error("Invalid email or password.");
+    return { error: "Invalid email or password." };
   }
   logger.info("User logged in", { userId: user.id, email, ip });
   await createSession(user.id);
