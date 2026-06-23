@@ -22,6 +22,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_PATH=/data/munchbase.db
+ENV HOSTNAME=0.0.0.0
 # Create user and data dir in one layer.
 RUN addgroup -S nextjs && adduser -S nextjs -G nextjs && \
     mkdir -p /data && chown nextjs:nextjs /data
