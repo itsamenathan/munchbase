@@ -1,0 +1,43 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { createSession, verifyPassword } from "@/lib/auth";
+import { getUserByEmail } from "@/lib/db";
+import { logger } from "@/lib/logger";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+function text(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function clientIp(request: NextRequest) {
+  return request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? request.headers.get("x-real-ip") ?? "unknown";
+}
+
+function redirectTo(request: NextRequest, path: string) {
+  const proto = request.headers.get("x-forwarded-proto") ?? new URL(request.url).protocol.replace(":", "");
+  const host = request.headers.get("host") ?? new URL(request.url).host;
+  return NextResponse.redirect(`${proto}://${host}${path}`);
+}
+
+export async function POST(request: NextRequest) {
+  const ip = clientIp(request);
+  try {
+    checkRateLimit(`login:${ip}`, 10, 15 * 60 * 1000);
+  } catch {
+    return redirectTo(request, "/explore?loginError=rate_limited");
+  }
+
+  const formData = await request.formData();
+  const email = text(formData, "email").toLowerCase();
+  const password = text(formData, "password");
+  const user = getUserByEmail(email);
+
+  if (!user || !user.active || !(await verifyPassword(password, user.passwordHash))) {
+    logger.warn("Failed login attempt", { email, ip });
+    return redirectTo(request, "/explore?loginError=invalid");
+  }
+
+  logger.info("User logged in", { userId: user.id, email, ip });
+  await createSession(user.id);
+  return redirectTo(request, "/explore");
+}

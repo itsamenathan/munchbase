@@ -17,6 +17,9 @@ docker compose up -d
 
 On first visit, you'll be prompted to create an admin account.
 
+When using Docker Compose, values in `.env` are expanded into `docker-compose.yml`.
+For production, set `APP_ORIGIN` to the exact public HTTPS URL before starting the container.
+
 ## HTTPS (required)
 
 Session cookies require HTTPS in production. The app listens on port 3000 — put a TLS-terminating reverse proxy in front of it.
@@ -53,7 +56,7 @@ Copy `.env.example` to `.env` and fill in:
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_PATH` | yes | Absolute path to the SQLite file (e.g. `/data/munchbase.db`) |
-| `APP_ORIGIN` | yes | Your public URL — **must be `https://`** (e.g. `https://munchbase.example.com`) |
+| `APP_ORIGIN` | yes | Your public URL — **must be `https://` in production** (e.g. `https://munchbase.example.com`) |
 | `OSM_USER_AGENT` | yes | Required by OSM Terms of Service — set to your app name/URL |
 | `PHOTO_MAX_SIZE_MB` | no | Max photo upload size in MB (default: 10) |
 | `NEXT_PUBLIC_TILE_URL` | no | Map tile URL template (default: OpenStreetMap) |

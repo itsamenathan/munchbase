@@ -1,23 +1,26 @@
 "use client";
 
-import { useActionState } from "react";
-import { login, type LoginState } from "@/app/actions";
+import { useSearchParams } from "next/navigation";
 
-const initialState: LoginState = {};
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid: "Invalid email or password.",
+  rate_limited: "Too many sign-in attempts. Try again later.",
+};
 
 export function LoginForm() {
-  const [state, formAction, isPending] = useActionState(login, initialState);
+  const searchParams = useSearchParams();
+  const error = ERROR_MESSAGES[searchParams.get("loginError") ?? ""];
 
   return (
-    <form action={formAction} className="auth-form">
+    <form action="/login" method="post" className="auth-form">
       <input name="email" type="email" placeholder="Email" required autoComplete="email" />
       <input name="password" type="password" placeholder="Password" required autoComplete="current-password" />
-      {state.error ? (
+      {error ? (
         <p className="form-error" role="alert">
-          {state.error}
+          {error}
         </p>
       ) : null}
-      <button disabled={isPending}>{isPending ? "Signing in..." : "Sign in"}</button>
+      <button>Sign in</button>
     </form>
   );
 }

@@ -4,10 +4,11 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_PATH: /data/munchbase.db
-      APP_ORIGIN: http://localhost:3000
-      OSM_USER_AGENT: munchbase/0.1 (self-hosted restaurant tracker)
-      NEXT_PUBLIC_TILE_URL: https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
+      DATABASE_PATH: ${DATABASE_PATH:-/data/munchbase.db}
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN to your public https:// URL}
+      OSM_USER_AGENT: ${OSM_USER_AGENT:?Set OSM_USER_AGENT to identify your Munchbase instance}
+      NEXT_PUBLIC_TILE_URL: ${NEXT_PUBLIC_TILE_URL:-https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png}
+      PHOTO_MAX_SIZE_MB: ${PHOTO_MAX_SIZE_MB:-10}
     volumes:
       - munchbase-data:/data
     restart: unless-stopped
