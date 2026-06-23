@@ -1,5 +1,4 @@
 import { Shield, Users, X } from "lucide-react";
-import { createUser, setUserActive, updateSelfSignup } from "@/app/actions";
 import { PanelTitle } from "@/components/shared/panel-title";
 import type { AppState } from "@/lib/types";
 
@@ -17,7 +16,8 @@ export function AdminDrawer({ state, onClose }: { state: AppState; onClose: () =
 
         <section className="settings-section">
           <PanelTitle icon={<Shield size={17} />} title="Self-signup" detail="When enabled, anyone who can reach this site can create an account." />
-          <form action={updateSelfSignup} className="inline-form">
+          <form action="/mutate" method="post" className="inline-form">
+            <input type="hidden" name="__action" value="updateSelfSignup" />
             <select name="selfSignupEnabled" defaultValue={state.appSettings.selfSignupEnabled ? "1" : "0"}>
               <option value="0">Disabled</option>
               <option value="1">Enabled</option>
@@ -28,7 +28,8 @@ export function AdminDrawer({ state, onClose }: { state: AppState; onClose: () =
 
         <section className="settings-section">
           <PanelTitle icon={<Users size={17} />} title="Create user" detail="Create an account directly. Active users can edit all restaurant data." />
-          <form action={createUser} className="stack-form">
+          <form action="/mutate" method="post" className="stack-form">
+            <input type="hidden" name="__action" value="createUser" />
             <input name="name" placeholder="Name" required />
             <input name="email" type="email" placeholder="Email" required />
             <input name="password" type="password" placeholder="Temporary password, 8+ chars" minLength={8} required />
@@ -44,7 +45,8 @@ export function AdminDrawer({ state, onClose }: { state: AppState; onClose: () =
           <PanelTitle icon={<Users size={17} />} title="Existing users" detail="Deactivate users instead of deleting history." />
           <div className="member-list">
             {state.users.map((u) => (
-              <form action={setUserActive} className="member-row" key={u.id}>
+              <form action="/mutate" method="post" className="member-row" key={u.id}>
+                <input type="hidden" name="__action" value="setUserActive" />
                 <input type="hidden" name="userId" value={u.id} />
                 <input type="hidden" name="active" value={u.active ? "0" : "1"} />
                 <div><strong>{u.name}</strong><small>{u.email} - {u.role}</small></div>

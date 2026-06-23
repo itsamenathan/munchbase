@@ -16,7 +16,6 @@ import {
   Utensils,
   X,
 } from "lucide-react";
-import { logout } from "@/app/actions";
 import { SidebarContent } from "@/components/layout/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { AddRestaurantsPanel } from "@/components/search/add-restaurants";
@@ -272,7 +271,7 @@ export default function AppShell({
                       <Shield size={16} /> Admin
                     </button>
                   ) : null}
-                  <form action={logout}>
+                  <form action="/logout" method="post">
                     <button className="ghost-button">
                       <LogOut size={16} /> Sign out
                     </button>

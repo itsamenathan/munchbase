@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ListChecks, Search, SlidersHorizontal, Star, Tag, ToggleRight, Trash2, X } from "lucide-react";
-import { createRatingDefinition, deleteRatingField, setRatingPresetEnabled, updateRatingFieldActive, updateListDetails } from "@/app/actions";
 import { RATING_PRESETS } from "@/lib/ratings";
 import { RATING_ICON_MAP, RATING_ICON_CHOICES } from "@/components/restaurant/rating-common";
 import { PanelTitle } from "@/components/shared/panel-title";
@@ -95,7 +94,8 @@ export function ListSettingsDrawer({ state, onClose }: { state: AppState; onClos
                   const d = state.globalRatingDefinitions.find((item) => item.presetKey === preset.key);
                   const enabled = d?.active ?? false;
                   return (
-                    <form action={setRatingPresetEnabled} className={`preset-card ${enabled ? "enabled" : ""}`} key={preset.key}>
+                    <form action="/mutate" method="post" className={`preset-card ${enabled ? "enabled" : ""}`} key={preset.key}>
+                      <input type="hidden" name="__action" value="setRatingPresetEnabled" />
                       <input type="hidden" name="presetKey" value={preset.key} />
                       <input type="hidden" name="enabled" value={enabled ? "0" : "1"} />
                       <div><strong>{preset.name}</strong><small>{presetDescription(preset.key)}</small></div>
@@ -117,7 +117,8 @@ export function ListSettingsDrawer({ state, onClose }: { state: AppState; onClos
           <>
             <section className="settings-section">
               <PanelTitle icon={<Star size={17} />} title="List details" detail="Rename this list." />
-              <form action={updateListDetails} className="stack-form">
+              <form action="/mutate" method="post" className="stack-form">
+                <input type="hidden" name="__action" value="updateListDetails" />
                 <input type="hidden" name="listId" value={state.activeList.id} />
                 <input name="name" defaultValue={state.activeList.name} required />
                 <button>Save list details</button>
@@ -145,12 +146,14 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
             <small>{fieldDescription(d)}</small>
           </div>
           <div className="attribute-card-actions">
-            <form action={updateRatingFieldActive}>
+            <form action="/mutate" method="post">
+              <input type="hidden" name="__action" value="updateRatingFieldActive" />
               <input type="hidden" name="definitionId" value={d.id} />
               <input type="hidden" name="active" value={d.active ? "0" : "1"} />
               <button className="compact-button">{d.active ? "Disable" : "Enable"}</button>
             </form>
-            <form action={deleteRatingField}>
+            <form action="/mutate" method="post">
+              <input type="hidden" name="__action" value="deleteRatingField" />
               <input type="hidden" name="definitionId" value={d.id} />
               <button className="ghost-button icon-button compact-icon-button" aria-label={`Remove ${d.name}`} title={`Remove ${d.name}`}>
                 <Trash2 size={15} />
@@ -174,13 +177,10 @@ function AddCustomFieldForm({ scope, listId }: { scope: "global" | "list"; listI
       </button>
       {open ? (
         <form
-          action={async (formData) => {
-            await createRatingDefinition(formData);
-            setField(emptyCustomFieldDraft());
-            setOpen(false);
-          }}
+          action="/mutate" method="post"
           className="stack-form"
         >
+          <input type="hidden" name="__action" value="createRatingDefinition" />
           <input type="hidden" name="scope" value={scope} />
           {listId ? <input type="hidden" name="listId" value={listId} /> : null}
           <CustomFieldControls field={field} onChange={(p) => setField((c) => ({ ...c, ...p }))} includeNames />

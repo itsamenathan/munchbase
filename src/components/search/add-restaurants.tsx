@@ -2,7 +2,6 @@
 
 import { type FormEvent, type ReactNode } from "react";
 import { Crosshair, MapPin, Plus, Search } from "lucide-react";
-import { addRestaurant, attachRestaurantToList } from "@/app/actions";
 import { restaurantHref } from "@/lib/routes";
 import type { AppState } from "@/lib/types";
 
@@ -20,7 +19,8 @@ export function ManualRestaurantForm({ listId }: { listId: number | null }) {
   return (
     <details className="manual-add">
       <summary>Add manually instead</summary>
-      <form action={addRestaurant} className="stack-form">
+      <form action="/mutate" method="post" className="stack-form">
+        <input type="hidden" name="__action" value="addRestaurant" />
         {listId ? <input type="hidden" name="listId" value={listId} /> : null}
         <input name="name" placeholder="Restaurant name" required />
         <input name="address" placeholder="Address" />
@@ -96,7 +96,8 @@ export function AddRestaurantsPanel({
                 ? r.memberships.some((m) => m.id === state.activeListId)
                 : true;
               return (
-                <form action={state.activeListId && !alreadyInList ? attachRestaurantToList : undefined} className="place-result" key={r.id}>
+                <form action={state.activeListId && !alreadyInList ? "/mutate" : undefined} method="post" className="place-result" key={r.id}>
+                  <input type="hidden" name="__action" value="attachRestaurantToList" />
                   <input type="hidden" name="restaurantId" value={r.id} />
                   {state.activeListId ? <input type="hidden" name="listId" value={state.activeListId} /> : null}
                   <button type={state.activeListId && !alreadyInList ? "submit" : "button"} onClick={() => {
@@ -117,7 +118,8 @@ export function AddRestaurantsPanel({
           <h4 className="add-section-label"><MapPin size={14} /> From OpenStreetMap</h4>
           <div className="add-results-list">
             {placeResults.map((place) => (
-              <form action={addRestaurant} className="place-result" key={`${place.osmType}-${place.osmId}`}>
+              <form action="/mutate" method="post" className="place-result" key={`${place.osmType}-${place.osmId}`}>
+                <input type="hidden" name="__action" value="addRestaurant" />
                 {state.activeListId ? <input type="hidden" name="listId" value={state.activeListId} /> : null}
                 {Object.entries(place).map(([k, v]) => (<input key={k} type="hidden" name={k} value={v} />))}
                 <button>

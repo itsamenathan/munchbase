@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Plus, Search, X } from "lucide-react";
-import { createList } from "@/app/actions";
 import { CustomFieldControls } from "@/components/lists/list-settings";
 import type { AppState, RatingDefinition } from "@/lib/types";
 
@@ -62,10 +61,11 @@ export function AddListModal({ state, onClose }: { state: AppState; onClose: () 
           <button className="ghost-button icon-button" onClick={onClose} aria-label="Close add list"><X size={18} /></button>
         </header>
         <form
-          action={createList}
+          action="/mutate" method="post"
           className="add-list-form"
           onSubmit={(e) => { if (step !== "restaurants") { e.preventDefault(); if (step === "details" && name.trim()) setStep("fields"); if (step === "fields") setStep("restaurants"); } }}
         >
+          <input type="hidden" name="__action" value="createList" />
           <input type="hidden" name="name" value={name} />
           <input type="hidden" name="customFieldsJson" value={serializedFields} />
           <input type="hidden" name="restaurantIdsJson" value={serializedRestaurantIds} />

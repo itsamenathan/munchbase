@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { LogOut, Plus, Settings, Utensils } from "lucide-react";
-import { logout } from "@/app/actions";
 import { tabHref } from "@/lib/routes";
 import type { AppState } from "@/lib/types";
 
@@ -90,7 +89,7 @@ export function SidebarContent({
         <Plus size={16} /> Add List
       </button>
       {showAccountActions ? (
-        <form action={logout}>
+        <form action="/logout" method="post">
           <button className="ghost-button">
             <LogOut size={16} /> Sign out
           </button>

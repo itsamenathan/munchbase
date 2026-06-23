@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Check, Pencil, Plus } from "lucide-react";
-import { updateEntry, saveRatings, removeRestaurantFromList, attachRestaurantToList } from "@/app/actions";
 import { formatCityState } from "@/lib/address";
 import { NotePreview, NotesEditField } from "./notes";
 import { RatingSummary, AttributePreview } from "./rating-display";
@@ -8,7 +7,6 @@ import { RatingInput } from "./rating-input";
 import { CheckInCard, CheckInForm } from "./checkin";
 import { RestaurantPhotos } from "./restaurant-photos";
 import { RATING_ICON_MAP, RATING_PRESETS, type RatingDefinition, repeatedIcon } from "./rating-common";
-import { useHaptics } from "@/hooks/use-haptics";
 import type { AppState, Restaurant } from "@/lib/types";
 
 function googleMapsUrl(r: Restaurant) {
@@ -37,7 +35,6 @@ export function RestaurantDetail({
   ratingDefinitions: RatingDefinition[];
   initialEdit: boolean;
 }) {
-  const haptics = useHaptics();
   const [entryMode, setEntryMode] = useState<"edit" | "preview">(initialEdit && canWrite ? "edit" : "preview");
   const [standingNotes, setStandingNotes] = useState(entry.standingNotes ?? "");
   const [favoriteItems, setFavoriteItems] = useState(entry.favoriteItems ?? "");
@@ -87,9 +84,10 @@ export function RestaurantDetail({
       {canWrite && entryMode === "edit" ? (
         <>
           <form
-            action={async (fd) => { await updateEntry(fd); await saveRatings(fd); haptics.success(); setEntryMode("preview"); }}
+            action="/mutate" method="post"
             className="entry-edit-form"
           >
+            <input type="hidden" name="__action" value="updateEntryAndRatings" />
             <input type="hidden" name="restaurantId" value={entry.id} />
             <div className="section-head"><h4>Edit notes and ratings</h4></div>
             <div className="entry-edit-grid">
@@ -118,7 +116,8 @@ export function RestaurantDetail({
                 {lists.map((list) => {
                   const inList = entry.memberships.some((m) => m.id === list.id);
                   return (
-                    <form key={list.id} action={inList ? removeRestaurantFromList : attachRestaurantToList} className="list-toggle-form">
+                    <form key={list.id} action="/mutate" method="post" className="list-toggle-form">
+                      <input type="hidden" name="__action" value={inList ? "removeRestaurantFromList" : "attachRestaurantToList"} />
                       <input type="hidden" name="restaurantId" value={entry.id} />
                       <input type="hidden" name="listId" value={list.id} />
                       <button type="submit" className={`list-toggle-btn${inList ? " active" : ""}`} aria-pressed={inList}>

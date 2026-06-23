@@ -1,4 +1,3 @@
-import { setup, signup } from "../actions";
 import { currentUser } from "@/lib/auth";
 import { getAppState, getDb, userCount } from "@/lib/db";
 import AppShell from "@/components/app-shell";
@@ -15,7 +14,8 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   if (!hasUsers) {
     return (
       <AuthFrame title="Create your Munchbase" subtitle="First account becomes the admin and gets a starter list.">
-        <form action={setup} className="auth-form">
+        <form action="/mutate" method="post" className="auth-form">
+          <input type="hidden" name="__action" value="setup" />
           <input name="name" placeholder="Name" required />
           <input name="email" type="email" placeholder="Email" required />
           <input name="password" type="password" placeholder="Password, 8+ chars" required minLength={8} />
@@ -32,7 +32,8 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
         {selfSignupEnabled ? (
           <details className="signup-panel" style={{ marginTop: "16px" }}>
             <summary style={{ cursor: "pointer", fontWeight: 700, minHeight: "44px", display: "inline-flex", alignItems: "center" }}>Create an account</summary>
-            <form action={signup} className="auth-form" style={{ marginTop: "12px" }}>
+            <form action="/mutate" method="post" className="auth-form" style={{ marginTop: "12px" }}>
+              <input type="hidden" name="__action" value="signup" />
               <input name="name" placeholder="Name" required />
               <input name="email" type="email" placeholder="Email" required />
               <input name="password" type="password" placeholder="Password, 8+ chars" required minLength={8} />

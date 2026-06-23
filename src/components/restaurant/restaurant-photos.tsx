@@ -2,14 +2,10 @@
 
 import { startTransition, useEffect, useRef, useState, type TouchEvent } from "react";
 import { ChevronLeft, ChevronRight, ImagePlus, Pencil, Trash2, X } from "lucide-react";
-import { deleteRestaurantPhoto, updateRestaurantPhotoDescription, uploadRestaurantPhoto } from "@/app/actions";
 import { formatShortDateTime } from "@/lib/datetime";
-import { useHaptics } from "@/hooks/use-haptics";
 import type { Restaurant, RestaurantPhoto } from "@/lib/types";
 
 export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry: Restaurant }) {
-  const haptics = useHaptics();
-  const uploadFormRef = useRef<HTMLFormElement>(null);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -23,20 +19,10 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
 
       {canWrite ? (
         <form
-          ref={uploadFormRef}
-          action={async (formData) => {
-            setUploadError(null);
-            try {
-              await uploadRestaurantPhoto(formData);
-              haptics.success();
-              uploadFormRef.current?.reset();
-              setSelectedFileName(null);
-            } catch (err) {
-              setUploadError(err instanceof Error ? err.message : "Upload failed.");
-            }
-          }}
+          action="/mutate" method="post"
           className="photo-upload-form"
         >
+          <input type="hidden" name="__action" value="uploadRestaurantPhoto" />
           <input type="hidden" name="restaurantId" value={entry.id} />
           <label className={`photo-upload-zone${selectedFileName ? " has-file" : ""}`}>
             <input
@@ -103,7 +89,6 @@ function PhotoCard({
   onOpen: () => void;
   onDelete: () => void;
 }) {
-  const haptics = useHaptics();
   const [editing, setEditing] = useState(false);
   const [description, setDescription] = useState(photo.description ?? "");
 
@@ -118,12 +103,9 @@ function PhotoCard({
             <Pencil size={14} />
           </button>
           <form
-            action={async (formData) => {
-              await deleteRestaurantPhoto(formData);
-              haptics.success();
-              onDelete();
-            }}
+            action="/mutate" method="post"
           >
+            <input type="hidden" name="__action" value="deleteRestaurantPhoto" />
             <input type="hidden" name="photoId" value={photo.id} />
             <button type="submit" className="ghost-button icon-button compact-icon-button photo-delete-button" aria-label="Delete photo">
               <Trash2 size={14} />
@@ -133,13 +115,10 @@ function PhotoCard({
       ) : null}
       {editing ? (
         <form
-          action={async (formData) => {
-            await updateRestaurantPhotoDescription(formData);
-            haptics.success();
-            setEditing(false);
-          }}
+          action="/mutate" method="post"
           className="photo-card-edit"
         >
+          <input type="hidden" name="__action" value="updateRestaurantPhotoDescription" />
           <input type="hidden" name="photoId" value={photo.id} />
           <label className="photo-upload-field">
             <span>Description</span>

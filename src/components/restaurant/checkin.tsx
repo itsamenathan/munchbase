@@ -1,19 +1,17 @@
 import { useState } from "react";
 import { CalendarClock, Pencil, Trash2 } from "lucide-react";
 import { formatShortDateTime, localDateTimeInputValue } from "@/lib/datetime";
-import { deleteCheckIn, updateCheckIn, createCheckIn } from "@/app/actions";
-import { useHaptics } from "@/hooks/use-haptics";
 import type { CheckIn } from "@/lib/types";
 import type { Restaurant } from "@/lib/types";
 
 export function CheckInCard({ canWrite, checkIn }: { canWrite: boolean; checkIn: CheckIn }) {
-  const haptics = useHaptics();
   const [mode, setMode] = useState<"preview" | "edit">("preview");
   const [visitedAt, setVisitedAt] = useState(checkIn.visitedAt);
 
   if (mode === "edit") {
     return (
-      <form action={async (fd) => { await updateCheckIn(fd); haptics.success(); setMode("preview"); }} className="checkin-card checkin-card-editing">
+      <form action="/mutate" method="post" className="checkin-card checkin-card-editing">
+        <input type="hidden" name="__action" value="updateCheckIn" />
         <input type="hidden" name="checkInId" value={checkIn.id} />
         <div className="checkin-meta">
           <strong>{checkIn.authorName}</strong>
@@ -22,7 +20,6 @@ export function CheckInCard({ canWrite, checkIn }: { canWrite: boolean; checkIn:
         <div className="checkin-actions">
           <button>Save</button>
           <button type="button" className="ghost-button" onClick={() => { setVisitedAt(checkIn.visitedAt); setMode("preview"); }}>Cancel</button>
-          <button formAction={deleteCheckIn} className="danger-button icon-only" aria-label="Delete check-in" onClick={() => navigator.vibrate?.([10, 50, 10])}><Trash2 size={16} /></button>
         </div>
       </form>
     );
@@ -36,7 +33,8 @@ export function CheckInCard({ canWrite, checkIn }: { canWrite: boolean; checkIn:
         {canWrite ? (
           <div className="checkin-actions">
             <button type="button" className="ghost-button icon-button" onClick={() => setMode("edit")} aria-label="Edit check-in"><Pencil size={16} /></button>
-            <form action={deleteCheckIn} className="inline-form">
+            <form action="/mutate" method="post" className="inline-form">
+              <input type="hidden" name="__action" value="deleteCheckIn" />
               <input type="hidden" name="checkInId" value={checkIn.id} />
               <button className="ghost-button icon-only" aria-label="Delete check-in" onClick={() => navigator.vibrate?.([10, 50, 10])}><Trash2 size={16} /></button>
             </form>
@@ -48,9 +46,9 @@ export function CheckInCard({ canWrite, checkIn }: { canWrite: boolean; checkIn:
 }
 
 export function CheckInForm({ entry }: { entry: Restaurant }) {
-  const haptics = useHaptics();
   return (
-    <form action={async (fd) => { await createCheckIn(fd); haptics.success(); }} className="checkin-new">
+    <form action="/mutate" method="post" className="checkin-new">
+      <input type="hidden" name="__action" value="createCheckIn" />
       <input type="hidden" name="restaurantId" value={entry.id} />
       <div className="checkin-new-row">
         <label className="datetime-field checkin-datetime">
