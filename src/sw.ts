@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import { NetworkOnly, Serwist } from "serwist";
+import { Serwist } from "serwist";
 
 declare const self: ServiceWorkerGlobalScope & {
   __MUNCHBASE_MANIFEST: Array<
@@ -21,17 +21,20 @@ const serwist = new Serwist({
   disableDevLogs: true,
 });
 
-// Next.js RSC navigation fetches include these headers. If the service worker
-// serves a cached HTML response to these requests, Next.js sees the wrong
-// content-type and throws "An unexpected response was received from the server."
-// Always go network-only for RSC requests.
-serwist.registerRoute(
-  ({ request }) =>
-    request.headers.has("RSC") ||
-    request.headers.has("Next-Router-State-Tree") ||
-    request.headers.has("Next-Router-Prefetch"),
-  new NetworkOnly(),
-);
+// Next.js RSC navigation fetches carry these headers. If the service worker
+// serves a cached HTML response to them, Next.js sees the wrong content-type
+// and throws "An unexpected response was received from the server."
+// Register our listener first so it wins the respondWith race for RSC requests;
+// non-RSC requests fall through to Serwist's listener unchanged.
+self.addEventListener("fetch", (event) => {
+  if (
+    event.request.headers.has("RSC") ||
+    event.request.headers.has("Next-Router-State-Tree") ||
+    event.request.headers.has("Next-Router-Prefetch")
+  ) {
+    event.respondWith(fetch(event.request));
+  }
+});
 
 serwist.addEventListeners();
 
