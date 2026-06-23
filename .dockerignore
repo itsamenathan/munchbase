@@ -1,0 +1,17 @@
+node_modules
+.next
+data
+.env
+.env.local
+.env.development
+.env.production
+.git
+.claude
+.agents
+coverage
+trace-*.json
+*.db
+*.sqlite
+*.db-journal
+*.db-wal
+*.db-shm
