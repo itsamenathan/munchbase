@@ -64,7 +64,7 @@ export default function AppShell({
   const [placeQuery, setPlaceQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const [placeSearchStatus, setPlaceSearchStatus] = useState("");
-  const [useCurrentLocation, setUseCurrentLocation] = useState(false);
+  const [useCurrentLocation, setUseCurrentLocation] = useState(true);
   const [locationStatus, setLocationStatus] = useState("");
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
