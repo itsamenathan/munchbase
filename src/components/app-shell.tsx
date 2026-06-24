@@ -64,7 +64,7 @@ export default function AppShell({
   const [placeQuery, setPlaceQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const [placeSearchStatus, setPlaceSearchStatus] = useState("");
-  const [useCurrentLocation, setUseCurrentLocation] = useState(true);
+  const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [locationStatus, setLocationStatus] = useState("");
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -203,7 +203,19 @@ export default function AppShell({
     return null;
   }
 
+  async function handleUseCurrentLocation(value: boolean) {
+    setUseCurrentLocation(value);
+    if (!value) {
+      setLocationCoords(null);
+      setLocationStatus("");
+      return;
+    }
+    setLocationStatus("Requesting location...");
+    await requestCurrentLocation();
+  }
+
   const activeListName = activeState.activeList?.name ?? "All restaurants";
+  const mutationMessage = searchParams.get("message");
 
   const openListSettings = (listId: number | null) => {
     router.push(listSettingsHref(listId), { scroll: false });
@@ -226,6 +238,11 @@ export default function AppShell({
       </aside>
 
       <section className="workbench">
+        {mutationMessage ? (
+          <p className="mutation-error" role="alert">
+            {mutationMessage}
+          </p>
+        ) : null}
         <header className="topbar">
           <div className="topbar-title">
             <Link href={tabHref("list", activeState.activeListId)} className="topbar-brand" aria-label="Munchbase home">
@@ -325,7 +342,7 @@ export default function AppShell({
                 placeSearchStatus={placeSearchStatus}
                 locationStatus={locationStatus}
                 useCurrentLocation={useCurrentLocation}
-                setUseCurrentLocation={setUseCurrentLocation}
+                setUseCurrentLocation={handleUseCurrentLocation}
                 searchPlaces={searchPlaces}
               />
             </section>
@@ -500,7 +517,7 @@ export default function AppShell({
             placeSearchStatus={placeSearchStatus}
             locationStatus={locationStatus}
             useCurrentLocation={useCurrentLocation}
-            setUseCurrentLocation={setUseCurrentLocation}
+              setUseCurrentLocation={handleUseCurrentLocation}
             searchPlaces={searchPlaces}
           />
         </aside>

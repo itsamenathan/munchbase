@@ -1,23 +1,13 @@
-"use server";
-
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import { createSession, currentUser, destroySession, hashPassword, verifyPassword } from "@/lib/auth";
+import { createSession, currentUser, hashPassword } from "@/lib/auth";
 import { localDateTimeInputValue } from "@/lib/datetime";
-import { getDb, getUserByEmail, userCount } from "@/lib/db";
-import { logger } from "@/lib/logger";
+import { getDb, userCount } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { normalizeExternalUrl } from "@/lib/external-links";
 import { deletePhotoFiles, saveRestaurantPhotoFiles } from "@/lib/restaurant-photos";
 import { normalizeRatingDefinition, presetByKey, validateRatingValue } from "@/lib/ratings";
 import { restaurantHref, tabHref } from "@/lib/routes";
 import type { RatingDefinition, RatingPresetKey, RatingType } from "@/lib/types";
-
-async function clientIp() {
-  const h = await headers();
-  return h.get("x-forwarded-for")?.split(",")[0].trim() ?? h.get("x-real-ip") ?? "unknown";
-}
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -51,6 +41,18 @@ function revalidateApp() {
   revalidatePath("/", "layout");
 }
 
+export type MutationContext = { ip: string };
+export type MutationResult = { redirectTo?: string } | void;
+
+export class MutationError extends Error {
+  constructor(
+    message: string,
+    public readonly code = "invalid",
+  ) {
+    super(message);
+  }
+}
+
 function parseRestaurantIds(json: string) {
   if (!json) return [];
   let raw: unknown;
@@ -67,12 +69,12 @@ function parseRestaurantIds(json: string) {
 
 async function requireUser() {
   const user = await currentUser();
-  if (!user) redirect("/");
+  if (!user) throw new MutationError("Sign in to continue.", "auth");
   return user;
 }
 
-export async function setup(formData: FormData) {
-  const ip = await clientIp();
+export async function setup(formData: FormData, context: MutationContext) {
+  const ip = context.ip;
   checkRateLimit(`setup:${ip}`, 5, 60 * 60 * 1000);
   if (userCount().count > 0) throw new Error("Setup is already complete.");
   const name = text(formData, "name");
@@ -88,11 +90,11 @@ export async function setup(formData: FormData) {
   db.prepare("INSERT INTO lists (name, description, created_by) VALUES ('Places to Eat', 'Default shared list', ?)").run(userId);
   db.prepare("INSERT OR IGNORE INTO app_settings (id, self_signup_enabled) VALUES (1, 0)").run();
   await createSession(userId);
-  redirect("/");
+  return { redirectTo: "/explore" };
 }
 
-export async function signup(formData: FormData) {
-  const ip = await clientIp();
+export async function signup(formData: FormData, context: MutationContext) {
+  const ip = context.ip;
   checkRateLimit(`signup:${ip}`, 5, 60 * 60 * 1000);
   const db = getDb();
   const settings = db
@@ -107,12 +109,7 @@ export async function signup(formData: FormData) {
     .prepare("INSERT INTO users (name, email, password_hash, role, active) VALUES (?, ?, ?, 'user', 1)")
     .run(name, email, await hashPassword(password));
   await createSession(Number(result.lastInsertRowid));
-  redirect("/");
-}
-
-export async function logout() {
-  await destroySession();
-  redirect("/");
+  return { redirectTo: "/explore" };
 }
 
 async function requireAdmin() {
@@ -189,7 +186,7 @@ export async function createList(formData: FormData) {
   });
   const listId = create();
   revalidateApp();
-  redirect(tabHref("list", listId));
+  return { redirectTo: tabHref("list", listId) };
 }
 
 export async function updateListDetails(formData: FormData) {
@@ -241,7 +238,7 @@ export async function addRestaurant(formData: FormData) {
     db.prepare("INSERT OR IGNORE INTO list_restaurants (list_id, restaurant_id) VALUES (?, ?)").run(listId, restaurant.id);
   }
   revalidateApp();
-  redirect(restaurantHref(restaurant.id, listId, true));
+  return { redirectTo: restaurantHref(restaurant.id, listId, true) };
 }
 
 export async function updateEntry(formData: FormData) {

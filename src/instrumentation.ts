@@ -5,7 +5,7 @@ export async function onRequestError(
 ) {
   const message = err instanceof Error ? err.message : String(err);
   const stack = err instanceof Error ? err.stack : undefined;
-  process.stderr.write(
+  console.error(
     JSON.stringify({
       level: "error",
       message: "Request error",
@@ -15,6 +15,6 @@ export async function onRequestError(
       routeType: context.routeType,
       error: message,
       stack,
-    }) + "\n",
+    }),
   );
 }

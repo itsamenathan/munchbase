@@ -16,11 +16,6 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: {},
-  experimental: {
-    serverActions: {
-      bodySizeLimit: (Number(process.env.PHOTO_MAX_SIZE_MB ?? 10) * 1024 * 1024),
-    },
-  },
   allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean) ?? [],
   headers: async () => [
     {

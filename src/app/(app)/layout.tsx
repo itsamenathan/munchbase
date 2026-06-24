@@ -2,6 +2,7 @@ import { currentUser } from "@/lib/auth";
 import { getAppState, getDb, userCount } from "@/lib/db";
 import AppShell from "@/components/app-shell";
 import { LoginForm } from "@/components/auth/login-form";
+import { MutationErrorMessage } from "@/components/auth/mutation-error";
 
 export default async function AuthenticatedAppLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
@@ -14,6 +15,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   if (!hasUsers) {
     return (
       <AuthFrame title="Create your Munchbase" subtitle="First account becomes the admin and gets a starter list.">
+        <MutationErrorMessage />
         <form action="/mutate" method="post" className="auth-form">
           <input type="hidden" name="__action" value="setup" />
           <input name="name" placeholder="Name" required />
@@ -28,6 +30,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
   if (!user) {
     return (
       <AuthFrame title="Munchbase" subtitle="Your private map of places worth remembering.">
+        <MutationErrorMessage />
         <LoginForm />
         {selfSignupEnabled ? (
           <details className="signup-panel" style={{ marginTop: "16px" }}>

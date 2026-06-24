@@ -1,40 +1,58 @@
 import { NextResponse, type NextRequest } from "next/server";
-import * as actions from "@/app/actions";
+import * as mutations from "@/lib/mutations";
 import { logger } from "@/lib/logger";
 
 const MUTATIONS = {
-  setup: actions.setup,
-  signup: actions.signup,
-  createUser: actions.createUser,
-  setUserActive: actions.setUserActive,
-  updateSelfSignup: actions.updateSelfSignup,
-  createList: actions.createList,
-  updateListDetails: actions.updateListDetails,
-  addRestaurant: actions.addRestaurant,
-  updateEntry: actions.updateEntry,
-  createRatingDefinition: actions.createRatingDefinition,
-  setRatingPresetEnabled: actions.setRatingPresetEnabled,
-  updateRatingFieldActive: actions.updateRatingFieldActive,
-  deleteRatingField: actions.deleteRatingField,
-  saveRatings: actions.saveRatings,
-  createCheckIn: actions.createCheckIn,
-  deleteCheckIn: actions.deleteCheckIn,
-  updateCheckIn: actions.updateCheckIn,
-  attachRestaurantToList: actions.attachRestaurantToList,
-  removeRestaurantFromList: actions.removeRestaurantFromList,
-  uploadRestaurantPhoto: actions.uploadRestaurantPhoto,
-  updateRestaurantPhotoDescription: actions.updateRestaurantPhotoDescription,
-  deleteRestaurantPhoto: actions.deleteRestaurantPhoto,
+  setup: mutations.setup,
+  signup: mutations.signup,
+  createUser: mutations.createUser,
+  setUserActive: mutations.setUserActive,
+  updateSelfSignup: mutations.updateSelfSignup,
+  createList: mutations.createList,
+  updateListDetails: mutations.updateListDetails,
+  addRestaurant: mutations.addRestaurant,
+  updateEntry: mutations.updateEntry,
+  createRatingDefinition: mutations.createRatingDefinition,
+  setRatingPresetEnabled: mutations.setRatingPresetEnabled,
+  updateRatingFieldActive: mutations.updateRatingFieldActive,
+  deleteRatingField: mutations.deleteRatingField,
+  saveRatings: mutations.saveRatings,
+  createCheckIn: mutations.createCheckIn,
+  deleteCheckIn: mutations.deleteCheckIn,
+  updateCheckIn: mutations.updateCheckIn,
+  attachRestaurantToList: mutations.attachRestaurantToList,
+  removeRestaurantFromList: mutations.removeRestaurantFromList,
+  uploadRestaurantPhoto: mutations.uploadRestaurantPhoto,
+  updateRestaurantPhotoDescription: mutations.updateRestaurantPhotoDescription,
+  deleteRestaurantPhoto: mutations.deleteRestaurantPhoto,
   updateEntryAndRatings: async (formData: FormData) => {
-    await actions.updateEntry(formData);
-    await actions.saveRatings(formData);
+    await mutations.updateEntry(formData);
+    await mutations.saveRatings(formData);
   },
-} satisfies Record<string, (formData: FormData) => Promise<unknown>>;
+} satisfies Record<string, (formData: FormData, context: mutations.MutationContext) => Promise<mutations.MutationResult>>;
 
 function redirectTo(request: NextRequest, path: string) {
   const proto = request.headers.get("x-forwarded-proto") ?? new URL(request.url).protocol.replace(":", "");
   const host = request.headers.get("host") ?? new URL(request.url).host;
   return NextResponse.redirect(`${proto}://${host}${path}`);
+}
+
+function clientIp(request: NextRequest) {
+  return request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? request.headers.get("x-real-ip") ?? "unknown";
+}
+
+function fallbackPath(request: NextRequest) {
+  const referer = request.headers.get("referer");
+  if (!referer) return "/explore";
+  const url = new URL(referer);
+  return `${url.pathname}${url.search}`;
+}
+
+function withMutationError(path: string, code: string, message: string) {
+  const url = new URL(path, "https://munchbase.local");
+  url.searchParams.set("mutationError", code);
+  url.searchParams.set("message", message);
+  return `${url.pathname}${url.search}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -43,9 +61,17 @@ export async function POST(request: NextRequest) {
   const mutation = typeof actionName === "string" ? MUTATIONS[actionName as keyof typeof MUTATIONS] : undefined;
   if (!mutation) {
     logger.warn("Unknown mutation requested", { actionName });
-    return redirectTo(request, "/explore?mutationError=unknown");
+    return redirectTo(request, "/explore?mutationError=unknown&message=That%20action%20could%20not%20be%20handled.");
   }
 
-  await mutation(formData);
-  return redirectTo(request, request.headers.get("referer") ? new URL(request.headers.get("referer")!).pathname + new URL(request.headers.get("referer")!).search : "/explore");
+  const fallback = fallbackPath(request);
+  try {
+    const result = await mutation(formData, { ip: clientIp(request) });
+    return redirectTo(request, result?.redirectTo ?? fallback);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Something went wrong.";
+    const code = error instanceof mutations.MutationError ? error.code : "failed";
+    logger.warn("Mutation failed", { actionName, code, error: message });
+    return redirectTo(request, withMutationError(fallback, code, message));
+  }
 }
