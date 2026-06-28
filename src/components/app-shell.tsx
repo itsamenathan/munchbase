@@ -433,7 +433,11 @@ export default function AppShell({
             ) : null}
 
             {activeTab === "map" ? (
-          <MapView restaurants={restaurants} onSelectRestaurant={openEntryFromMap} />
+          <MapView
+            restaurants={restaurants}
+            goBackDefinitionId={activeState.globalRatingDefinitions.find((d) => d.presetKey === "go_back" && d.active)?.id ?? null}
+            onSelectRestaurant={openEntryFromMap}
+          />
         ) : (
           <div className="content-grid">
             <section className="results">

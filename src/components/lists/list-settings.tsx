@@ -137,11 +137,29 @@ export function ListSettingsDrawer({ state, onClose }: { state: AppState; onClos
   );
 }
 
+function RenameForm({ name, onSave, onCancel }: { name: string; onSave: (name: string) => void; onCancel: () => void }) {
+  const [editName, setEditName] = useState(name);
+  return (
+    <form
+      className="attribute-card-rename"
+      onSubmit={(e) => { e.preventDefault(); onSave(editName); }}
+    >
+      <input
+        autoFocus
+        value={editName}
+        onChange={(e) => setEditName(e.target.value)}
+        className="attribute-card-name-input"
+      />
+      <button type="submit" className="compact-button">Save</button>
+      <button type="button" className="ghost-button compact-button" onClick={onCancel}>Cancel</button>
+    </form>
+  );
+}
+
 function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
   const router = useRouter();
   const [order, setOrder] = useState(() => definitions.map((d) => d.id));
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editName, setEditName] = useState("");
   const dragId = useRef<number | null>(null);
   const [draggingId, setDraggingId] = useState<number | null>(null);
 
@@ -195,6 +213,8 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
     router.refresh();
   };
 
+  const closeRename = () => setEditingId(null);
+
   if (!definitions.length) return <p className="muted">No custom ratings yet.</p>;
 
   return (
@@ -212,19 +232,11 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
           <span className="attribute-card-drag" aria-hidden="true"><GripVertical size={15} /></span>
           <div className="attribute-card-copy">
             {editingId === d.id ? (
-              <form
-                className="attribute-card-rename"
-                onSubmit={(e) => { e.preventDefault(); void saveName(d.id, editName); }}
-              >
-                <input
-                  autoFocus
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="attribute-card-name-input"
-                />
-                <button type="submit" className="compact-button">Save</button>
-                <button type="button" className="ghost-button compact-button" onClick={() => setEditingId(null)}>Cancel</button>
-              </form>
+              <RenameForm
+                name={d.name}
+                onSave={(name) => void saveName(d.id, name)}
+                onCancel={closeRename}
+              />
             ) : (
               <>
                 <strong>{d.name}</strong>
@@ -238,7 +250,7 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
                 type="button"
                 className="ghost-button icon-button compact-icon-button"
                 aria-label={`Rename ${d.name}`}
-                onClick={() => { setEditingId(d.id); setEditName(d.name); }}
+                onClick={() => setEditingId(d.id)}
               >
                 <Pencil size={14} />
               </button>

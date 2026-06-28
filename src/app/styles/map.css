@@ -31,6 +31,25 @@
   background: var(--panel);
 }
 
+.restaurant-marker.go-back span {
+  background: var(--positive);
+}
+
+.restaurant-marker.go-back span::after,
+.restaurant-marker.no-go span::after {
+  display: none;
+}
+
+.marker-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(45deg);
+  color: white;
+}
+
 .map-popup-title {
   min-height: 0;
   display: inline;
