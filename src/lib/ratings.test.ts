@@ -17,8 +17,8 @@ describe("ratings", () => {
   });
 
   it("validates boolean values", () => {
-    expect(validateRatingValue({ id: 1, listId: null, scope: "global", presetKey: "go_back", name: "Go back", type: "boolean", icon: "heart", options: [], min: null, max: null, active: true }, "true")).toBe("true");
-    expect(() => validateRatingValue({ id: 1, listId: null, scope: "global", presetKey: "go_back", name: "Go back", type: "boolean", icon: "heart", options: [], min: null, max: null, active: true }, "yes")).toThrow();
+    expect(validateRatingValue({ id: 1, listId: null, scope: "global", presetKey: "go_back", name: "Go back", type: "boolean", icon: "heart", options: [], min: null, max: null, active: true, sortOrder: 0 }, "true")).toBe("true");
+    expect(() => validateRatingValue({ id: 1, listId: null, scope: "global", presetKey: "go_back", name: "Go back", type: "boolean", icon: "heart", options: [], min: null, max: null, active: true, sortOrder: 0 }, "yes")).toThrow();
   });
 
   it("defines the minimal presets", () => {
@@ -28,9 +28,9 @@ describe("ratings", () => {
   it("validates price and stars presets", () => {
     const price = RATING_PRESETS.find((preset) => preset.key === "price")!;
     const stars = RATING_PRESETS.find((preset) => preset.key === "stars")!;
-    expect(validateRatingValue({ id: 1, listId: null, scope: "global", presetKey: "price", active: true, ...price, icon: "dollar-sign" }, "$$$")).toBe("$$$");
-    expect(() => validateRatingValue({ id: 1, listId: null, scope: "global", presetKey: "price", active: true, ...price, icon: "dollar-sign" }, "$$$$$")).toThrow();
-    expect(validateRatingValue({ id: 2, listId: null, scope: "global", presetKey: "stars", active: true, ...stars, icon: "star" }, "5")).toBe("5");
-    expect(() => validateRatingValue({ id: 2, listId: null, scope: "global", presetKey: "stars", active: true, ...stars, icon: "star" }, "6")).toThrow();
+    expect(validateRatingValue({ id: 1, listId: null, scope: "global", presetKey: "price", active: true, sortOrder: 0, ...price, icon: "dollar-sign" }, "$$$")).toBe("$$$");
+    expect(() => validateRatingValue({ id: 1, listId: null, scope: "global", presetKey: "price", active: true, sortOrder: 0, ...price, icon: "dollar-sign" }, "$$$$$")).toThrow();
+    expect(validateRatingValue({ id: 2, listId: null, scope: "global", presetKey: "stars", active: true, sortOrder: 0, ...stars, icon: "star" }, "5")).toBe("5");
+    expect(() => validateRatingValue({ id: 2, listId: null, scope: "global", presetKey: "stars", active: true, sortOrder: 0, ...stars, icon: "star" }, "6")).toThrow();
   });
 });

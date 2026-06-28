@@ -47,7 +47,7 @@ export function SidebarContent({
               type="button"
               className="list-settings-link"
               onClick={() => onOpenListSettings(null)}
-              aria-label="Global attributes"
+              aria-label="Global ratings"
             >
               <Settings size={15} />
             </button>

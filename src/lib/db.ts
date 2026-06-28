@@ -38,6 +38,7 @@ export function getDb() {
   orm = drizzle(db, { schema });
   migrate(orm, { migrationsFolder: "./drizzle" });
   ensureRatingDefinitionScope(db);
+  ensureRatingDefinitionSortOrder(db);
   seedGlobalRatingPresets(db);
   db.prepare("DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP").run();
   return db;
@@ -104,6 +105,14 @@ function rebuildRatingDefinitionsWithNullableListId(database: Database.Database)
   database.pragma("foreign_keys = ON");
 }
 
+function ensureRatingDefinitionSortOrder(database: Database.Database) {
+  const columns = database.prepare("PRAGMA table_info(rating_definitions)").all() as Array<{ name: string }>;
+  if (!columns.some((col) => col.name === "sort_order")) {
+    database.prepare("ALTER TABLE rating_definitions ADD COLUMN sort_order integer NOT NULL DEFAULT 0").run();
+    database.prepare("UPDATE rating_definitions SET sort_order = id").run();
+  }
+}
+
 function seedGlobalRatingPresets(database: Database.Database) {
   for (const preset of RATING_PRESETS) {
     database
@@ -163,22 +172,22 @@ export function getAppState(user: User, listId?: number | null): AppState {
 
   const globalRatingDefinitions = (database
     .prepare(
-      `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active
-       FROM rating_definitions WHERE scope = 'global' ORDER BY id`,
+      `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active, sort_order AS sortOrder
+       FROM rating_definitions WHERE scope = 'global' ORDER BY sort_order, id`,
     )
     .all() as RatingDefinitionRow[]).map(parseRatingDefinition);
   const ratingDefinitions = activeList
     ? (database
         .prepare(
-          `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active
-           FROM rating_definitions WHERE scope = 'list' AND list_id = ? ORDER BY id`,
+          `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active, sort_order AS sortOrder
+           FROM rating_definitions WHERE scope = 'list' AND list_id = ? ORDER BY sort_order, id`,
         )
         .all(activeList.id) as RatingDefinitionRow[]).map(parseRatingDefinition)
     : [];
   const allRatingDefinitions = (database
     .prepare(
-      `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active
-       FROM rating_definitions WHERE scope = 'list' ORDER BY id`,
+      `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active, sort_order AS sortOrder
+       FROM rating_definitions WHERE scope = 'list' ORDER BY sort_order, id`,
     )
     .all() as RatingDefinitionRow[]).map(parseRatingDefinition);
 
@@ -296,8 +305,8 @@ export function getRestaurantRatingGroups(restaurantId: number) {
     list,
     definitions: (database
       .prepare(
-        `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active
-         FROM rating_definitions WHERE scope = 'list' AND list_id = ? ORDER BY id`,
+        `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active, sort_order AS sortOrder
+         FROM rating_definitions WHERE scope = 'list' AND list_id = ? ORDER BY sort_order, id`,
       )
       .all(list.id) as RatingDefinitionRow[]).map(parseRatingDefinition),
   }));

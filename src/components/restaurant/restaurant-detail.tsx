@@ -40,17 +40,24 @@ export function RestaurantDetail({
   const [favoriteItems, setFavoriteItems] = useState(entry.favoriteItems ?? "");
   const [orderingTips, setOrderingTips] = useState(entry.orderingTips ?? "");
 
+  const setEditMode = (edit: boolean) => {
+    const url = new URL(window.location.href);
+    if (edit) { url.searchParams.set("edit", "1"); } else { url.searchParams.delete("edit"); }
+    history.replaceState(null, "", url.toString());
+    setEntryMode(edit ? "edit" : "preview");
+  };
+
   const resetEntryEdit = () => {
     setStandingNotes(entry.standingNotes ?? "");
     setFavoriteItems(entry.favoriteItems ?? "");
     setOrderingTips(entry.orderingTips ?? "");
-    setEntryMode("preview");
+    setEditMode(false);
   };
 
   const globalSummaryDefinitions = globalRatingDefinitions.filter((d) => d.active);
 
   const ratingGroups = [
-    { list: { id: 0, name: "Global attributes" }, definitions: globalRatingDefinitions },
+    { list: { id: 0, name: "Global ratings" }, definitions: globalRatingDefinitions },
     ...entry.ratingGroups,
   ];
 
@@ -64,7 +71,7 @@ export function RestaurantDetail({
         </div>
         <div className="detail-actions">
           {canWrite && entryMode === "preview" ? (
-            <button type="button" className="ghost-button icon-button" onClick={() => setEntryMode("edit")} aria-label="Edit notes and ratings">
+            <button type="button" className="ghost-button icon-button" onClick={() => setEditMode(true)} aria-label="Edit notes and ratings">
               <Pencil size={16} />
             </button>
           ) : null}
@@ -140,7 +147,7 @@ export function RestaurantDetail({
             <NotePreview standingNotes={standingNotes} favoriteItems={favoriteItems} orderingTips={orderingTips} />
           </section>
           <section className="notes-panel">
-            <div className="section-head"><h4>Attributes</h4></div>
+            <div className="section-head"><h4>Ratings</h4></div>
             <AttributePreview entry={entry} groups={ratingGroups} />
           </section>
           <RestaurantPhotos canWrite={canWrite} entry={entry} />
@@ -173,7 +180,7 @@ function RatingFields({ entry, groups }: { entry: Restaurant; groups: Restaurant
       {activeGroups.map((g) => (
         <section className={`rating-field-card ${g.list.id === 0 ? "rating-field-global" : ""}`} key={g.list.id}>
           <div className="rating-field-card-head">
-            <span>{g.list.id === 0 ? "Global attributes" : g.list.name}</span>
+            <span>{g.list.id === 0 ? "Global ratings" : g.list.name}</span>
             <small>{g.definitions.length} fields</small>
           </div>
           <div className="rating-field-list">

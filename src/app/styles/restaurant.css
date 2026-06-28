@@ -221,6 +221,12 @@
   color: var(--accent);
 }
 
+.entry-rating-badge.negative {
+  border-color: color-mix(in srgb, var(--warn) 30%, var(--line));
+  background: color-mix(in srgb, var(--warn) 8%, var(--field));
+  color: var(--warn);
+}
+
 .entry-rating-badge.price {
   color: var(--accent);
 }

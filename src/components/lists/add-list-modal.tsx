@@ -56,7 +56,7 @@ export function AddListModal({ state, onClose }: { state: AppState; onClose: () 
         <header className="drawer-head">
           <div>
             <p className="kicker">Add list</p>
-            <h2>{step === "details" ? "List details" : step === "fields" ? "Custom attributes" : "Restaurants"}</h2>
+            <h2>{step === "details" ? "List details" : step === "fields" ? "Custom ratings" : "Restaurants"}</h2>
           </div>
           <button className="ghost-button icon-button" onClick={onClose} aria-label="Close add list"><X size={18} /></button>
         </header>
@@ -71,7 +71,7 @@ export function AddListModal({ state, onClose }: { state: AppState; onClose: () 
           <input type="hidden" name="restaurantIdsJson" value={serializedRestaurantIds} />
           <div className="add-list-steps" aria-label="Add list steps">
             <span className={step === "details" ? "active" : ""}>Details</span>
-            <span className={step === "fields" ? "active" : ""}>Attributes</span>
+            <span className={step === "fields" ? "active" : ""}>Ratings</span>
             <span className={step === "restaurants" ? "active" : ""}>Restaurants</span>
           </div>
           {step === "details" ? (

@@ -6,7 +6,7 @@ export function RatingSummary({ entry, definitions }: { entry: Restaurant; defin
   const badges = definitions
     .map((d) => {
       const value = entry.ratings.find((r) => r.definitionId === d.id)?.value ?? "";
-      if (!value) return null;
+      if (!value && d.presetKey !== "go_back") return null;
       return <RatingBadge key={d.id} definition={d} value={value} />;
     })
     .filter(Boolean);

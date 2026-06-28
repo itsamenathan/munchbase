@@ -407,18 +407,36 @@
 
 .attribute-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--field);
   padding: 8px;
+  cursor: default;
 }
 
 .attribute-card.enabled {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+
+.attribute-card.dragging {
+  opacity: 0.4;
+}
+
+.attribute-card-drag {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  cursor: grab;
+  padding: 2px;
+  touch-action: none;
+}
+
+.attribute-card-drag:active {
+  cursor: grabbing;
 }
 
 .attribute-card-copy {
@@ -430,6 +448,19 @@
 .attribute-card-copy small {
   color: var(--muted);
   line-height: 1.25;
+}
+
+.attribute-card-rename {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+}
+
+.attribute-card-name-input {
+  flex: 1;
+  min-width: 0;
 }
 
 .attribute-card-actions {
@@ -450,10 +481,12 @@
 
 @media (max-width: 540px) {
   .attribute-card {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
   }
 
   .attribute-card-actions {
+    grid-column: 1 / -1;
     justify-content: flex-start;
   }
 }

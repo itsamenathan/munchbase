@@ -19,7 +19,7 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
 
       {canWrite ? (
         <form
-          action="/mutate" method="post"
+          action="/mutate" method="post" encType="multipart/form-data"
           className="photo-upload-form"
         >
           <input type="hidden" name="__action" value="uploadRestaurantPhoto" />

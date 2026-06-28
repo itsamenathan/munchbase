@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { ListChecks, Search, SlidersHorizontal, Star, Tag, ToggleRight, Trash2, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { GripVertical, ListChecks, Pencil, Search, SlidersHorizontal, Star, Tag, ToggleRight, Trash2, X } from "lucide-react";
 import { RATING_PRESETS } from "@/lib/ratings";
 import { RATING_ICON_MAP, RATING_ICON_CHOICES } from "@/components/restaurant/rating-common";
 import { PanelTitle } from "@/components/shared/panel-title";
@@ -76,10 +77,10 @@ export function ListSettingsDrawer({ state, onClose }: { state: AppState; onClos
 
   return (
     <div className="drawer-backdrop">
-      <aside className="settings-drawer" aria-label={isGlobal ? "Global attributes" : "List settings"}>
+      <aside className="settings-drawer" aria-label={isGlobal ? "Global ratings" : "List settings"}>
         <header className="drawer-head">
           <div>
-            <p className="kicker">{isGlobal ? "Global attributes" : "List settings"}</p>
+            <p className="kicker">{isGlobal ? "Global ratings" : "List settings"}</p>
             <h2>{state.activeList?.name ?? "All restaurants"}</h2>
           </div>
           <button className="ghost-button icon-button" onClick={onClose} aria-label="Close list settings"><X size={18} /></button>
@@ -88,7 +89,7 @@ export function ListSettingsDrawer({ state, onClose }: { state: AppState; onClos
         {isGlobal ? (
           <>
             <section className="settings-section">
-              <PanelTitle icon={<Star size={17} />} title="Built-ins" detail="Common attributes shown for every restaurant." />
+              <PanelTitle icon={<Star size={17} />} title="Built-ins" detail="Common ratings shown for every restaurant." />
               <div className="preset-grid">
                 {RATING_PRESETS.map((preset) => {
                   const d = state.globalRatingDefinitions.find((item) => item.presetKey === preset.key);
@@ -106,7 +107,7 @@ export function ListSettingsDrawer({ state, onClose }: { state: AppState; onClos
               </div>
             </section>
             <section className="settings-section">
-              <PanelTitle icon={<Tag size={17} />} title="Custom globals" detail="User-defined attributes shown for every restaurant." />
+              <PanelTitle icon={<Tag size={17} />} title="Custom globals" detail="User-defined ratings shown for every restaurant." />
               <AttributeCards definitions={definitions.filter((d) => !d.presetKey)} />
               <AddCustomFieldForm scope="global" />
             </section>
@@ -125,7 +126,7 @@ export function ListSettingsDrawer({ state, onClose }: { state: AppState; onClos
               </form>
             </section>
             <section className="settings-section">
-              <PanelTitle icon={<Star size={17} />} title="Custom fields" detail="Add list-specific attributes for restaurants in this list." />
+              <PanelTitle icon={<Star size={17} />} title="Custom fields" detail="Add list-specific ratings for restaurants in this list." />
               <AttributeCards definitions={definitions} />
               <AddCustomFieldForm scope="list" listId={state.activeList.id} />
             </section>
@@ -137,15 +138,111 @@ export function ListSettingsDrawer({ state, onClose }: { state: AppState; onClos
 }
 
 function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
+  const router = useRouter();
+  const [order, setOrder] = useState(() => definitions.map((d) => d.id));
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const dragId = useRef<number | null>(null);
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+
+  // Keep order in sync when definitions change (e.g. after server refresh)
+  const prevIds = useRef(definitions.map((d) => d.id).join(","));
+  const nextIds = definitions.map((d) => d.id).join(",");
+  if (prevIds.current !== nextIds) {
+    prevIds.current = nextIds;
+    setOrder(definitions.map((d) => d.id));
+  }
+
+  const sorted = order.map((id) => definitions.find((d) => d.id === id)).filter(Boolean) as RatingDefinition[];
+
+  const handleDragStart = (id: number) => {
+    dragId.current = id;
+    setDraggingId(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, overId: number) => {
+    e.preventDefault();
+    if (dragId.current === null || dragId.current === overId) return;
+    setOrder((prev) => {
+      const from = prev.indexOf(dragId.current!);
+      const to = prev.indexOf(overId);
+      if (from === -1 || to === -1) return prev;
+      const next = [...prev];
+      next.splice(from, 1);
+      next.splice(to, 0, dragId.current!);
+      return next;
+    });
+  };
+
+  const handleDrop = async () => {
+    setDraggingId(null);
+    dragId.current = null;
+    const fd = new FormData();
+    fd.set("__action", "reorderRatingDefinitions");
+    fd.set("orderedIdsJson", JSON.stringify(order));
+    await fetch("/mutate", { method: "POST", body: fd, redirect: "manual" });
+    router.refresh();
+  };
+
+  const saveName = async (id: number, name: string) => {
+    if (!name.trim()) return;
+    const fd = new FormData();
+    fd.set("__action", "updateRatingDefinitionName");
+    fd.set("definitionId", String(id));
+    fd.set("name", name.trim());
+    await fetch("/mutate", { method: "POST", body: fd, redirect: "manual" });
+    setEditingId(null);
+    router.refresh();
+  };
+
+  if (!definitions.length) return <p className="muted">No custom ratings yet.</p>;
+
   return (
     <div className="preset-grid">
-      {definitions.map((d) => (
-        <div className={`attribute-card ${d.active ? "enabled" : ""}`} key={d.id}>
+      {sorted.map((d) => (
+        <div
+          key={d.id}
+          className={`attribute-card${d.active ? " enabled" : ""}${draggingId === d.id ? " dragging" : ""}`}
+          draggable
+          onDragStart={() => handleDragStart(d.id)}
+          onDragOver={(e) => handleDragOver(e, d.id)}
+          onDrop={handleDrop}
+          onDragEnd={() => { setDraggingId(null); dragId.current = null; }}
+        >
+          <span className="attribute-card-drag" aria-hidden="true"><GripVertical size={15} /></span>
           <div className="attribute-card-copy">
-            <strong>{d.name}</strong>
-            <small>{fieldDescription(d)}</small>
+            {editingId === d.id ? (
+              <form
+                className="attribute-card-rename"
+                onSubmit={(e) => { e.preventDefault(); void saveName(d.id, editName); }}
+              >
+                <input
+                  autoFocus
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="attribute-card-name-input"
+                />
+                <button type="submit" className="compact-button">Save</button>
+                <button type="button" className="ghost-button compact-button" onClick={() => setEditingId(null)}>Cancel</button>
+              </form>
+            ) : (
+              <>
+                <strong>{d.name}</strong>
+                <small>{fieldDescription(d)}</small>
+              </>
+            )}
           </div>
           <div className="attribute-card-actions">
+            {editingId !== d.id ? (
+              <button
+                type="button"
+                className="ghost-button icon-button compact-icon-button"
+                aria-label={`Rename ${d.name}`}
+                onClick={() => { setEditingId(d.id); setEditName(d.name); }}
+              >
+                <Pencil size={14} />
+              </button>
+            ) : null}
             <form action="/mutate" method="post">
               <input type="hidden" name="__action" value="updateRatingFieldActive" />
               <input type="hidden" name="definitionId" value={d.id} />
@@ -162,7 +259,6 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
           </div>
         </div>
       ))}
-      {!definitions.length ? <p className="muted">No custom attributes yet.</p> : null}
     </div>
   );
 }

@@ -27,6 +27,7 @@ export type RatingDefinition = {
   min: number | null;
   max: number | null;
   active: boolean;
+  sortOrder: number;
 };
 
 export type RatingValue = {

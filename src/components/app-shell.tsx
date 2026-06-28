@@ -453,8 +453,8 @@ export default function AppShell({
                 restaurants.map((rst) => {
                 const ratingIcons = activeDefinitions.filter((d) => d.active).map((d) => {
                   const rating = rst.ratings.find((r) => r.definitionId === d.id);
-                  if (!rating || !rating.value) return null;
-                  return <RatingBadge key={d.id} definition={d} value={rating.value} />;
+                  if (!rating?.value && d.presetKey !== "go_back") return null;
+                  return <RatingBadge key={d.id} definition={d} value={rating?.value ?? ""} />;
                 });
                 return (
                     <button

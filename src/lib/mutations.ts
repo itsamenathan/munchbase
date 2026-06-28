@@ -334,6 +334,27 @@ export async function updateRatingFieldActive(formData: FormData) {
   revalidateApp();
 }
 
+export async function updateRatingDefinitionName(formData: FormData) {
+  await requireUser();
+  const definitionId = Number(text(formData, "definitionId"));
+  const name = text(formData, "name");
+  if (!name) throw new Error("Name is required.");
+  getDb().prepare("UPDATE rating_definitions SET name = ? WHERE id = ?").run(name, definitionId);
+  revalidateApp();
+}
+
+export async function reorderRatingDefinitions(formData: FormData) {
+  await requireUser();
+  const idsJson = text(formData, "orderedIdsJson");
+  let ids: unknown;
+  try { ids = JSON.parse(idsJson); } catch { throw new Error("Invalid order data."); }
+  if (!Array.isArray(ids)) throw new Error("Invalid order data.");
+  const db = getDb();
+  const update = db.prepare("UPDATE rating_definitions SET sort_order = ? WHERE id = ?");
+  db.transaction(() => { (ids as number[]).forEach((id, index) => update.run(index, id)); })();
+  revalidateApp();
+}
+
 export async function deleteRatingField(formData: FormData) {
   await requireUser();
   const definitionId = Number(text(formData, "definitionId"));
