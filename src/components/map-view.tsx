@@ -38,18 +38,45 @@ function MapStateTracker() {
   return null;
 }
 
+const LOCATION_CACHE_KEY = "munchbase-location";
+
+function readCachedLocation(): [number, number] | null {
+  try {
+    const raw = localStorage.getItem(LOCATION_CACHE_KEY);
+    if (!raw) return null;
+    const { lat, lng, ts } = JSON.parse(raw) as { lat: number; lng: number; ts: number };
+    if (Date.now() - ts > 60 * 60 * 1000) return null; // discard if older than 1h
+    return [lat, lng];
+  } catch { return null; }
+}
+
+function writeCachedLocation(lat: number, lng: number) {
+  try { localStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify({ lat, lng, ts: Date.now() })); } catch {}
+}
+
 function LocationMarker() {
   const map = useMap();
   const [position, setPosition] = useState<[number, number] | null>(null);
 
   useEffect(() => {
+    // Show cached position immediately — no GPS wait on repeat visits.
+    const cached = readCachedLocation();
+    if (cached) {
+      setPosition(cached);
+      if (!savedMapState) map.setView(cached, 14);
+    }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        writeCachedLocation(coords[0], coords[1]);
         setPosition(coords);
-        if (!savedMapState) map.setView(coords, 14);
+        // Fly only if the map hasn't been manually panned and there was no cache
+        // to fly to already; otherwise just update the dot in place.
+        if (!savedMapState && !cached) map.setView(coords, 14);
       },
       () => {},
+      { maximumAge: 5 * 60 * 1000, timeout: 15000 },
     );
   }, [map]);
 
