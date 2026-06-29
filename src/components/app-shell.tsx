@@ -453,9 +453,14 @@ export default function AppShell({
                 />
               ) : (
                 restaurants.map((rst) => {
-                const ratingIcons = activeDefinitions.filter((d) => d.active).map((d) => {
+                const globalRatingIcons = activeState.globalRatingDefinitions.filter((d) => d.active).map((d) => {
                   const rating = rst.ratings.find((r) => r.definitionId === d.id);
                   if (!rating?.value && d.presetKey !== "go_back") return null;
+                  return <RatingBadge key={d.id} definition={d} value={rating?.value ?? ""} />;
+                });
+                const listRatingIcons = activeState.ratingDefinitions.filter((d) => d.active).map((d) => {
+                  const rating = rst.ratings.find((r) => r.definitionId === d.id);
+                  if (!rating?.value) return null;
                   return <RatingBadge key={d.id} definition={d} value={rating?.value ?? ""} />;
                 });
                 return (
@@ -467,11 +472,12 @@ export default function AppShell({
                       <span>
                         <span className="restaurant-row-top">
                           <strong>{rst.name}</strong>
-                          <span className="meta">{rst.checkInCount ? `${rst.checkInCount} visit${rst.checkInCount === 1 ? "" : "s"}` : ""}</span>
                         </span>
                         <small>{formatCityState(rst.address) || rst.address}</small>
-                        {ratingIcons.some((i) => i) ? <span className="rating-icons">{ratingIcons}</span> : null}
+                        {globalRatingIcons.some((i) => i) ? <span className="rating-icons">{globalRatingIcons}</span> : null}
+                        {listRatingIcons.some((i) => i) ? <span className="rating-icons">{listRatingIcons}</span> : null}
                       </span>
+                      <span className="meta">{rst.checkInCount ? `${rst.checkInCount} visit${rst.checkInCount === 1 ? "" : "s"}` : ""}</span>
                     </button>
                 );
               })
