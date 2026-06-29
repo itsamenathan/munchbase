@@ -3,6 +3,37 @@ import { currentUser } from "@/lib/auth";
 
 let lastRequestAt = 0;
 
+type PhotonFeature = {
+  geometry: { coordinates: [number, number] };
+  properties: {
+    name?: string;
+    osm_type?: string;
+    osm_id?: number;
+    osm_key?: string;
+    osm_value?: string;
+    street?: string;
+    housenumber?: string;
+    city?: string;
+    state?: string;
+    postcode?: string;
+    country?: string;
+    display_name?: string;
+  };
+};
+
+const OSM_TYPE: Record<string, string> = { N: "node", W: "way", R: "relation" };
+
+function buildAddress(p: PhotonFeature["properties"]): string {
+  const parts = [
+    [p.housenumber, p.street].filter(Boolean).join(" "),
+    p.city,
+    p.state,
+    p.postcode,
+    p.country,
+  ].filter(Boolean);
+  return parts.join(", ");
+}
+
 export async function GET(request: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -10,7 +41,6 @@ export async function GET(request: Request) {
   const q = searchParams.get("q")?.trim();
   const lat = Number(searchParams.get("lat"));
   const lon = Number(searchParams.get("lon"));
-  const radiusKm = Math.min(Math.max(Number(searchParams.get("radiusKm")) || 25, 1), 100);
   if (!q || q.length < 3) return NextResponse.json({ results: [] });
   const now = Date.now();
   if (now - lastRequestAt < 1000) {
@@ -18,38 +48,34 @@ export async function GET(request: Request) {
   }
   lastRequestAt = now;
 
-  const url = new URL("https://nominatim.openstreetmap.org/search");
-  // Use the structured `amenity` parameter instead of free-form `q`.
-  // Nominatim normalizes POI names at index time, so "mcdonalds" matches
-  // "McDonald's", "chuys" matches "Chuy's", etc. — no client-side workarounds needed.
-  url.searchParams.set("amenity", q);
-  url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("addressdetails", "1");
+  const url = new URL("https://photon.komoot.io/api/");
+  url.searchParams.set("q", q);
   url.searchParams.set("limit", "8");
-  url.searchParams.set("extratags", "1");
+  url.searchParams.set("lang", "en");
   if (Number.isFinite(lat) && Number.isFinite(lon)) {
-    const latDelta = radiusKm / 111;
-    const lonDelta = radiusKm / (111 * Math.max(Math.cos((lat * Math.PI) / 180), 0.2));
-    url.searchParams.set("viewbox", `${lon - lonDelta},${lat + latDelta},${lon + lonDelta},${lat - latDelta}`);
-    url.searchParams.set("bounded", "1");
+    url.searchParams.set("lat", String(lat));
+    url.searchParams.set("lon", String(lon));
   }
+
   const response = await fetch(url, {
-    headers: {
-      "User-Agent": process.env.OSM_USER_AGENT ?? "munchbase/0.1",
-      Referer: process.env.APP_ORIGIN ?? "http://localhost:3000",
-    },
+    headers: { "User-Agent": process.env.OSM_USER_AGENT ?? "munchbase/0.1" },
   });
-  if (!response.ok) return NextResponse.json({ error: "OpenStreetMap search failed." }, { status: 502 });
-  const data = (await response.json()) as Array<Record<string, unknown>>;
+  if (!response.ok) return NextResponse.json({ error: "Place search failed." }, { status: 502 });
+
+  const data = (await response.json()) as { features: PhotonFeature[] };
   return NextResponse.json({
-    results: data.map((item) => ({
-      osmType: String(item.osm_type ?? ""),
-      osmId: String(item.osm_id ?? ""),
-      name: String(item.name || item.display_name || "Unnamed place"),
-      address: String(item.display_name ?? ""),
-      lat: String(item.lat ?? ""),
-      lon: String(item.lon ?? ""),
-      rawJson: JSON.stringify(item),
-    })),
+    results: data.features.map((f) => {
+      const p = f.properties;
+      const [fLon, fLat] = f.geometry.coordinates;
+      return {
+        osmType: OSM_TYPE[p.osm_type ?? ""] ?? p.osm_type ?? "",
+        osmId: String(p.osm_id ?? ""),
+        name: p.name ?? p.display_name ?? "Unnamed place",
+        address: buildAddress(p),
+        lat: String(fLat),
+        lon: String(fLon),
+        rawJson: JSON.stringify(f),
+      };
+    }),
   });
 }
