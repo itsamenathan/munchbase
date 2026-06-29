@@ -3,6 +3,15 @@ import { currentUser } from "@/lib/auth";
 
 let lastRequestAt = 0;
 
+const FOOD_TAGS = [
+  "amenity:restaurant",
+  "amenity:fast_food",
+  "amenity:cafe",
+  "amenity:bar",
+  "amenity:pub",
+  "amenity:food_court",
+];
+
 type PhotonFeature = {
   geometry: { coordinates: [number, number] };
   properties: {
@@ -34,13 +43,52 @@ function buildAddress(p: PhotonFeature["properties"]): string {
   return parts.join(", ");
 }
 
+function mapFeature(f: PhotonFeature) {
+  const p = f.properties;
+  const [fLon, fLat] = f.geometry.coordinates;
+  return {
+    osmType: OSM_TYPE[p.osm_type ?? ""] ?? p.osm_type ?? "",
+    osmId: String(p.osm_id ?? ""),
+    name: p.name ?? p.display_name ?? "Unnamed place",
+    address: buildAddress(p),
+    lat: String(fLat),
+    lon: String(fLon),
+    rawJson: JSON.stringify(f),
+  };
+}
+
 export async function GET(request: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim();
   const lat = Number(searchParams.get("lat"));
   const lon = Number(searchParams.get("lon"));
+  const nearby = searchParams.get("nearby") === "1";
+
+  // Nearby mode: no query required, uses Photon reverse with radius
+  if (nearby) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return NextResponse.json({ error: "Location required for nearby search." }, { status: 400 });
+    }
+    const url = new URL("https://photon.komoot.io/reverse");
+    url.searchParams.set("lat", String(lat));
+    url.searchParams.set("lon", String(lon));
+    url.searchParams.set("radius", "1"); // 1 km — street-level proximity
+    url.searchParams.set("limit", "20");
+    url.searchParams.set("lang", "en");
+    for (const tag of FOOD_TAGS) url.searchParams.append("osm_tag", tag);
+    const response = await fetch(url, {
+      headers: { "User-Agent": process.env.OSM_USER_AGENT ?? "munchbase/0.1" },
+    });
+    if (!response.ok) return NextResponse.json({ error: "Nearby search failed." }, { status: 502 });
+    const data = (await response.json()) as { features: PhotonFeature[] };
+    // Filter out results with no name (raw address nodes aren't useful)
+    return NextResponse.json({ results: data.features.filter((f) => f.properties.name).map(mapFeature) });
+  }
+
+  // Named search mode
   if (!q || q.length < 3) return NextResponse.json({ results: [] });
   const now = Date.now();
   if (now - lastRequestAt < 1000) {
@@ -63,19 +111,5 @@ export async function GET(request: Request) {
   if (!response.ok) return NextResponse.json({ error: "Place search failed." }, { status: 502 });
 
   const data = (await response.json()) as { features: PhotonFeature[] };
-  return NextResponse.json({
-    results: data.features.map((f) => {
-      const p = f.properties;
-      const [fLon, fLat] = f.geometry.coordinates;
-      return {
-        osmType: OSM_TYPE[p.osm_type ?? ""] ?? p.osm_type ?? "",
-        osmId: String(p.osm_id ?? ""),
-        name: p.name ?? p.display_name ?? "Unnamed place",
-        address: buildAddress(p),
-        lat: String(fLat),
-        lon: String(fLon),
-        rawJson: JSON.stringify(f),
-      };
-    }),
-  });
+  return NextResponse.json({ results: data.features.map(mapFeature) });
 }

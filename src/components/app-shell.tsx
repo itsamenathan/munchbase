@@ -65,6 +65,7 @@ export default function AppShell({
   const [placeQuery, setPlaceQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const [placeSearchStatus, setPlaceSearchStatus] = useState("");
+  const [nearbyResults, setNearbyResults] = useState<PlaceResult[]>([]);
   const [useCurrentLocation, setUseCurrentLocation] = useState(true);
   const [locationStatus, setLocationStatus] = useState("");
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
@@ -112,6 +113,15 @@ export default function AppShell({
       { maximumAge: 5 * 60 * 1000, timeout: 15000 },
     );
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "add" || !locationCoords) return;
+    const { lat, lon } = locationCoords;
+    fetch(`/api/search?nearby=1&lat=${lat}&lon=${lon}`)
+      .then((r) => r.json())
+      .then((data: { results?: PlaceResult[] }) => setNearbyResults(data.results ?? []))
+      .catch(() => {});
+  }, [activeTab, locationCoords]);
 
   useEffect(() => {
     if (!userMenuOpen) return;
@@ -367,6 +377,7 @@ export default function AppShell({
                 placeQuery={placeQuery}
                 setPlaceQuery={setPlaceQuery}
                 placeResults={placeResults}
+                nearbyResults={nearbyResults}
                 placeSearchStatus={placeSearchStatus}
                 locationStatus={locationStatus}
                 useCurrentLocation={useCurrentLocation}

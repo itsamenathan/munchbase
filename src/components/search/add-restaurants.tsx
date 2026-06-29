@@ -40,6 +40,7 @@ export function AddRestaurantsPanel({
   placeQuery,
   setPlaceQuery,
   placeResults,
+  nearbyResults,
   placeSearchStatus,
   locationStatus,
   useCurrentLocation,
@@ -51,6 +52,7 @@ export function AddRestaurantsPanel({
   placeQuery: string;
   setPlaceQuery: (v: string) => void;
   placeResults: PlaceResult[];
+  nearbyResults: PlaceResult[];
   placeSearchStatus: string;
   locationStatus: string;
   useCurrentLocation: boolean;
@@ -58,14 +60,20 @@ export function AddRestaurantsPanel({
   searchPlaces: (e?: FormEvent<HTMLFormElement>) => Promise<void>;
 }) {
   if (!canWrite) return null;
-  const existingMatches = placeQuery.trim().length >= 2
+  const isSearching = placeQuery.trim().length >= 2;
+  const existingMatches = isSearching
     ? state.allRestaurants.filter((r) => {
         const needle = placeQuery.trim().toLowerCase();
         return [r.name, r.address].filter(Boolean).join(" ").toLowerCase().includes(needle);
       }).slice(0, 6)
     : [];
 
-  const hasResults = existingMatches.length > 0 || placeResults.length > 0;
+  // Nearby results that aren't already in Munchbase
+  const newNearbyResults = nearbyResults.filter(
+    (place) => !state.allRestaurants.some((r) => r.name.toLowerCase() === place.name.toLowerCase())
+  );
+
+  const hasResults = existingMatches.length > 0 || placeResults.length > 0 || (!isSearching && newNearbyResults.length > 0);
   const targetLabel = state.activeList ? state.activeList.name : "your restaurants";
 
   return (
@@ -113,9 +121,28 @@ export function AddRestaurantsPanel({
         </>
       ) : null}
 
+      {!isSearching && newNearbyResults.length > 0 ? (
+        <>
+          <h4 className="add-section-label"><MapPin size={14} /> Nearby</h4>
+          <div className="add-results-list">
+            {newNearbyResults.map((place) => (
+              <form action="/mutate" method="post" className="place-result" key={`${place.osmType}-${place.osmId}`}>
+                <input type="hidden" name="__action" value="addRestaurant" />
+                {state.activeListId ? <input type="hidden" name="listId" value={state.activeListId} /> : null}
+                {Object.entries(place).map(([k, v]) => (<input key={k} type="hidden" name={k} value={v} />))}
+                <button>
+                  <strong>{place.name}</strong>
+                  <small>{place.address}</small>
+                </button>
+              </form>
+            ))}
+          </div>
+        </>
+      ) : null}
+
       {placeResults.length > 0 ? (
         <>
-          <h4 className="add-section-label"><MapPin size={14} /> From OpenStreetMap</h4>
+          <h4 className="add-section-label"><MapPin size={14} /> Search results</h4>
           <div className="add-results-list">
             {placeResults.map((place) => (
               <form action="/mutate" method="post" className="place-result" key={`${place.osmType}-${place.osmId}`}>
