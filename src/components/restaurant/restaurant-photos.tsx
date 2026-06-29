@@ -1,14 +1,39 @@
 "use client";
 
 import { startTransition, useEffect, useRef, useState, type TouchEvent } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, ImagePlus, Pencil, Trash2, X } from "lucide-react";
 import { formatShortDateTime } from "@/lib/datetime";
 import type { Restaurant, RestaurantPhoto } from "@/lib/types";
 
 export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry: Restaurant }) {
+  const router = useRouter();
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleUpload(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const fileInput = form.elements.namedItem("photo") as HTMLInputElement;
+    if (!fileInput.files?.length) { setUploadError("Choose an image to upload."); return; }
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const res = await fetch("/mutate", { method: "POST", body: new FormData(form) });
+      const finalUrl = new URL(res.url);
+      const mutationError = finalUrl.searchParams.get("message");
+      if (mutationError) { setUploadError(mutationError); return; }
+      form.reset();
+      setSelectedFileName(null);
+      router.refresh();
+    } catch {
+      setUploadError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <section className="photo-section">
@@ -18,10 +43,7 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
       </div>
 
       {canWrite ? (
-        <form
-          action="/mutate" method="post" encType="multipart/form-data"
-          className="photo-upload-form"
-        >
+        <form onSubmit={handleUpload} className="photo-upload-form">
           <input type="hidden" name="__action" value="uploadRestaurantPhoto" />
           <input type="hidden" name="restaurantId" value={entry.id} />
           <label className={`photo-upload-zone${selectedFileName ? " has-file" : ""}`}>
@@ -41,7 +63,7 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
             <span>Description</span>
             <textarea name="description" rows={2} placeholder="What is shown in this photo?" maxLength={280} />
           </label>
-          <button type="submit" className="compact-button">Upload photo</button>
+          <button type="submit" className="compact-button" disabled={uploading}>{uploading ? "Uploading…" : "Upload photo"}</button>
         </form>
       ) : null}
 
