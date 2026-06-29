@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import { Star, DollarSign } from "lucide-react";
 import { formatShortDateTime } from "@/lib/datetime";
+import { readCachedLocation, writeCachedLocation } from "@/lib/location-cache";
 import type { RatingDefinition, Restaurant } from "@/lib/types";
 
 const ICON_OPTIONS = { iconSize: [28, 28] as [number, number], iconAnchor: [14, 28] as [number, number], popupAnchor: [0, -26] as [number, number] };
@@ -38,22 +39,6 @@ function MapStateTracker() {
   return null;
 }
 
-const LOCATION_CACHE_KEY = "munchbase-location";
-
-function readCachedLocation(): [number, number] | null {
-  try {
-    const raw = localStorage.getItem(LOCATION_CACHE_KEY);
-    if (!raw) return null;
-    const { lat, lng, ts } = JSON.parse(raw) as { lat: number; lng: number; ts: number };
-    if (Date.now() - ts > 60 * 60 * 1000) return null; // discard if older than 1h
-    return [lat, lng];
-  } catch { return null; }
-}
-
-function writeCachedLocation(lat: number, lng: number) {
-  try { localStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify({ lat, lng, ts: Date.now() })); } catch {}
-}
-
 function LocationMarker() {
   const map = useMap();
   const [position, setPosition] = useState<[number, number] | null>(null);
@@ -62,8 +47,9 @@ function LocationMarker() {
     // Show cached position immediately — no GPS wait on repeat visits.
     const cached = readCachedLocation();
     if (cached) {
-      setPosition(cached);
-      if (!savedMapState) map.setView(cached, 14);
+      const pos: [number, number] = [cached.lat, cached.lon];
+      setPosition(pos);
+      if (!savedMapState) map.setView(pos, 14);
     }
 
     navigator.geolocation.getCurrentPosition(

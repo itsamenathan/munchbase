@@ -30,6 +30,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { useHaptics } from "@/hooks/use-haptics";
 import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
 import { formatCityState } from "@/lib/address";
+import { readCachedLocation, writeCachedLocation } from "@/lib/location-cache";
 import { listSettingsHref, restaurantHref, tabHref, type BottomTab } from "@/lib/routes";
 import type { AppState, RatingDefinition } from "@/lib/types";
 
@@ -94,6 +95,23 @@ export default function AppShell({
       window.scrollTo({ top: 0, left: 0 });
     }
   }, [selectedEntryId]);
+
+  useEffect(() => {
+    // Seed from cache immediately so location is available before GPS resolves.
+    const cached = readCachedLocation();
+    if (cached) setLocationCoords(cached);
+    // Then refresh in the background on every app load — standard "find nearby" pattern.
+    if (!("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        writeCachedLocation(coords.lat, coords.lon);
+        setLocationCoords(coords);
+      },
+      () => {},
+      { maximumAge: 5 * 60 * 1000, timeout: 15000 },
+    );
+  }, []);
 
   useEffect(() => {
     if (!userMenuOpen) return;
@@ -199,6 +217,7 @@ export default function AppShell({
     const result = await getCurrentPosition();
     if (result.ok) {
       const coords = { lat: result.position.coords.latitude, lon: result.position.coords.longitude };
+      writeCachedLocation(coords.lat, coords.lon);
       setLocationCoords(coords);
       setLocationStatus("Location ready. Searches will prefer nearby results.");
       return coords;
