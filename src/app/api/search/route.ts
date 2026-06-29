@@ -107,7 +107,7 @@ export async function GET(request: Request) {
   const start = Date.now();
   const url = new URL("https://photon.komoot.io/api/");
   url.searchParams.set("q", q);
-  url.searchParams.set("limit", "8");
+  url.searchParams.set("limit", "20");
   url.searchParams.set("lang", "en");
   if (hasLocation) {
     url.searchParams.set("lat", String(lat));

@@ -44,10 +44,11 @@ function clientIp(request: NextRequest) {
   return request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? request.headers.get("x-real-ip") ?? "unknown";
 }
 
-function fallbackPath(request: NextRequest) {
+function fallbackPath(request: NextRequest, stripParams: string[] = []) {
   const referer = request.headers.get("referer");
   if (!referer) return "/explore";
   const url = new URL(referer);
+  for (const p of stripParams) url.searchParams.delete(p);
   return `${url.pathname}${url.search}`;
 }
 
@@ -69,7 +70,8 @@ export async function POST(request: NextRequest) {
 
   const user = await currentUser();
   const ip = clientIp(request);
-  const fallback = fallbackPath(request);
+  // Strip edit mode flag from redirect so saving exits edit mode.
+  const fallback = fallbackPath(request, actionName === "updateEntryAndRatings" ? ["edit"] : []);
   const start = Date.now();
   try {
     const result = await mutation(formData, { ip });

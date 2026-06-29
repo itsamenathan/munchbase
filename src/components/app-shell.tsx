@@ -334,7 +334,7 @@ export default function AppShell({
             <section className="mobile-add-view">
               <header className="mobile-page-header">
                 <p className="kicker">Add restaurant</p>
-                <h3>{activeState.activeList ? `Add to ${activeState.activeList.name}` : "Add to your restaurants"}</h3>
+                {activeState.activeList ? <h3>{activeState.activeList.name}</h3> : null}
               </header>
               <AddRestaurantsPanel
                 state={activeState}
