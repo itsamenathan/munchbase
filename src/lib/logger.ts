@@ -5,9 +5,13 @@ interface LogContext {
 }
 
 function log(level: LogLevel, message: string, context?: LogContext) {
-  process.stderr.write(
-    JSON.stringify({ level, message, timestamp: new Date().toISOString(), ...context }) + "\n",
-  );
+  const line = JSON.stringify({ level, message, timestamp: new Date().toISOString(), ...context }) + "\n";
+  // Errors go to stderr; everything else to stdout so log aggregators pick it up cleanly.
+  if (level === "error") {
+    process.stderr.write(line);
+  } else {
+    process.stdout.write(line);
+  }
 }
 
 export const logger = {

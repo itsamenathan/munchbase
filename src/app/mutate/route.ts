@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import * as mutations from "@/lib/mutations";
+import { currentUser } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 
 const MUTATIONS = {
@@ -66,14 +67,18 @@ export async function POST(request: NextRequest) {
     return redirectTo(request, "/explore?mutationError=unknown&message=That%20action%20could%20not%20be%20handled.");
   }
 
+  const user = await currentUser();
+  const ip = clientIp(request);
   const fallback = fallbackPath(request);
+  const start = Date.now();
   try {
-    const result = await mutation(formData, { ip: clientIp(request) });
+    const result = await mutation(formData, { ip });
+    logger.info("Mutation ok", { action: actionName, userId: user?.id, ip, ms: Date.now() - start });
     return redirectTo(request, result?.redirectTo ?? fallback);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Something went wrong.";
     const code = error instanceof mutations.MutationError ? error.code : "failed";
-    logger.warn("Mutation failed", { actionName, code, error: message });
+    logger.warn("Mutation failed", { action: actionName, userId: user?.id, ip, code, error: message, ms: Date.now() - start });
     return redirectTo(request, withMutationError(fallback, code, message));
   }
 }

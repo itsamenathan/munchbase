@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 let lastRequestAt = 0;
 
@@ -67,11 +68,14 @@ export async function GET(request: Request) {
   const lon = Number(searchParams.get("lon"));
   const nearby = searchParams.get("nearby") === "1";
 
+  const hasLocation = Number.isFinite(lat) && Number.isFinite(lon);
+
   // Nearby mode: no query required, uses Photon reverse with radius
   if (nearby) {
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    if (!hasLocation) {
       return NextResponse.json({ error: "Location required for nearby search." }, { status: 400 });
     }
+    const start = Date.now();
     const url = new URL("https://photon.komoot.io/reverse");
     url.searchParams.set("lat", String(lat));
     url.searchParams.set("lon", String(lon));
@@ -82,10 +86,14 @@ export async function GET(request: Request) {
     const response = await fetch(url, {
       headers: { "User-Agent": process.env.OSM_USER_AGENT ?? "munchbase/0.1" },
     });
-    if (!response.ok) return NextResponse.json({ error: "Nearby search failed." }, { status: 502 });
+    if (!response.ok) {
+      logger.warn("Nearby search upstream error", { status: response.status });
+      return NextResponse.json({ error: "Nearby search failed." }, { status: 502 });
+    }
     const data = (await response.json()) as { features: PhotonFeature[] };
-    // Filter out results with no name (raw address nodes aren't useful)
-    return NextResponse.json({ results: data.features.filter((f) => f.properties.name).map(mapFeature) });
+    const results = data.features.filter((f) => f.properties.name).map(mapFeature);
+    logger.info("Nearby search", { userId: user.id, lat, lon, results: results.length, ms: Date.now() - start });
+    return NextResponse.json({ results });
   }
 
   // Named search mode
@@ -96,11 +104,12 @@ export async function GET(request: Request) {
   }
   lastRequestAt = now;
 
+  const start = Date.now();
   const url = new URL("https://photon.komoot.io/api/");
   url.searchParams.set("q", q);
   url.searchParams.set("limit", "8");
   url.searchParams.set("lang", "en");
-  if (Number.isFinite(lat) && Number.isFinite(lon)) {
+  if (hasLocation) {
     url.searchParams.set("lat", String(lat));
     url.searchParams.set("lon", String(lon));
   }
@@ -108,8 +117,13 @@ export async function GET(request: Request) {
   const response = await fetch(url, {
     headers: { "User-Agent": process.env.OSM_USER_AGENT ?? "munchbase/0.1" },
   });
-  if (!response.ok) return NextResponse.json({ error: "Place search failed." }, { status: 502 });
+  if (!response.ok) {
+    logger.warn("Place search upstream error", { q, status: response.status });
+    return NextResponse.json({ error: "Place search failed." }, { status: 502 });
+  }
 
   const data = (await response.json()) as { features: PhotonFeature[] };
-  return NextResponse.json({ results: data.features.map(mapFeature) });
+  const results = data.features.map(mapFeature);
+  logger.info("Place search", { userId: user.id, q, hasLocation, results: results.length, ms: Date.now() - start });
+  return NextResponse.json({ results });
 }
