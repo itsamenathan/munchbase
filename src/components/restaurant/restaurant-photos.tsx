@@ -6,27 +6,38 @@ import { ChevronLeft, ChevronRight, ImagePlus, Pencil, Trash2, X } from "lucide-
 import { formatShortDateTime } from "@/lib/datetime";
 import type { Restaurant, RestaurantPhoto } from "@/lib/types";
 
+type SelectedPhoto = { file: File; description: string; preview: string };
+
 export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry: Restaurant }) {
   const router = useRouter();
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const [selectedFileCount, setSelectedFileCount] = useState(0);
+  const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
+
+  useEffect(() => {
+    const photos = selectedPhotos;
+    return () => { photos.forEach((p) => URL.revokeObjectURL(p.preview)); };
+  }, [selectedPhotos]);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    selectedPhotos.forEach((p) => URL.revokeObjectURL(p.preview));
+    const files = Array.from(e.target.files ?? []);
+    setSelectedPhotos(files.map((file) => ({ file, description: "", preview: URL.createObjectURL(file) })));
+    setUploadError(null);
+  }
 
   async function handleUpload(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
-    const fileInput = form.elements.namedItem("photo") as HTMLInputElement;
-    const files = Array.from(fileInput.files ?? []);
-    if (!files.length) { setUploadError("Choose at least one image to upload."); return; }
+    if (!selectedPhotos.length) { setUploadError("Choose at least one image to upload."); return; }
 
-    const description = (form.elements.namedItem("description") as HTMLTextAreaElement).value;
     const restaurantId = (form.elements.namedItem("restaurantId") as HTMLInputElement).value;
 
-    setUploadProgress({ done: 0, total: files.length });
+    setUploadProgress({ done: 0, total: selectedPhotos.length });
     setUploadError(null);
 
-    const results = await Promise.allSettled(files.map(async (file) => {
+    const results = await Promise.allSettled(selectedPhotos.map(async ({ file, description }) => {
       const fd = new FormData();
       fd.append("__action", "uploadRestaurantPhoto");
       fd.append("restaurantId", restaurantId);
@@ -50,18 +61,19 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
     }
 
     if (anySuccess) {
+      setSelectedPhotos([]);
       form.reset();
-      setSelectedFileCount(0);
       router.refresh();
     }
 
     setUploadProgress(null);
   }
 
+  const count = selectedPhotos.length;
   const uploading = uploadProgress !== null;
   const buttonLabel = uploading
     ? `Uploading ${uploadProgress.done + 1} of ${uploadProgress.total}…`
-    : selectedFileCount > 1 ? `Upload ${selectedFileCount} photos` : "Upload photo";
+    : count > 1 ? `Upload ${count} photos` : "Upload photo";
 
   return (
     <section className="photo-section">
@@ -73,7 +85,7 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
       {canWrite ? (
         <form onSubmit={handleUpload} className="photo-upload-form">
           <input type="hidden" name="restaurantId" value={entry.id} />
-          <label className={`photo-upload-zone${selectedFileCount > 0 ? " has-file" : ""}`}>
+          <label className={`photo-upload-zone${count > 0 ? " has-file" : ""}`}>
             <input
               name="photo"
               type="file"
@@ -81,21 +93,35 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
               accept="image/jpeg,image/png,image/webp"
               required
               className="photo-upload-input"
-              onChange={(e) => { setSelectedFileCount(e.target.files?.length ?? 0); setUploadError(null); }}
+              onChange={handleFileChange}
             />
             <ImagePlus size={22} />
             <div className="photo-upload-zone-text">
-              <span>{selectedFileCount === 0 ? "Add photos" : selectedFileCount === 1 ? "1 photo selected" : `${selectedFileCount} photos selected`}</span>
-              {selectedFileCount === 0 ? <small>JPEG, PNG or WebP</small> : null}
+              <span>{count === 0 ? "Add photos" : count === 1 ? "1 photo selected" : `${count} photos selected`}</span>
+              {count === 0 ? <small>JPEG, PNG or WebP</small> : null}
             </div>
           </label>
           {uploadError ? <p className="upload-error">{uploadError}</p> : null}
-          {selectedFileCount > 0 ? (
+          {count > 0 ? (
             <>
-              <label className="photo-upload-field photo-upload-description">
-                <span>Description <small>(optional)</small></span>
-                <textarea name="description" rows={2} placeholder="What's shown in these photos?" maxLength={280} />
-              </label>
+              <ul className="photo-preview-list">
+                {selectedPhotos.map((photo, index) => (
+                  <li key={photo.preview} className="photo-preview-item">
+                    <img src={photo.preview} alt="" className="photo-preview-thumb" />
+                    <input
+                      type="text"
+                      className="photo-preview-field"
+                      placeholder="Description (optional)"
+                      maxLength={280}
+                      value={photo.description}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSelectedPhotos((prev) => prev.map((p, i) => i === index ? { ...p, description: value } : p));
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
               <button type="submit" className="compact-button" disabled={uploading}>{buttonLabel}</button>
             </>
           ) : null}

@@ -592,8 +592,34 @@
   margin: 0;
 }
 
-.photo-upload-description textarea {
-  min-height: 76px;
+.photo-preview-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.photo-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.photo-preview-thumb {
+  width: 60px;
+  min-width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, var(--panel));
+  background: var(--field);
+}
+
+.photo-preview-field {
+  flex: 1;
+  min-width: 0;
 }
 
 .photo-grid {
