@@ -464,30 +464,26 @@
 
 .rename-actions {
   display: flex;
-  align-items: center;
   gap: 8px;
 }
 
-.rename-save,
-.rename-cancel {
-  all: unset;
-  cursor: pointer;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  line-height: 1;
-  padding: 3px 0;
-}
-
 .rename-save {
-  color: var(--accent);
+  width: auto;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  min-height: var(--touch-target-sm);
+  padding: 8px 14px;
 }
 
 .rename-cancel {
-  color: var(--muted);
+  width: auto;
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  min-height: var(--touch-target-sm);
+  padding: 8px 14px;
 }
-
-.rename-save:hover { opacity: 0.75; }
-.rename-cancel:hover { color: var(--ink); }
 
 .attribute-card-actions {
   display: inline-flex;

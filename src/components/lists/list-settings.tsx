@@ -71,68 +71,68 @@ function groupIcons(query: string) {
   );
 }
 
-export function ListSettingsDrawer({ state, onClose }: { state: AppState; onClose: () => void }) {
+export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose: () => void }) {
   const isGlobal = !state.activeList;
   const definitions = isGlobal ? state.globalRatingDefinitions : state.ratingDefinitions;
 
   return (
-    <div className="drawer-backdrop">
-      <aside className="settings-drawer" aria-label={isGlobal ? "Global ratings" : "List settings"}>
-        <header className="drawer-head">
-          <div>
-            <p className="kicker">{isGlobal ? "Global ratings" : "List settings"}</p>
-            <h2>{state.activeList?.name ?? "All restaurants"}</h2>
-          </div>
-          <button className="ghost-button icon-button" onClick={onClose} aria-label="Close list settings"><X size={18} /></button>
-        </header>
+    <div className="detail-content">
+      <div className="detail-head">
+        <div className="detail-title-group">
+          <span className="kicker">{isGlobal ? "Global ratings" : "List settings"}</span>
+          <h3>{state.activeList?.name ?? "All restaurants"}</h3>
+        </div>
+        <div className="detail-actions">
+          <button className="ghost-button icon-button" onClick={onClose} aria-label="Close settings"><X size={18} /></button>
+        </div>
+      </div>
 
-        {isGlobal ? (
-          <>
-            <section className="settings-section">
-              <PanelTitle icon={<Star size={17} />} title="Built-ins" detail="Common ratings shown for every restaurant." />
-              <div className="preset-grid">
-                {RATING_PRESETS.map((preset) => {
-                  const d = state.globalRatingDefinitions.find((item) => item.presetKey === preset.key);
-                  const enabled = d?.active ?? false;
-                  return (
-                    <form action="/mutate" method="post" className={`preset-card ${enabled ? "enabled" : ""}`} key={preset.key}>
-                      <input type="hidden" name="__action" value="setRatingPresetEnabled" />
-                      <input type="hidden" name="presetKey" value={preset.key} />
-                      <input type="hidden" name="enabled" value={enabled ? "0" : "1"} />
-                      <div><strong>{preset.name}</strong><small>{presetDescription(preset.key)}</small></div>
-                      <button>{enabled ? "Disable" : "Enable"}</button>
-                    </form>
-                  );
-                })}
-              </div>
-            </section>
-            <section className="settings-section">
-              <PanelTitle icon={<Tag size={17} />} title="Custom globals" detail="User-defined ratings shown for every restaurant." />
-              <AttributeCards definitions={definitions.filter((d) => !d.presetKey)} />
-              <AddCustomFieldForm scope="global" />
-            </section>
-          </>
-        ) : null}
+      {isGlobal ? (
+        <>
+          <section className="settings-section">
+            <PanelTitle icon={<Star size={17} />} title="Built-ins" detail="Common ratings shown for every restaurant." />
+            <div className="preset-grid">
+              {RATING_PRESETS.map((preset) => {
+                const d = state.globalRatingDefinitions.find((item) => item.presetKey === preset.key);
+                const enabled = d?.active ?? false;
+                return (
+                  <form action="/mutate" method="post" className={`preset-card ${enabled ? "enabled" : ""}`} key={preset.key}>
+                    <input type="hidden" name="__action" value="setRatingPresetEnabled" />
+                    <input type="hidden" name="presetKey" value={preset.key} />
+                    <input type="hidden" name="enabled" value={enabled ? "0" : "1"} />
+                    <div><strong>{preset.name}</strong><small>{presetDescription(preset.key)}</small></div>
+                    <button>{enabled ? "Disable" : "Enable"}</button>
+                  </form>
+                );
+              })}
+            </div>
+          </section>
+          <section className="settings-section">
+            <PanelTitle icon={<Tag size={17} />} title="Custom globals" detail="User-defined ratings shown for every restaurant." />
+            <AttributeCards definitions={definitions.filter((d) => !d.presetKey)} />
+            <AddCustomFieldForm scope="global" />
+          </section>
+        </>
+      ) : null}
 
-        {!isGlobal && state.activeList ? (
-          <>
-            <section className="settings-section">
-              <PanelTitle icon={<Star size={17} />} title="List details" detail="Rename this list." />
-              <form action="/mutate" method="post" className="stack-form">
-                <input type="hidden" name="__action" value="updateListDetails" />
-                <input type="hidden" name="listId" value={state.activeList.id} />
-                <input name="name" defaultValue={state.activeList.name} required />
-                <button>Save list details</button>
-              </form>
-            </section>
-            <section className="settings-section">
-              <PanelTitle icon={<Star size={17} />} title="Custom fields" detail="Add list-specific ratings for restaurants in this list." />
-              <AttributeCards definitions={definitions} />
-              <AddCustomFieldForm scope="list" listId={state.activeList.id} />
-            </section>
-          </>
-        ) : null}
-      </aside>
+      {!isGlobal && state.activeList ? (
+        <>
+          <section className="settings-section">
+            <PanelTitle icon={<Star size={17} />} title="List details" detail="Rename this list." />
+            <form action="/mutate" method="post" className="stack-form">
+              <input type="hidden" name="__action" value="updateListDetails" />
+              <input type="hidden" name="listId" value={state.activeList.id} />
+              <input name="name" defaultValue={state.activeList.name} required />
+              <button>Save list details</button>
+            </form>
+          </section>
+          <section className="settings-section">
+            <PanelTitle icon={<Star size={17} />} title="Custom fields" detail="Add list-specific ratings for restaurants in this list." />
+            <AttributeCards definitions={definitions} />
+            <AddCustomFieldForm scope="list" listId={state.activeList.id} />
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -19,7 +19,7 @@ import {
 import { SidebarContent } from "@/components/layout/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { AddRestaurantsPanel } from "@/components/search/add-restaurants";
-import { ListSettingsDrawer } from "@/components/lists/list-settings";
+import { ListSettingsPanel } from "@/components/lists/list-settings";
 import { AddListModal } from "@/components/lists/add-list-modal";
 import { AdminDrawer } from "@/components/admin/admin-panel";
 import { RestaurantDetail } from "@/components/restaurant/restaurant-detail";
@@ -299,7 +299,11 @@ export default function AppShell({
           </div>
         </header>
 
-        {selectedEntry ? (
+        {settingsOpen ? (
+          <section className="mobile-detail-view">
+            <ListSettingsPanel state={activeState} onClose={closeSettings} />
+          </section>
+        ) : selectedEntry ? (
           <section className="mobile-detail-view">
             <RestaurantDetail
               key={`${selectedEntry.id}:${initialEntryEdit ? "edit" : "view"}`}
@@ -314,7 +318,7 @@ export default function AppShell({
           </section>
         ) : null}
 
-        <div className={selectedEntry ? "mobile-hidden-when-detail" : undefined}>
+        <div className={settingsOpen || selectedEntry ? "mobile-hidden-when-detail" : undefined}>
           {activeTab === "lists" ? (
             <section className="mobile-lists-view">
               <SidebarContent
@@ -480,7 +484,9 @@ export default function AppShell({
               )}
             </section>
             <section className="detail">
-              {selectedEntry ? (
+              {settingsOpen ? (
+                <ListSettingsPanel state={activeState} onClose={closeSettings} />
+              ) : selectedEntry ? (
                 <RestaurantDetail
                   key={`${selectedEntry.id}:${initialEntryEdit ? "edit" : "view"}`}
                   canWrite={canWrite}
@@ -532,7 +538,6 @@ export default function AppShell({
         activeListId={activeState.activeListId}
       />
 
-      {settingsOpen ? <ListSettingsDrawer state={activeState} onClose={closeSettings} /> : null}
       {adminOpen ? <AdminDrawer state={activeState} onClose={() => setAdminOpen(false)} /> : null}
       {addListOpen ? <AddListModal state={activeState} onClose={() => setAddListOpen(false)} /> : null}
       <InstallPrompt />
