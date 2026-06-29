@@ -9,31 +9,59 @@ import type { Restaurant, RestaurantPhoto } from "@/lib/types";
 export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry: Restaurant }) {
   const router = useRouter();
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [selectedFileCount, setSelectedFileCount] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
 
   async function handleUpload(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
     const fileInput = form.elements.namedItem("photo") as HTMLInputElement;
-    if (!fileInput.files?.length) { setUploadError("Choose an image to upload."); return; }
-    setUploading(true);
+    const files = Array.from(fileInput.files ?? []);
+    if (!files.length) { setUploadError("Choose at least one image to upload."); return; }
+
+    const description = (form.elements.namedItem("description") as HTMLTextAreaElement).value;
+    const restaurantId = (form.elements.namedItem("restaurantId") as HTMLInputElement).value;
+
+    setUploadProgress({ done: 0, total: files.length });
     setUploadError(null);
-    try {
-      const res = await fetch("/mutate", { method: "POST", body: new FormData(form) });
+
+    const results = await Promise.allSettled(files.map(async (file) => {
+      const fd = new FormData();
+      fd.append("__action", "uploadRestaurantPhoto");
+      fd.append("restaurantId", restaurantId);
+      fd.append("photo", file);
+      if (description) fd.append("description", description);
+      const res = await fetch("/mutate", { method: "POST", body: fd });
       const finalUrl = new URL(res.url);
       const mutationError = finalUrl.searchParams.get("message");
-      if (mutationError) { setUploadError(mutationError); return; }
-      form.reset();
-      setSelectedFileName(null);
-      router.refresh();
-    } catch {
-      setUploadError("Upload failed. Please try again.");
-    } finally {
-      setUploading(false);
+      if (mutationError) throw new Error(mutationError);
+      setUploadProgress((prev) => prev ? { ...prev, done: prev.done + 1 } : null);
+    }));
+
+    const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    const anySuccess = results.some((r) => r.status === "fulfilled");
+
+    if (failures.length) {
+      const msg = failures.length === 1
+        ? failures[0].reason instanceof Error ? failures[0].reason.message : "One photo failed to upload."
+        : `${failures.length} photos failed to upload.`;
+      setUploadError(msg);
     }
+
+    if (anySuccess) {
+      form.reset();
+      setSelectedFileCount(0);
+      router.refresh();
+    }
+
+    setUploadProgress(null);
   }
+
+  const uploading = uploadProgress !== null;
+  const buttonLabel = uploading
+    ? `Uploading ${uploadProgress.done + 1} of ${uploadProgress.total}…`
+    : selectedFileCount > 1 ? `Upload ${selectedFileCount} photos` : "Upload photo";
 
   return (
     <section className="photo-section">
@@ -44,26 +72,28 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
 
       {canWrite ? (
         <form onSubmit={handleUpload} className="photo-upload-form">
-          <input type="hidden" name="__action" value="uploadRestaurantPhoto" />
           <input type="hidden" name="restaurantId" value={entry.id} />
-          <label className={`photo-upload-zone${selectedFileName ? " has-file" : ""}`}>
+          <label className={`photo-upload-zone${selectedFileCount > 0 ? " has-file" : ""}`}>
             <input
               name="photo"
               type="file"
+              multiple
               accept="image/jpeg,image/png,image/webp"
               required
               className="photo-upload-input"
-              onChange={(e) => { setSelectedFileName(e.target.files?.[0]?.name ?? null); setUploadError(null); }}
+              onChange={(e) => { setSelectedFileCount(e.target.files?.length ?? 0); setUploadError(null); }}
             />
             <ImagePlus size={18} />
-            <span>{selectedFileName ?? "Choose photo"}</span>
+            <span>
+              {selectedFileCount === 0 ? "Choose photos" : selectedFileCount === 1 ? "1 photo selected" : `${selectedFileCount} photos selected`}
+            </span>
           </label>
           {uploadError ? <p className="upload-error">{uploadError}</p> : null}
           <label className="photo-upload-field photo-upload-description">
             <span>Description</span>
             <textarea name="description" rows={2} placeholder="What is shown in this photo?" maxLength={280} />
           </label>
-          <button type="submit" className="compact-button" disabled={uploading}>{uploading ? "Uploading…" : "Upload photo"}</button>
+          <button type="submit" className="compact-button" disabled={uploading}>{buttonLabel}</button>
         </form>
       ) : null}
 
