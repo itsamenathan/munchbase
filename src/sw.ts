@@ -38,6 +38,18 @@ self.addEventListener("fetch", (event) => {
 
 serwist.addEventListeners();
 
+// After a new SW activates and claims all clients, tell each window to reload
+// so stale cached JS bundles (which could reference old server action IDs) are replaced.
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    self.clients.matchAll({ type: "window" }).then((windowClients) => {
+      for (const client of windowClients) {
+        client.postMessage({ type: "SW_UPDATED" });
+      }
+    }),
+  );
+});
+
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting();

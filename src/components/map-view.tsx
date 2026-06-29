@@ -3,7 +3,7 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect, useState } from "react";
-import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import { formatWallDateTime } from "@/lib/datetime";
 import type { Restaurant } from "@/lib/types";
 
@@ -22,14 +22,19 @@ function markerIcon(goBackDefinitionId: number | null, ratings: Restaurant["rati
 }
 
 function LocationMarker() {
+  const map = useMap();
   const [position, setPosition] = useState<[number, number] | null>(null);
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
-      (pos) => setPosition([pos.coords.latitude, pos.coords.longitude]),
+      (pos) => {
+        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setPosition(coords);
+        map.setView(coords, 14);
+      },
       () => {},
     );
-  }, []);
+  }, [map]);
 
   if (!position) return null;
   return (

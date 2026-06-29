@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { NetworkProvider } from "@/hooks/use-network-status";
 import { ThemeProvider } from "@/hooks/use-theme";
+import { SwUpdateWatcher } from "@/components/sw-update-watcher";
 import "./styles/index.css";
 
 export const metadata: Metadata = {
@@ -63,6 +64,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <NetworkProvider>{children}</NetworkProvider>
         </ThemeProvider>
+        <SwUpdateWatcher />
       </body>
     </html>
   );
