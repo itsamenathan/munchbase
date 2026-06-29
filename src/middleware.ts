@@ -17,7 +17,22 @@ const CSP = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-export function proxy(request: NextRequest) {
+function redirectTo(request: NextRequest, path: string) {
+  const proto = request.headers.get("x-forwarded-proto") ?? new URL(request.url).protocol.replace(":", "");
+  const host = request.headers.get("host") ?? new URL(request.url).host;
+  return NextResponse.redirect(`${proto}://${host}${path}`);
+}
+
+export function middleware(request: NextRequest) {
+  // Intercept stale server-action POSTs from old cached JS bundles. Without
+  // this, Next.js logs "Failed to find Server Action" for every request from a
+  // client whose service worker is still serving pre-refactor JS.
+  if (request.method === "POST" && request.headers.has("Next-Action")) {
+    const referer = request.headers.get("referer");
+    const dest = referer ? new URL(referer).pathname : "/";
+    return redirectTo(request, dest);
+  }
+
   const response = NextResponse.next();
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     response.headers.set(key, value);
