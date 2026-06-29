@@ -16,10 +16,26 @@ const goBackIcon = L.divIcon({ ...ICON_OPTIONS, className: "restaurant-marker go
 const noGoIcon = L.divIcon({ ...ICON_OPTIONS, className: "restaurant-marker no-go", html: PIN_HTML });
 const locationIcon = L.divIcon({ ...ICON_OPTIONS, className: "location-marker", html: '<span aria-hidden="true"></span>', iconAnchor: [14, 14] });
 
+// Survives tab switches (unmount/remount) within the same session.
+let savedMapState: { center: [number, number]; zoom: number } | null = null;
+
 function markerIcon(goBackDefinitionId: number | null, ratings: Restaurant["ratings"]): L.DivIcon {
   if (goBackDefinitionId === null) return plainIcon;
   const value = ratings.find((r) => r.definitionId === goBackDefinitionId)?.value;
   return value === "true" ? goBackIcon : noGoIcon;
+}
+
+function MapStateTracker() {
+  const map = useMap();
+  useEffect(() => {
+    const save = () => {
+      const c = map.getCenter();
+      savedMapState = { center: [c.lat, c.lng], zoom: map.getZoom() };
+    };
+    map.on("moveend", save);
+    return () => { map.off("moveend", save); };
+  }, [map]);
+  return null;
 }
 
 function LocationMarker() {
@@ -31,7 +47,7 @@ function LocationMarker() {
       (pos) => {
         const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
         setPosition(coords);
-        map.setView(coords, 14);
+        if (!savedMapState) map.setView(coords, 14);
       },
       () => {},
     );
@@ -71,11 +87,10 @@ function RestaurantPopup({
           {ratings.map(({ definition, value }) => {
             if (definition.presetKey === "stars") {
               const num = Number(value);
-              const max = definition.max ?? 5;
               return (
-                <span key={definition.id} className="map-popup-stars" aria-label={`${num} of ${max} stars`}>
-                  {Array.from({ length: max }, (_, i) => (
-                    <Star key={i} size={13} fill={i < num ? "currentColor" : "none"} strokeWidth={1.5} />
+                <span key={definition.id} className="map-popup-stars" aria-label={`${num} stars`}>
+                  {Array.from({ length: num }, (_, i) => (
+                    <Star key={i} size={13} fill="currentColor" strokeWidth={1.5} />
                   ))}
                 </span>
               );
@@ -114,13 +129,19 @@ export default function MapView({
   onSelectRestaurant: (id: number) => void;
 }) {
   const withCoords = restaurants.filter((r) => r.lat !== null && r.lon !== null);
-  const center = withCoords[0] ? [withCoords[0].lat!, withCoords[0].lon!] : [39.5, -98.35];
+  const defaultCenter: [number, number] = withCoords[0] ? [withCoords[0].lat!, withCoords[0].lon!] : [39.5, -98.35];
+  const defaultZoom = withCoords[0] ? 12 : 4;
+
+  const initialCenter = savedMapState?.center ?? defaultCenter;
+  const initialZoom = savedMapState?.zoom ?? defaultZoom;
+
   return (
-    <MapContainer center={center as [number, number]} zoom={withCoords[0] ? 12 : 4} className="map">
+    <MapContainer center={initialCenter} zoom={initialZoom} className="map">
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url={process.env.NEXT_PUBLIC_TILE_URL ?? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
       />
+      <MapStateTracker />
       <LocationMarker />
       {withCoords.map((restaurant) => (
         <Marker
