@@ -139,12 +139,16 @@ export default function AppShell({
   };
 
   const restaurants = useMemo(() => {
-    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, "");
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
     const needle = normalize(query);
+    const needleTokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean).map(normalize).filter(Boolean);
     return activeState.restaurants.filter((r) => {
-      const haystack = normalize([r.name, r.address, r.standingNotes, r.favoriteItems, r.orderingTips].filter(Boolean).join(" "));
-      const textMatch = !needle || haystack.includes(needle) ||
-        needle.split(/\s+/).filter(Boolean).every((w) => haystack.split(/\s+/).some((hw) => hw.includes(w)));
+      const raw = [r.name, r.address, r.standingNotes, r.favoriteItems, r.orderingTips].filter(Boolean).join(" ");
+      const haystack = normalize(raw);
+      const haystackTokens = raw.toLowerCase().split(/\s+/).filter(Boolean).map(normalize).filter(Boolean);
+      const textMatch = !needle ||
+        haystack.includes(needle) ||
+        needleTokens.every((nw) => haystackTokens.some((hw) => hw.includes(nw)));
       const ratingMatch =
         !filterDefinition ||
         !filterValue ||
