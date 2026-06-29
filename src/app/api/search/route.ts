@@ -17,8 +17,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Please wait a moment before searching again." }, { status: 429 });
   }
   lastRequestAt = now;
+
   const url = new URL("https://nominatim.openstreetmap.org/search");
-  url.searchParams.set("q", q);
+  // Use the structured `amenity` parameter instead of free-form `q`.
+  // Nominatim normalizes POI names at index time, so "mcdonalds" matches
+  // "McDonald's", "chuys" matches "Chuy's", etc. — no client-side workarounds needed.
+  url.searchParams.set("amenity", q);
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("addressdetails", "1");
   url.searchParams.set("limit", "8");
