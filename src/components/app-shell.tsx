@@ -440,6 +440,7 @@ export default function AppShell({
             {activeTab === "map" ? (
           <MapView
             restaurants={restaurants}
+            globalRatingDefinitions={activeState.globalRatingDefinitions}
             goBackDefinitionId={activeState.globalRatingDefinitions.find((d) => d.presetKey === "go_back" && d.active)?.id ?? null}
             onSelectRestaurant={openEntryFromMap}
           />
