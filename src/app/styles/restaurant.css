@@ -2,6 +2,7 @@
   width: 100%;
   min-height: 74px;
   justify-content: space-between;
+  align-items: flex-start;
   text-align: left;
   background:
     linear-gradient(135deg, var(--panel-sheen), transparent 52%),
@@ -14,7 +15,7 @@
   box-shadow: var(--shadow-soft);
   transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   content-visibility: auto;
-  contain-intrinsic-size: 76px;
+  contain-intrinsic-size: 100px;
 }
 
 .restaurant-row.active {
@@ -33,7 +34,7 @@
     border-radius: 12px;
     padding: 10px 12px;
     box-shadow: none;
-    contain-intrinsic-size: 58px;
+    contain-intrinsic-size: 84px;
   }
 
   .restaurant-row:hover {
@@ -49,14 +50,15 @@
 }
 
 .restaurant-row-top {
-  display: grid;
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
-  align-items: center;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 6px;
   min-width: 0;
 }
 
 .restaurant-row-top strong {
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -73,6 +75,7 @@
 }
 
 .meta {
+  flex-shrink: 0;
   color: var(--muted);
   white-space: nowrap;
   font-size: var(--font-size-sm);
@@ -80,12 +83,11 @@
 }
 
 .rating-icons {
-  display: inline-flex;
+  display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 4px;
   align-items: center;
-  margin-left: 4px;
-  vertical-align: middle;
+  margin-top: 6px;
   max-width: 100%;
 }
 

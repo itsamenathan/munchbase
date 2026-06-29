@@ -467,11 +467,11 @@ export default function AppShell({
                       <span>
                         <span className="restaurant-row-top">
                           <strong>{rst.name}</strong>
-                          <span className="rating-icons">{ratingIcons}</span>
+                          <span className="meta">{rst.checkInCount ? `${rst.checkInCount} visit${rst.checkInCount === 1 ? "" : "s"}` : ""}</span>
                         </span>
                         <small>{formatCityState(rst.address) || rst.address}</small>
+                        {ratingIcons.some((i) => i) ? <span className="rating-icons">{ratingIcons}</span> : null}
                       </span>
-                      <span className="meta">{rst.checkInCount ? `${rst.checkInCount} visit${rst.checkInCount === 1 ? "" : "s"}` : ""}</span>
                     </button>
                 );
               })
