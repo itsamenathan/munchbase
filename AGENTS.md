@@ -50,3 +50,18 @@ Use this repository’s terminology consistently in code, UI text, comments, and
 - Keep mobile-first terminology stable.
 - Do not rename core navigation concepts without updating the route structure.
 - If a term appears in the UI, prefer reusing that exact term in code and comments.
+
+## Before Declaring a Task Complete
+
+Always run the following checks after making code changes, before reporting done:
+
+1. **TypeScript** — `npx tsc --noEmit`
+   Catches type errors that would fail the Docker build. This is the most important check — the build pipeline runs TypeScript and will reject the image if it fails.
+
+2. **Check for multiple usages** — when adding a required prop to a component, grep for all usages before finishing:
+   `grep -n "ComponentName" src/**/*.tsx`
+   Missing a second usage site is a common build failure cause.
+
+3. **Check imports** — if creating a new file that is imported elsewhere, confirm the file is actually saved and the import path is correct.
+
+These are run locally and are fast. The goal is to catch issues before they surface as Docker build failures in CI.

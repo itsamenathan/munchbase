@@ -560,10 +560,11 @@ export default function AppShell({
             placeQuery={placeQuery}
             setPlaceQuery={setPlaceQuery}
             placeResults={placeResults}
+            nearbyResults={nearbyResults}
             placeSearchStatus={placeSearchStatus}
             locationStatus={locationStatus}
             useCurrentLocation={useCurrentLocation}
-              setUseCurrentLocation={handleUseCurrentLocation}
+            setUseCurrentLocation={handleUseCurrentLocation}
             searchPlaces={searchPlaces}
           />
         </aside>
