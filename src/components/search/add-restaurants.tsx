@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, type ReactNode } from "react";
-import { Crosshair, MapPin, Plus, Search } from "lucide-react";
+import { MapPin, Plus, Search } from "lucide-react";
 import { restaurantHref } from "@/lib/routes";
 import type { AppState } from "@/lib/types";
 
@@ -42,9 +42,6 @@ export function AddRestaurantsPanel({
   placeResults,
   nearbyResults,
   placeSearchStatus,
-  locationStatus,
-  useCurrentLocation,
-  setUseCurrentLocation,
   searchPlaces,
 }: {
   state: AppState;
@@ -54,9 +51,6 @@ export function AddRestaurantsPanel({
   placeResults: PlaceResult[];
   nearbyResults: PlaceResult[];
   placeSearchStatus: string;
-  locationStatus: string;
-  useCurrentLocation: boolean;
-  setUseCurrentLocation: (v: boolean) => void;
   searchPlaces: (e?: FormEvent<HTMLFormElement>) => Promise<void>;
 }) {
   if (!canWrite) return null;
@@ -87,12 +81,6 @@ export function AddRestaurantsPanel({
         />
         <button type="submit" aria-label="Search places"><Search size={16} /></button>
       </form>
-      <label className="toggle-row">
-        <input type="checkbox" checked={useCurrentLocation} onChange={(e) => setUseCurrentLocation(e.target.checked)} />
-        <Crosshair size={16} />
-        Search near me
-      </label>
-      {locationStatus ? <p className="microcopy">{locationStatus}</p> : null}
       {placeSearchStatus ? <p className="microcopy">{placeSearchStatus}</p> : null}
 
       {existingMatches.length > 0 ? (

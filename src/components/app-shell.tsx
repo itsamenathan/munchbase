@@ -66,8 +66,6 @@ export default function AppShell({
   const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const [placeSearchStatus, setPlaceSearchStatus] = useState("");
   const [nearbyResults, setNearbyResults] = useState<PlaceResult[]>([]);
-  const [useCurrentLocation, setUseCurrentLocation] = useState(true);
-  const [locationStatus, setLocationStatus] = useState("");
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [addListOpen, setAddListOpen] = useState(false);
@@ -199,18 +197,10 @@ export default function AppShell({
       return;
     }
     setPlaceSearchStatus("Searching...");
-    setLocationStatus("");
     const params = new URLSearchParams({ q: placeQuery });
-    if (useCurrentLocation) {
-      const coords = locationCoords ?? (await requestCurrentLocation());
-      if (coords) {
-        params.set("lat", String(coords.lat));
-        params.set("lon", String(coords.lon));
-        params.set("radiusKm", "25");
-        setLocationStatus("Searching within about 25 km of your current location.");
-      } else {
-        setLocationStatus("Location is unavailable, so searching everywhere instead.");
-      }
+    if (locationCoords) {
+      params.set("lat", String(locationCoords.lat));
+      params.set("lon", String(locationCoords.lon));
     }
     const response = await fetch(`/api/search?${params.toString()}`);
     const data = (await response.json()) as { results?: PlaceResult[]; error?: string };
@@ -221,31 +211,6 @@ export default function AppShell({
     }
     setPlaceResults(data.results ?? []);
     setPlaceSearchStatus(data.results?.length ? `${data.results.length} places found.` : "No places found.");
-  }
-
-  async function requestCurrentLocation() {
-    const result = await getCurrentPosition();
-    if (result.ok) {
-      const coords = { lat: result.position.coords.latitude, lon: result.position.coords.longitude };
-      writeCachedLocation(coords.lat, coords.lon);
-      setLocationCoords(coords);
-      setLocationStatus("Location ready. Searches will prefer nearby results.");
-      return coords;
-    }
-    setLocationCoords(null);
-    setLocationStatus(result.reason);
-    return null;
-  }
-
-  async function handleUseCurrentLocation(value: boolean) {
-    setUseCurrentLocation(value);
-    if (!value) {
-      setLocationCoords(null);
-      setLocationStatus("");
-      return;
-    }
-    setLocationStatus("Requesting location...");
-    await requestCurrentLocation();
   }
 
   const activeListName = activeState.activeList?.name ?? "All restaurants";
@@ -379,9 +344,6 @@ export default function AppShell({
                 placeResults={placeResults}
                 nearbyResults={nearbyResults}
                 placeSearchStatus={placeSearchStatus}
-                locationStatus={locationStatus}
-                useCurrentLocation={useCurrentLocation}
-                setUseCurrentLocation={handleUseCurrentLocation}
                 searchPlaces={searchPlaces}
               />
             </section>
@@ -562,9 +524,6 @@ export default function AppShell({
             placeResults={placeResults}
             nearbyResults={nearbyResults}
             placeSearchStatus={placeSearchStatus}
-            locationStatus={locationStatus}
-            useCurrentLocation={useCurrentLocation}
-            setUseCurrentLocation={handleUseCurrentLocation}
             searchPlaces={searchPlaces}
           />
         </aside>
@@ -643,26 +602,3 @@ function RatingFilterOptions({ definition }: { definition?: RatingDefinition }) 
   return options;
 }
 
-function getCurrentPosition(): Promise<
-  | { ok: true; position: GeolocationPosition }
-  | { ok: false; reason: string }
-> {
-  if (typeof window === "undefined" || typeof navigator === "undefined" || !navigator.geolocation) {
-    return Promise.resolve({ ok: false, reason: "This browser does not support location search." });
-  }
-  if (!window.isSecureContext) {
-    return Promise.resolve({ ok: false, reason: "Browser location requires HTTPS or localhost." });
-  }
-  return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => resolve({ ok: true, position }),
-      (error) => {
-        const reason = error.code === error.PERMISSION_DENIED
-          ? "Location permission was denied."
-          : "Location unavailable.";
-        resolve({ ok: false, reason });
-      },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 1000 * 60 * 10 },
-    );
-  });
-}
