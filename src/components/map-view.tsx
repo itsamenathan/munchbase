@@ -2,24 +2,41 @@
 
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { useEffect, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import { formatWallDateTime } from "@/lib/datetime";
 import type { Restaurant } from "@/lib/types";
 
 const ICON_OPTIONS = { iconSize: [28, 28] as [number, number], iconAnchor: [14, 28] as [number, number], popupAnchor: [0, -26] as [number, number] };
+const PIN_HTML = '<span aria-hidden="true"></span>';
 
-const UNDO2_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>`;
-const X_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>`;
+const plainIcon = L.divIcon({ ...ICON_OPTIONS, className: "restaurant-marker", html: PIN_HTML });
+const goBackIcon = L.divIcon({ ...ICON_OPTIONS, className: "restaurant-marker go-back", html: PIN_HTML });
+const noGoIcon = L.divIcon({ ...ICON_OPTIONS, className: "restaurant-marker no-go", html: PIN_HTML });
+const locationIcon = L.divIcon({ ...ICON_OPTIONS, className: "location-marker", html: '<span aria-hidden="true"></span>', iconAnchor: [14, 14] });
 
-const plainIcon = L.divIcon({ ...ICON_OPTIONS, className: "restaurant-marker", html: '<span aria-hidden="true"></span>' });
+function markerIcon(goBackDefinitionId: number | null, ratings: Restaurant["ratings"]): L.DivIcon {
+  if (goBackDefinitionId === null) return plainIcon;
+  const value = ratings.find((r) => r.definitionId === goBackDefinitionId)?.value;
+  return value === "true" ? goBackIcon : noGoIcon;
+}
 
-function goBackIcon(value: string | undefined): L.DivIcon {
-  const yes = value === "true";
-  return L.divIcon({
-    ...ICON_OPTIONS,
-    className: `restaurant-marker ${yes ? "go-back" : "no-go"}`,
-    html: `<span aria-hidden="true"><span class="marker-icon">${yes ? UNDO2_SVG : X_SVG}</span></span>`,
-  });
+function LocationMarker() {
+  const [position, setPosition] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setPosition([pos.coords.latitude, pos.coords.longitude]),
+      () => {},
+    );
+  }, []);
+
+  if (!position) return null;
+  return (
+    <Marker position={position} icon={locationIcon}>
+      <Popup>You are here</Popup>
+    </Marker>
+  );
 }
 
 export default function MapView({
@@ -31,7 +48,7 @@ export default function MapView({
   goBackDefinitionId: number | null;
   onSelectRestaurant: (id: number) => void;
 }) {
-  const withCoords = restaurants.filter((restaurant) => restaurant.lat !== null && restaurant.lon !== null);
+  const withCoords = restaurants.filter((r) => r.lat !== null && r.lon !== null);
   const center = withCoords[0] ? [withCoords[0].lat!, withCoords[0].lon!] : [39.5, -98.35];
   return (
     <MapContainer center={center as [number, number]} zoom={withCoords[0] ? 12 : 4} className="map">
@@ -39,27 +56,26 @@ export default function MapView({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url={process.env.NEXT_PUBLIC_TILE_URL ?? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
       />
-      {withCoords.map((restaurant) => {
-        const goBackValue = goBackDefinitionId
-          ? restaurant.ratings.find((r) => r.definitionId === goBackDefinitionId)?.value
-          : undefined;
-        const icon = goBackDefinitionId !== null ? goBackIcon(goBackValue) : plainIcon;
-        return (
-          <Marker key={restaurant.id} position={[restaurant.lat!, restaurant.lon!]} icon={icon}>
-            <Popup>
-              <button type="button" className="map-popup-title" onClick={() => onSelectRestaurant(restaurant.id)}>
-                {restaurant.name}
-              </button>
-              <br />
-              {restaurant.latestCheckIn ? `Last visit: ${formatWallDateTime(restaurant.latestCheckIn.visitedAt)}` : "No check-ins yet"}
-              <br />
-              <a href={googleMapsUrl(restaurant)} target="_blank" rel="noreferrer">
-                Google Maps
-              </a>
-            </Popup>
-          </Marker>
-        );
-      })}
+      <LocationMarker />
+      {withCoords.map((restaurant) => (
+        <Marker
+          key={restaurant.id}
+          position={[restaurant.lat!, restaurant.lon!]}
+          icon={markerIcon(goBackDefinitionId, restaurant.ratings)}
+        >
+          <Popup>
+            <button type="button" className="map-popup-title" onClick={() => onSelectRestaurant(restaurant.id)}>
+              {restaurant.name}
+            </button>
+            <br />
+            {restaurant.latestCheckIn ? `Last visit: ${formatWallDateTime(restaurant.latestCheckIn.visitedAt)}` : "No check-ins yet"}
+            <br />
+            <a href={googleMapsUrl(restaurant)} target="_blank" rel="noreferrer">
+              Google Maps
+            </a>
+          </Popup>
+        </Marker>
+      ))}
     </MapContainer>
   );
 }

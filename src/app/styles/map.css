@@ -35,19 +35,19 @@
   background: var(--positive);
 }
 
-.restaurant-marker.go-back span::after,
-.restaurant-marker.no-go span::after {
-  display: none;
+.location-marker {
+  background: transparent;
+  border: 0;
 }
 
-.marker-icon {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform: rotate(45deg);
-  color: white;
+.location-marker span {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 85, 218, 0.4);
 }
 
 .map-popup-title {

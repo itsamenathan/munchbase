@@ -150,8 +150,10 @@ function RenameForm({ name, onSave, onCancel }: { name: string; onSave: (name: s
         onChange={(e) => setEditName(e.target.value)}
         className="attribute-card-name-input"
       />
-      <button type="submit" className="compact-button">Save</button>
-      <button type="button" className="ghost-button compact-button" onClick={onCancel}>Cancel</button>
+      <div className="rename-actions">
+        <button type="submit" className="rename-save">Save</button>
+        <button type="button" className="rename-cancel" onClick={onCancel}>Cancel</button>
+      </div>
     </form>
   );
 }
@@ -223,13 +225,16 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
         <div
           key={d.id}
           className={`attribute-card${d.active ? " enabled" : ""}${draggingId === d.id ? " dragging" : ""}`}
-          draggable
-          onDragStart={() => handleDragStart(d.id)}
           onDragOver={(e) => handleDragOver(e, d.id)}
           onDrop={handleDrop}
           onDragEnd={() => { setDraggingId(null); dragId.current = null; }}
         >
-          <span className="attribute-card-drag" aria-hidden="true"><GripVertical size={15} /></span>
+          <span
+            className="attribute-card-drag"
+            aria-hidden="true"
+            draggable
+            onDragStart={() => handleDragStart(d.id)}
+          ><GripVertical size={15} /></span>
           <div className="attribute-card-copy">
             {editingId === d.id ? (
               <RenameForm
