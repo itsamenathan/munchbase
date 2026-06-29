@@ -172,8 +172,29 @@ function PhotoCard({
   onOpen: () => void;
   onDelete: () => void;
 }) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [description, setDescription] = useState(photo.description ?? "");
+
+  async function handleDelete() {
+    const fd = new FormData();
+    fd.append("__action", "deleteRestaurantPhoto");
+    fd.append("photoId", String(photo.id));
+    await fetch("/mutate", { method: "POST", body: fd });
+    onDelete();
+    router.refresh();
+  }
+
+  async function handleSaveDescription(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData();
+    fd.append("__action", "updateRestaurantPhotoDescription");
+    fd.append("photoId", String(photo.id));
+    fd.append("description", description);
+    await fetch("/mutate", { method: "POST", body: fd });
+    setEditing(false);
+    router.refresh();
+  }
 
   return (
     <article className="photo-card">
@@ -185,24 +206,13 @@ function PhotoCard({
           <button type="button" className="ghost-button icon-button compact-icon-button" onClick={() => setEditing(true)} aria-label="Edit photo description">
             <Pencil size={14} />
           </button>
-          <form
-            action="/mutate" method="post"
-          >
-            <input type="hidden" name="__action" value="deleteRestaurantPhoto" />
-            <input type="hidden" name="photoId" value={photo.id} />
-            <button type="submit" className="ghost-button icon-button compact-icon-button photo-delete-button" aria-label="Delete photo">
-              <Trash2 size={14} />
-            </button>
-          </form>
+          <button type="button" className="ghost-button icon-button compact-icon-button photo-delete-button" onClick={handleDelete} aria-label="Delete photo">
+            <Trash2 size={14} />
+          </button>
         </div>
       ) : null}
       {editing ? (
-        <form
-          action="/mutate" method="post"
-          className="photo-card-edit"
-        >
-          <input type="hidden" name="__action" value="updateRestaurantPhotoDescription" />
-          <input type="hidden" name="photoId" value={photo.id} />
+        <form className="photo-card-edit" onSubmit={handleSaveDescription}>
           <label className="photo-upload-field">
             <span>Description</span>
             <textarea name="description" rows={2} value={description} onChange={(event) => setDescription(event.target.value)} maxLength={280} />
