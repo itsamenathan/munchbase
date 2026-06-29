@@ -332,10 +332,6 @@ export default function AppShell({
             </section>
           ) : activeTab === "add" ? (
             <section className="mobile-add-view">
-              <header className="mobile-page-header">
-                <p className="kicker">Add restaurant</p>
-                {activeState.activeList ? <h3>{activeState.activeList.name}</h3> : null}
-              </header>
               <AddRestaurantsPanel
                 state={activeState}
                 canWrite={canWrite}

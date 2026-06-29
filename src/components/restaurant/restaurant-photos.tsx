@@ -83,17 +83,22 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
               className="photo-upload-input"
               onChange={(e) => { setSelectedFileCount(e.target.files?.length ?? 0); setUploadError(null); }}
             />
-            <ImagePlus size={18} />
-            <span>
-              {selectedFileCount === 0 ? "Choose photos" : selectedFileCount === 1 ? "1 photo selected" : `${selectedFileCount} photos selected`}
-            </span>
+            <ImagePlus size={22} />
+            <div className="photo-upload-zone-text">
+              <span>{selectedFileCount === 0 ? "Add photos" : selectedFileCount === 1 ? "1 photo selected" : `${selectedFileCount} photos selected`}</span>
+              {selectedFileCount === 0 ? <small>JPEG, PNG or WebP</small> : null}
+            </div>
           </label>
           {uploadError ? <p className="upload-error">{uploadError}</p> : null}
-          <label className="photo-upload-field photo-upload-description">
-            <span>Description</span>
-            <textarea name="description" rows={2} placeholder="What is shown in this photo?" maxLength={280} />
-          </label>
-          <button type="submit" className="compact-button" disabled={uploading}>{buttonLabel}</button>
+          {selectedFileCount > 0 ? (
+            <>
+              <label className="photo-upload-field photo-upload-description">
+                <span>Description <small>(optional)</small></span>
+                <textarea name="description" rows={2} placeholder="What's shown in these photos?" maxLength={280} />
+              </label>
+              <button type="submit" className="compact-button" disabled={uploading}>{buttonLabel}</button>
+            </>
+          ) : null}
         </form>
       ) : null}
 

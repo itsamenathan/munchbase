@@ -540,29 +540,41 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: var(--touch-target);
-  padding: 10px 14px;
-  border: 1.5px dashed var(--line);
+  gap: 12px;
+  min-height: 64px;
+  padding: 14px 16px;
+  border: 1.5px dashed var(--accent);
   border-radius: var(--radius);
-  background: var(--field);
+  background: color-mix(in srgb, var(--accent) 5%, var(--field));
   cursor: pointer;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--muted);
+  color: var(--accent);
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 
 .photo-upload-zone:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, var(--field));
+  background: color-mix(in srgb, var(--accent) 10%, var(--field));
 }
 
 .photo-upload-zone.has-file {
   border-color: var(--positive);
   color: var(--positive);
   background: color-mix(in srgb, var(--positive) 6%, var(--field));
+}
+
+.photo-upload-zone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.photo-upload-zone-text span {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.photo-upload-zone-text small {
+  font-size: var(--font-size-xs);
+  opacity: 0.7;
 }
 
 .photo-upload-input {

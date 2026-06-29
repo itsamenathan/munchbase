@@ -72,6 +72,7 @@ export function AddRestaurantsPanel({
 
   return (
     <section className="tool-panel add-restaurants-panel">
+      {state.activeList ? <p className="kicker">{state.activeList.name}</p> : null}
       <form className="place-search" onSubmit={searchPlaces}>
         <input
           aria-label="Search for a restaurant to add"
