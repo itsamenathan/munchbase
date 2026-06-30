@@ -45,14 +45,23 @@ export function AdminDrawer({ state, onClose }: { state: AppState; onClose: () =
           <PanelTitle icon={<Users size={17} />} title="Existing users" detail="Deactivate users instead of deleting history." />
           <div className="member-list">
             {state.users.map((u) => (
-              <form action="/mutate" method="post" className="member-row" key={u.id}>
-                <input type="hidden" name="__action" value="setUserActive" />
-                <input type="hidden" name="userId" value={u.id} />
-                <input type="hidden" name="active" value={u.active ? "0" : "1"} />
-                <div><strong>{u.name}</strong><small>{u.email} - {u.role}</small></div>
-                <span className="pill">{u.active ? "Active" : "Inactive"}</span>
-                {u.id === state.user.id ? null : <button className={u.active ? "danger-button" : ""}>{u.active ? "Deactivate" : "Reactivate"}</button>}
-              </form>
+              <div className="member-row" key={u.id}>
+                <form action="/mutate" method="post" style={{ display: "contents" }}>
+                  <input type="hidden" name="__action" value="setUserActive" />
+                  <input type="hidden" name="userId" value={u.id} />
+                  <input type="hidden" name="active" value={u.active ? "0" : "1"} />
+                  <div><strong>{u.name}</strong><small>{u.email} - {u.role}</small></div>
+                  <span className="pill">{u.active ? "Active" : "Inactive"}</span>
+                  {u.id === state.user.id ? null : <button className={u.active ? "danger-button" : ""}>{u.active ? "Deactivate" : "Reactivate"}</button>}
+                </form>
+                {u.id !== state.user.id && (
+                  <form action="/mutate" method="post" onSubmit={(e) => { if (!confirm(`Permanently delete ${u.name}? This removes all their check-ins and photos.`)) e.preventDefault(); }}>
+                    <input type="hidden" name="__action" value="deleteUser" />
+                    <input type="hidden" name="userId" value={u.id} />
+                    <button className="danger-button">Delete</button>
+                  </form>
+                )}
+              </div>
             ))}
           </div>
         </section>

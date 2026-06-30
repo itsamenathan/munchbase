@@ -8,6 +8,8 @@ const MUTATIONS = {
   signup: mutations.signup,
   createUser: mutations.createUser,
   setUserActive: mutations.setUserActive,
+  deleteRestaurant: mutations.deleteRestaurant,
+  deleteUser: mutations.deleteUser,
   updateSelfSignup: mutations.updateSelfSignup,
   createList: mutations.createList,
   updateListDetails: mutations.updateListDetails,

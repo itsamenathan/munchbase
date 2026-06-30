@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Pencil, Plus } from "lucide-react";
+import { Check, Pencil, Plus, Trash2 } from "lucide-react";
 import { formatCityState } from "@/lib/address";
 import { NotePreview, NotesEditField } from "./notes";
 import { RatingSummary, AttributePreview } from "./rating-display";
@@ -138,6 +138,21 @@ export function RestaurantDetail({
                 })}
               </div>
             )}
+          </section>
+          <section className="settings-section restaurant-lists-section">
+            <div className="section-head"><h4>Delete restaurant</h4></div>
+            <form
+              action="/mutate"
+              method="post"
+              onSubmit={(e) => { if (!confirm(`Permanently delete ${entry.name}? All check-ins, ratings, and photos will be removed.`)) e.preventDefault(); }}
+            >
+              <input type="hidden" name="__action" value="deleteRestaurant" />
+              <input type="hidden" name="restaurantId" value={entry.id} />
+              {activeListId ? <input type="hidden" name="listId" value={activeListId} /> : null}
+              <button className="danger-button" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Trash2 size={14} /> Delete restaurant
+              </button>
+            </form>
           </section>
         </>
       ) : (

@@ -141,6 +141,29 @@ export async function setUserActive(formData: FormData) {
   revalidateApp();
 }
 
+export async function deleteRestaurant(formData: FormData) {
+  await requireUser();
+  const restaurantId = Number(text(formData, "restaurantId"));
+  const listId = Number(text(formData, "listId")) || null;
+  const db = getDb();
+  const restaurant = db.prepare("SELECT place_id AS placeId FROM restaurants WHERE id = ?").get(restaurantId) as { placeId: number } | undefined;
+  if (!restaurant) throw new Error("Restaurant not found.");
+  db.prepare("DELETE FROM restaurants WHERE id = ?").run(restaurantId);
+  db.prepare("DELETE FROM places WHERE id = ?").run(restaurant.placeId);
+  revalidateApp();
+  return { redirectTo: tabHref("list", listId) };
+}
+
+export async function deleteUser(formData: FormData) {
+  const admin = await requireAdmin();
+  const userId = Number(text(formData, "userId"));
+  if (admin.id === userId) throw new Error("You cannot delete your own account.");
+  const user = getDb().prepare("SELECT id FROM users WHERE id = ?").get(userId) as { id: number } | undefined;
+  if (!user) throw new Error("User not found.");
+  getDb().prepare("DELETE FROM users WHERE id = ?").run(userId);
+  revalidateApp();
+}
+
 export async function updateSelfSignup(formData: FormData) {
   await requireAdmin();
   const enabled = text(formData, "selfSignupEnabled") === "1" ? 1 : 0;
