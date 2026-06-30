@@ -43,7 +43,7 @@
   }
 }
 
-.restaurant-row span:first-child {
+.restaurant-row > span:first-child {
   display: grid;
   gap: 2px;
   min-width: 0;
