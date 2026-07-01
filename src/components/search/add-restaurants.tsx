@@ -25,8 +25,8 @@ export function ManualRestaurantForm({ listId }: { listId: number | null }) {
         <input name="name" placeholder="Restaurant name" required />
         <input name="address" placeholder="Address" />
         <div className="split">
-          <input name="lat" placeholder="Lat" />
-          <input name="lon" placeholder="Lon" />
+          <input name="lat" placeholder="Lat" inputMode="decimal" />
+          <input name="lon" placeholder="Lon" inputMode="decimal" />
         </div>
         <button>Add manually</button>
       </form>
@@ -79,6 +79,7 @@ export function AddRestaurantsPanel({
       {state.activeList ? <p className="kicker">{state.activeList.name}</p> : null}
       <form className="place-search" onSubmit={searchPlaces}>
         <input
+          type="search"
           aria-label="Search for a restaurant to add"
           value={placeQuery}
           onChange={(e) => setPlaceQuery(e.target.value)}

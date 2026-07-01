@@ -18,9 +18,9 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
         <MutationErrorMessage />
         <form action="/mutate" method="post" className="auth-form">
           <input type="hidden" name="__action" value="setup" />
-          <input name="name" placeholder="Name" required />
-          <input name="email" type="email" placeholder="Email" required />
-          <input name="password" type="password" placeholder="Password, 8+ chars" required minLength={8} />
+          <input name="name" placeholder="Name" required autoComplete="name" />
+          <input name="email" type="email" placeholder="Email" required autoComplete="email" />
+          <input name="password" type="password" placeholder="Password, 8+ chars" required minLength={8} autoComplete="new-password" />
           <button>Create admin account</button>
         </form>
       </AuthFrame>
@@ -37,9 +37,9 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
             <summary style={{ cursor: "pointer", fontWeight: 700, minHeight: "44px", display: "inline-flex", alignItems: "center" }}>Create an account</summary>
             <form action="/mutate" method="post" className="auth-form" style={{ marginTop: "12px" }}>
               <input type="hidden" name="__action" value="signup" />
-              <input name="name" placeholder="Name" required />
-              <input name="email" type="email" placeholder="Email" required />
-              <input name="password" type="password" placeholder="Password, 8+ chars" required minLength={8} />
+              <input name="name" placeholder="Name" required autoComplete="name" />
+              <input name="email" type="email" placeholder="Email" required autoComplete="email" />
+              <input name="password" type="password" placeholder="Password, 8+ chars" required minLength={8} autoComplete="new-password" />
               <button>Create account</button>
             </form>
           </details>
