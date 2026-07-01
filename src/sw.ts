@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import { Serwist } from "serwist";
+import { ExpirationPlugin, NetworkFirst, Serwist } from "serwist";
 
 declare const self: ServiceWorkerGlobalScope & {
   __MUNCHBASE_MANIFEST: Array<
@@ -19,6 +19,20 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   disableDevLogs: true,
+  // Full-document navigations (cold opens / hard reloads) so a previously-visited
+  // page still loads offline instead of the browser's default offline error page.
+  // Client-side RSC transitions never reach this — they're intercepted above and
+  // always go straight to the network.
+  runtimeCaching: [
+    {
+      matcher: ({ request }) => request.mode === "navigate",
+      handler: new NetworkFirst({
+        cacheName: "pages",
+        networkTimeoutSeconds: 8,
+        plugins: [new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 7 * 24 * 60 * 60 })],
+      }),
+    },
+  ],
 });
 
 // Next.js RSC navigation fetches carry these headers. If the service worker

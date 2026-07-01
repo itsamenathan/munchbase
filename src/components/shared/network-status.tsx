@@ -3,13 +3,24 @@
 import { useNetworkStatus } from "@/hooks/use-network-status";
 
 export function NetworkStatus() {
-  const online = useNetworkStatus();
+  const { online, queuedCount, blockedMessage, syncedMessage } = useNetworkStatus();
 
-  if (online) return null;
+  if (online) {
+    if (!syncedMessage) return null;
+    return (
+      <div className="offline-banner" role="status">
+        {syncedMessage}
+      </div>
+    );
+  }
 
   return (
     <div className="offline-banner" role="alert">
-      You&apos;re offline. Changes will sync when connection is restored.
+      {blockedMessage
+        ? blockedMessage
+        : queuedCount > 0
+          ? `You're offline. ${queuedCount} change${queuedCount === 1 ? "" : "s"} queued — will sync when you're back online.`
+          : "You're offline."}
     </div>
   );
 }
