@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { GripVertical, ListChecks, Pencil, Search, SlidersHorizontal, Star, StickyNote, Tag, ToggleRight, Trash2, X } from "lucide-react";
 import {
@@ -214,6 +214,7 @@ function RenameForm({ name, onSave, onCancel }: { name: string; onSave: (name: s
 function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
   const router = useRouter();
   const sensors = useReorderSensors();
+  const dndId = useId();
   const [order, setOrder] = useState(() => definitions.map((d) => d.id));
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -257,7 +258,7 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
   if (!definitions.length) return <p className="muted">No custom ratings yet.</p>;
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
+    <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
       <SortableContext items={order} strategy={verticalListSortingStrategy}>
         <div className="preset-grid">
           {sorted.map((d) => (
@@ -327,6 +328,7 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
 function NoteSectionCards({ sections }: { sections: NoteSectionDefinition[] }) {
   const router = useRouter();
   const sensors = useReorderSensors();
+  const dndId = useId();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [pendingOrder, setPendingOrder] = useState<number[] | null>(null);
 
@@ -365,7 +367,7 @@ function NoteSectionCards({ sections }: { sections: NoteSectionDefinition[] }) {
   if (!sections.length) return <p className="muted">No note headings yet.</p>;
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
+    <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
       <SortableContext items={order} strategy={verticalListSortingStrategy}>
         <div className="preset-grid">
           {sorted.map((s) => (
