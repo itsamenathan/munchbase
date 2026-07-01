@@ -148,6 +148,12 @@ export function getUserByEmail(email: string) {
     .get(email) as (User & { passwordHash: string }) | undefined;
 }
 
+export function firstUser() {
+  return getDb().prepare("SELECT id, name, email, role, active FROM users ORDER BY id LIMIT 1").get() as
+    | User
+    | undefined;
+}
+
 export function getUserBySession(sessionId: string) {
   return getDb()
     .prepare(

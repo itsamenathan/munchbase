@@ -9,6 +9,8 @@ const schema = z.object({
   ALLOWED_DEV_ORIGINS: z.string().optional(),
   OSM_USER_AGENT: z.string().optional(),
   NEXT_PUBLIC_TILE_URL: z.string().optional(),
+  DEV_LOGIN_EMAIL: z.string().optional(),
+  DEV_LOGIN_PASSWORD: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;
