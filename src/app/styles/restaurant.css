@@ -1021,6 +1021,13 @@
   margin-top: 6px;
 }
 
+.place-search-scope input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .add-section-label {
   display: flex;
   align-items: center;
