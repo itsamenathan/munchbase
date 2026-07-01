@@ -179,7 +179,7 @@ export function RestaurantDetail({
                 )}
               </section>
             </div>
-            <div className="form-actions">
+            <div className="form-actions entry-edit-actions">
               <button>Save entry</button>
               <button type="button" className="ghost-button" onClick={resetEntryEdit}>Cancel</button>
             </div>
