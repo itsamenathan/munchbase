@@ -84,7 +84,8 @@ textarea {
   background: var(--field);
   color: var(--ink);
   padding: 10px 12px;
-  font-size: var(--font-size-base);
+  /* iOS Safari auto-zooms the page on focus if an input's font-size is under 16px */
+  font-size: max(16px, var(--font-size-base));
   box-shadow: 0 1px 0 var(--inset-highlight) inset;
 }
 
