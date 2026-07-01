@@ -374,7 +374,7 @@ function NoteSectionCards({ sections }: { sections: NoteSectionDefinition[] }) {
             )}
           </div>
           <div className="attribute-card-actions">
-            {editingId !== s.id && !s.presetKey ? (
+            {editingId !== s.id ? (
               <button
                 type="button"
                 className="ghost-button icon-button compact-icon-button"

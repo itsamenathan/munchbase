@@ -140,7 +140,7 @@ function seedNoteSectionPresets(database: Database.Database) {
     database
       .prepare(
         `INSERT INTO note_sections (preset_key, name, sort_order) VALUES (?, ?, ?)
-         ON CONFLICT(preset_key) DO UPDATE SET name = excluded.name`,
+         ON CONFLICT(preset_key) DO UPDATE SET sort_order = excluded.sort_order`,
       )
       .run(preset.key, preset.name, index);
   });

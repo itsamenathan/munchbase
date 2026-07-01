@@ -1,8 +1,8 @@
 export const NOTE_SECTION_PRESETS = [
+  { key: "notes", name: "Notes", placeholder: "Anything else worth remembering" },
   { key: "what_to_order", name: "What to order", placeholder: "Dishes, drinks, specials worth getting" },
   { key: "what_to_avoid", name: "What to avoid", placeholder: "Things to skip" },
   { key: "people", name: "People", placeholder: "Date night, groups, quick lunch…" },
-  { key: "notes", name: "Notes", placeholder: "Anything else worth remembering" },
 ] as const;
 
 const SECTION_MARKER_RE = /<!--section:(\d+)-->\n?/g;

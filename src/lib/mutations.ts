@@ -429,7 +429,6 @@ export async function updateNoteSectionName(formData: FormData) {
     | { presetKey: string | null }
     | undefined;
   if (!section) throw new Error("Heading not found.");
-  if (section.presetKey) throw new Error("Built-in headings cannot be renamed.");
   db.prepare("UPDATE note_sections SET name = ? WHERE id = ?").run(name, sectionId);
   revalidateApp();
 }
