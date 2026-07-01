@@ -145,6 +145,20 @@ npm test             # Run Vitest unit tests
 npx tsc --noEmit     # TypeScript check (run before declaring done)
 ```
 
+## Testing with agent-browser
+
+- Skip the login screen: `GET /api/dev-login` (dev-only, 404s in production) mints a real session — auto-provisions a `dev@localhost` admin if the DB has no users yet, otherwise logs in as the first existing user.
+- Headless Chrome denies the geolocation permission by default, so `navigator.geolocation.getCurrentPosition` silently fails and `locationCoords` in `app-shell.tsx` stays `null` — this breaks any test of location-dependent behavior (e.g. the search `bbox` in `src/app/api/search/route.ts`). Mock it with an init script instead of relying on `agent-browser set geo`, which only overrides coordinates and does not grant permission:
+  ```js
+  // geo-init.js
+  navigator.geolocation.getCurrentPosition = (success) => {
+    success({ coords: { latitude: 40.7306, longitude: -73.9866 } });
+  };
+  ```
+  ```bash
+  agent-browser --init-script /path/to/geo-init.js open http://localhost:3000/api/dev-login
+  ```
+
 ## Before Declaring a Task Complete
 
 Always run the following checks after making code changes, before reporting done:

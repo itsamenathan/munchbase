@@ -43,6 +43,8 @@ export function AddRestaurantsPanel({
   nearbyResults,
   placeSearchStatus,
   searchPlaces,
+  searchGlobal,
+  setSearchGlobal,
 }: {
   state: AppState;
   canWrite: boolean;
@@ -52,6 +54,8 @@ export function AddRestaurantsPanel({
   nearbyResults: PlaceResult[];
   placeSearchStatus: string;
   searchPlaces: (e?: FormEvent<HTMLFormElement>) => Promise<void>;
+  searchGlobal: boolean;
+  setSearchGlobal: (v: boolean) => void;
 }) {
   if (!canWrite) return null;
   const isSearching = placeQuery.trim().length >= 2;
@@ -82,6 +86,14 @@ export function AddRestaurantsPanel({
         />
         <button type="submit" aria-label="Search places"><Search size={16} /></button>
       </form>
+      <label className="place-search-scope">
+        <input
+          type="checkbox"
+          checked={searchGlobal}
+          onChange={(e) => setSearchGlobal(e.target.checked)}
+        />
+        Search everywhere
+      </label>
       {placeSearchStatus ? <p className="microcopy">{placeSearchStatus}</p> : null}
 
       {existingMatches.length > 0 ? (

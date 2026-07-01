@@ -33,6 +33,14 @@ type PhotonFeature = {
 
 const OSM_TYPE: Record<string, string> = { N: "node", W: "way", R: "relation" };
 
+const KM_PER_DEGREE_LAT = 111;
+
+function boxAround(lat: number, lon: number, radiusKm: number): [number, number, number, number] {
+  const latDelta = radiusKm / KM_PER_DEGREE_LAT;
+  const lonDelta = radiusKm / (KM_PER_DEGREE_LAT * Math.cos((lat * Math.PI) / 180));
+  return [lon - lonDelta, lat - latDelta, lon + lonDelta, lat + latDelta];
+}
+
 function buildAddress(p: PhotonFeature["properties"]): string {
   const parts = [
     [p.housenumber, p.street].filter(Boolean).join(" "),
@@ -67,6 +75,7 @@ export async function GET(request: Request) {
   const lat = Number(searchParams.get("lat"));
   const lon = Number(searchParams.get("lon"));
   const nearby = searchParams.get("nearby") === "1";
+  const global = searchParams.get("global") === "1";
 
   const hasLocation = Number.isFinite(lat) && Number.isFinite(lon);
 
@@ -112,6 +121,9 @@ export async function GET(request: Request) {
   if (hasLocation) {
     url.searchParams.set("lat", String(lat));
     url.searchParams.set("lon", String(lon));
+    if (!global) {
+      url.searchParams.set("bbox", boxAround(lat, lon, 50).join(","));
+    }
   }
 
   const response = await fetch(url, {

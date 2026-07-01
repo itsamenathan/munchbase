@@ -65,6 +65,7 @@ export default function AppShell({
   const [placeQuery, setPlaceQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const [placeSearchStatus, setPlaceSearchStatus] = useState("");
+  const [searchGlobal, setSearchGlobal] = useState(false);
   const [nearbyResults, setNearbyResults] = useState<PlaceResult[]>([]);
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -201,6 +202,9 @@ export default function AppShell({
     if (locationCoords) {
       params.set("lat", String(locationCoords.lat));
       params.set("lon", String(locationCoords.lon));
+    }
+    if (searchGlobal) {
+      params.set("global", "1");
     }
     const response = await fetch(`/api/search?${params.toString()}`);
     const data = (await response.json()) as { results?: PlaceResult[]; error?: string };
@@ -341,6 +345,8 @@ export default function AppShell({
                 nearbyResults={nearbyResults}
                 placeSearchStatus={placeSearchStatus}
                 searchPlaces={searchPlaces}
+                searchGlobal={searchGlobal}
+                setSearchGlobal={setSearchGlobal}
               />
             </section>
           ) : (
@@ -527,6 +533,8 @@ export default function AppShell({
             nearbyResults={nearbyResults}
             placeSearchStatus={placeSearchStatus}
             searchPlaces={searchPlaces}
+            searchGlobal={searchGlobal}
+            setSearchGlobal={setSearchGlobal}
           />
         </aside>
       ) : null}
