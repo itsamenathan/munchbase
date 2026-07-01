@@ -35,6 +35,14 @@ export type RatingValue = {
   value: string;
 };
 
+export type NoteSectionDefinition = {
+  id: number;
+  presetKey: string | null;
+  name: string;
+  active: boolean;
+  sortOrder: number;
+};
+
 export type CheckIn = {
   id: number;
   authorName: string;
@@ -70,9 +78,7 @@ export type Restaurant = {
   lon: number | null;
   osmType: string | null;
   osmId: string | null;
-  standingNotes: string | null;
-  favoriteItems: string | null;
-  orderingTips: string | null;
+  notes: string | null;
   googleMapsUrl: string | null;
   yelpUrl: string | null;
   ratings: RatingValue[];
@@ -94,6 +100,7 @@ export type AppState = {
   globalRatingDefinitions: RatingDefinition[];
   ratingDefinitions: RatingDefinition[];
   allRatingDefinitions: RatingDefinition[];
+  noteSections: NoteSectionDefinition[];
   users: User[];
   appSettings: { selfSignupEnabled: boolean };
 };

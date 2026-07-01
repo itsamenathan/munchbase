@@ -6,12 +6,23 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { normalizeExternalUrl } from "@/lib/external-links";
 import { deletePhotoFiles, saveRestaurantPhotoFiles } from "@/lib/restaurant-photos";
 import { normalizeRatingDefinition, presetByKey, validateRatingValue } from "@/lib/ratings";
+import { buildNotes } from "@/lib/note-sections";
 import { restaurantHref, tabHref } from "@/lib/routes";
 import type { RatingDefinition, RatingPresetKey, RatingType } from "@/lib/types";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
+}
+
+function collectNoteUpdates(formData: FormData) {
+  const updates: Record<number, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith("note:") || typeof value !== "string") continue;
+    const id = Number(key.slice("note:".length));
+    if (Number.isInteger(id)) updates[id] = value.trim();
+  }
+  return updates;
 }
 
 function parseCustomFields(json: string) {
@@ -250,9 +261,9 @@ export async function addRestaurant(formData: FormData) {
   }
   db.prepare(
     `INSERT OR IGNORE INTO restaurants
-     (place_id, standing_notes, favorite_items, ordering_tips, created_by)
-     VALUES (?, ?, ?, ?, ?)`,
-  ).run(placeId, text(formData, "standingNotes") || null, text(formData, "favoriteItems") || null, text(formData, "orderingTips") || null, user.id);
+     (place_id, notes, created_by)
+     VALUES (?, ?, ?)`,
+  ).run(placeId, buildNotes(null, collectNoteUpdates(formData)), user.id);
   const restaurant = db
     .prepare("SELECT id FROM restaurants WHERE place_id = ?")
     .get(placeId) as { id: number } | undefined;
@@ -267,18 +278,16 @@ export async function addRestaurant(formData: FormData) {
 export async function updateEntry(formData: FormData) {
   await requireUser();
   const restaurantId = Number(text(formData, "restaurantId"));
-  getDb()
-    .prepare(
-      `UPDATE restaurants
-       SET standing_notes = ?, favorite_items = ?, ordering_tips = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-    )
-    .run(
-      text(formData, "standingNotes") || null,
-      text(formData, "favoriteItems") || null,
-      text(formData, "orderingTips") || null,
-      restaurantId,
-    );
+  const db = getDb();
+  const existing = db.prepare("SELECT notes FROM restaurants WHERE id = ?").get(restaurantId) as
+    | { notes: string | null }
+    | undefined;
+  const notes = buildNotes(existing?.notes ?? null, collectNoteUpdates(formData));
+  db.prepare(
+    `UPDATE restaurants
+     SET notes = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+  ).run(notes, restaurantId);
   revalidateApp();
 }
 
@@ -387,6 +396,70 @@ export async function deleteRatingField(formData: FormData) {
   if (!definition) throw new Error("Custom field not found.");
   if (definition.presetKey) throw new Error("Built-in fields cannot be removed.");
   getDb().prepare("DELETE FROM rating_definitions WHERE id = ?").run(definitionId);
+  revalidateApp();
+}
+
+export async function createNoteSection(formData: FormData) {
+  await requireUser();
+  const name = text(formData, "name");
+  if (!name) throw new Error("Heading name is required.");
+  const db = getDb();
+  const maxOrder = (db.prepare("SELECT COALESCE(MAX(sort_order), -1) AS maxOrder FROM note_sections").get() as {
+    maxOrder: number;
+  }).maxOrder;
+  db.prepare("INSERT INTO note_sections (preset_key, name, sort_order) VALUES (NULL, ?, ?)").run(name, maxOrder + 1);
+  revalidateApp();
+}
+
+export async function updateNoteSectionActive(formData: FormData) {
+  await requireUser();
+  const sectionId = Number(text(formData, "sectionId"));
+  const active = text(formData, "active") === "1";
+  getDb().prepare("UPDATE note_sections SET active = ? WHERE id = ?").run(active ? 1 : 0, sectionId);
+  revalidateApp();
+}
+
+export async function updateNoteSectionName(formData: FormData) {
+  await requireUser();
+  const sectionId = Number(text(formData, "sectionId"));
+  const name = text(formData, "name");
+  if (!name) throw new Error("Name is required.");
+  const db = getDb();
+  const section = db.prepare("SELECT preset_key AS presetKey FROM note_sections WHERE id = ?").get(sectionId) as
+    | { presetKey: string | null }
+    | undefined;
+  if (!section) throw new Error("Heading not found.");
+  if (section.presetKey) throw new Error("Built-in headings cannot be renamed.");
+  db.prepare("UPDATE note_sections SET name = ? WHERE id = ?").run(name, sectionId);
+  revalidateApp();
+}
+
+export async function reorderNoteSections(formData: FormData) {
+  await requireUser();
+  const idsJson = text(formData, "orderedIdsJson");
+  let ids: unknown;
+  try {
+    ids = JSON.parse(idsJson);
+  } catch {
+    throw new Error("Invalid order data.");
+  }
+  if (!Array.isArray(ids)) throw new Error("Invalid order data.");
+  const db = getDb();
+  const update = db.prepare("UPDATE note_sections SET sort_order = ? WHERE id = ?");
+  db.transaction(() => { (ids as number[]).forEach((id, index) => update.run(index, id)); })();
+  revalidateApp();
+}
+
+export async function deleteNoteSection(formData: FormData) {
+  await requireUser();
+  const sectionId = Number(text(formData, "sectionId"));
+  const db = getDb();
+  const section = db.prepare("SELECT preset_key AS presetKey FROM note_sections WHERE id = ?").get(sectionId) as
+    | { presetKey: string | null }
+    | undefined;
+  if (!section) throw new Error("Heading not found.");
+  if (section.presetKey) throw new Error("Built-in headings cannot be removed.");
+  db.prepare("DELETE FROM note_sections WHERE id = ?").run(sectionId);
   revalidateApp();
 }
 

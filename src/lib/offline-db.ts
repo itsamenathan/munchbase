@@ -6,9 +6,7 @@ type CachedRestaurant = {
   address: string | null;
   lat: number | null;
   lon: number | null;
-  standingNotes: string | null;
-  favoriteItems: string | null;
-  orderingTips: string | null;
+  notes: string | null;
   googleMapsUrl: string | null;
   yelpUrl: string | null;
   checkInCount: number;

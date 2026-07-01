@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { Check, Pencil, Plus, Trash2 } from "lucide-react";
 import { formatCityState } from "@/lib/address";
+import { NOTE_SECTION_PRESETS, parseNotes } from "@/lib/note-sections";
 import { NotePreview, NotesEditField } from "./notes";
 import { RatingSummary, AttributePreview } from "./rating-display";
 import { RatingInput } from "./rating-input";
 import { CheckInCard, CheckInForm } from "./checkin";
 import { RestaurantPhotos } from "./restaurant-photos";
 import { RATING_ICON_MAP, RATING_PRESETS, type RatingDefinition, repeatedIcon } from "./rating-common";
-import type { AppState, Restaurant } from "@/lib/types";
+import type { AppState, NoteSectionDefinition, Restaurant } from "@/lib/types";
+
+const NOTE_PRESET_PLACEHOLDERS: Record<string, string> = Object.fromEntries(
+  NOTE_SECTION_PRESETS.map((preset) => [preset.key, preset.placeholder]),
+);
 
 function googleMapsUrl(r: Restaurant) {
   const query = [r.name, r.address].filter(Boolean).join(" ");
@@ -25,6 +30,8 @@ export function RestaurantDetail({
   lists,
   globalRatingDefinitions,
   ratingDefinitions,
+  allRatingDefinitions,
+  noteSections,
   initialEdit,
 }: {
   canWrite: boolean;
@@ -33,12 +40,35 @@ export function RestaurantDetail({
   lists: AppState["lists"];
   globalRatingDefinitions: RatingDefinition[];
   ratingDefinitions: RatingDefinition[];
+  allRatingDefinitions: RatingDefinition[];
+  noteSections: NoteSectionDefinition[];
   initialEdit: boolean;
 }) {
   const [entryMode, setEntryMode] = useState<"edit" | "preview">(initialEdit && canWrite ? "edit" : "preview");
-  const [standingNotes, setStandingNotes] = useState(entry.standingNotes ?? "");
-  const [favoriteItems, setFavoriteItems] = useState(entry.favoriteItems ?? "");
-  const [orderingTips, setOrderingTips] = useState(entry.orderingTips ?? "");
+  const [noteValues, setNoteValues] = useState(() => parseNotes(entry.notes));
+  const [membershipIds, setMembershipIds] = useState(() => new Set(entry.memberships.map((m) => m.id)));
+
+  const toggleListMembership = async (listId: number, inList: boolean) => {
+    setMembershipIds((prev) => {
+      const next = new Set(prev);
+      if (inList) next.delete(listId); else next.add(listId);
+      return next;
+    });
+    const formData = new FormData();
+    formData.set("__action", inList ? "removeRestaurantFromList" : "attachRestaurantToList");
+    formData.set("restaurantId", String(entry.id));
+    formData.set("listId", String(listId));
+    try {
+      const res = await fetch("/mutate", { method: "POST", body: formData });
+      if (!res.ok) throw new Error("Mutation failed");
+    } catch {
+      setMembershipIds((prev) => {
+        const next = new Set(prev);
+        if (inList) next.add(listId); else next.delete(listId);
+        return next;
+      });
+    }
+  };
 
   const setEditMode = (edit: boolean) => {
     const url = new URL(window.location.href);
@@ -48,17 +78,24 @@ export function RestaurantDetail({
   };
 
   const resetEntryEdit = () => {
-    setStandingNotes(entry.standingNotes ?? "");
-    setFavoriteItems(entry.favoriteItems ?? "");
-    setOrderingTips(entry.orderingTips ?? "");
+    setNoteValues(parseNotes(entry.notes));
     setEditMode(false);
   };
 
   const globalSummaryDefinitions = globalRatingDefinitions.filter((d) => d.active);
 
+  const memberLists = lists
+    .filter((list) => membershipIds.has(list.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const ratingGroups = [
     { list: { id: 0, name: "Global ratings" }, definitions: globalRatingDefinitions },
-    ...entry.ratingGroups,
+    ...memberLists.map((list) => ({
+      list,
+      definitions: allRatingDefinitions
+        .filter((d) => d.scope === "list" && d.listId === list.id)
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
+    })),
   ];
 
   return (
@@ -100,9 +137,16 @@ export function RestaurantDetail({
             <div className="entry-edit-grid">
               <section className="entry-edit-section">
                 <h5>Notes</h5>
-                <NotesEditField title="What to order" name="standingNotes" value={standingNotes} onChange={setStandingNotes} placeholder="Dishes, drinks, specials worth getting" />
-                <NotesEditField title="What to avoid" name="favoriteItems" value={favoriteItems} onChange={setFavoriteItems} placeholder="Things to skip" />
-                <NotesEditField title="People" name="orderingTips" value={orderingTips} onChange={setOrderingTips} placeholder="Date night, groups, quick lunch…" />
+                {noteSections.filter((s) => s.active).map((s) => (
+                  <NotesEditField
+                    key={s.id}
+                    title={s.name}
+                    name={`note:${s.id}`}
+                    value={noteValues[s.id] ?? ""}
+                    onChange={(v) => setNoteValues((prev) => ({ ...prev, [s.id]: v }))}
+                    placeholder={NOTE_PRESET_PLACEHOLDERS[s.presetKey ?? ""] ?? "Add a note"}
+                  />
+                ))}
               </section>
               <section className="entry-edit-section">
                 <h5>Ratings</h5>
@@ -121,19 +165,20 @@ export function RestaurantDetail({
             ) : (
               <div className="list-toggle-grid">
                 {lists.map((list) => {
-                  const inList = entry.memberships.some((m) => m.id === list.id);
+                  const inList = membershipIds.has(list.id);
                   return (
-                    <form key={list.id} action="/mutate" method="post" className="list-toggle-form">
-                      <input type="hidden" name="__action" value={inList ? "removeRestaurantFromList" : "attachRestaurantToList"} />
-                      <input type="hidden" name="restaurantId" value={entry.id} />
-                      <input type="hidden" name="listId" value={list.id} />
-                      <button type="submit" className={`list-toggle-btn${inList ? " active" : ""}`} aria-pressed={inList}>
-                        <span className="list-toggle-check" aria-hidden="true">
-                          {inList ? <Check size={13} /> : <Plus size={13} />}
-                        </span>
-                        <span className="list-toggle-name">{list.name}</span>
-                      </button>
-                    </form>
+                    <button
+                      key={list.id}
+                      type="button"
+                      className={`list-toggle-btn${inList ? " active" : ""}`}
+                      aria-pressed={inList}
+                      onClick={() => toggleListMembership(list.id, inList)}
+                    >
+                      <span className="list-toggle-check" aria-hidden="true">
+                        {inList ? <Check size={13} /> : <Plus size={13} />}
+                      </span>
+                      <span className="list-toggle-name">{list.name}</span>
+                    </button>
                   );
                 })}
               </div>
@@ -159,7 +204,7 @@ export function RestaurantDetail({
         <>
           <section className="notes-panel">
             <div className="section-head"><h4>Notes</h4></div>
-            <NotePreview standingNotes={standingNotes} favoriteItems={favoriteItems} orderingTips={orderingTips} />
+            <NotePreview sections={noteSections} values={noteValues} />
           </section>
           <section className="notes-panel">
             <div className="section-head"><h4>Ratings</h4></div>

@@ -1,27 +1,24 @@
 import ReactMarkdown from "react-markdown";
+import type { NoteSectionDefinition } from "@/lib/types";
 
-export function NotePreview({ standingNotes, favoriteItems, orderingTips }: {
-  standingNotes: string;
-  favoriteItems: string;
-  orderingTips: string;
+export function NotePreview({ sections, values }: {
+  sections: NoteSectionDefinition[];
+  values: Record<number, string>;
 }) {
-  const sections = [
-    ["What to order", standingNotes],
-    ["What to avoid", favoriteItems],
-    ["People", orderingTips],
-  ] as const;
-  const hasNotes = sections.some(([, v]) => v.trim());
+  const activeSections = sections.filter((s) => s.active);
+  const hasNotes = activeSections.some((s) => (values[s.id] ?? "").trim());
   if (!hasNotes) return <p className="muted">No notes yet.</p>;
   return (
     <div className="markdown-sections">
-      {sections.map(([title, value]) =>
-        value.trim() ? (
-          <section key={title} className="markdown-section">
-            <h5>{title}</h5>
+      {activeSections.map((s) => {
+        const value = values[s.id] ?? "";
+        return value.trim() ? (
+          <section key={s.id} className="markdown-section">
+            <h5>{s.name}</h5>
             <ReactMarkdown>{value}</ReactMarkdown>
           </section>
-        ) : null,
-      )}
+        ) : null;
+      })}
     </div>
   );
 }

@@ -7,10 +7,12 @@ import * as schema from "@/db/schema";
 import "./env"; // validate env vars on first DB access
 import { getPhotoMediaUrl } from "./restaurant-photos";
 import { RATING_PRESETS } from "./ratings";
+import { NOTE_SECTION_PRESETS } from "./note-sections";
 import type {
   AppState,
   CheckIn,
   List,
+  NoteSectionDefinition,
   RatingDefinition,
   RatingValue,
   Restaurant,
@@ -40,6 +42,7 @@ export function getDb() {
   ensureRatingDefinitionScope(db);
   ensureRatingDefinitionSortOrder(db);
   seedGlobalRatingPresets(db);
+  seedNoteSectionPresets(db);
   db.prepare("DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP").run();
   return db;
 }
@@ -132,6 +135,17 @@ function seedGlobalRatingPresets(database: Database.Database) {
   }
 }
 
+function seedNoteSectionPresets(database: Database.Database) {
+  NOTE_SECTION_PRESETS.forEach((preset, index) => {
+    database
+      .prepare(
+        `INSERT INTO note_sections (preset_key, name, sort_order) VALUES (?, ?, ?)
+         ON CONFLICT(preset_key) DO UPDATE SET name = excluded.name`,
+      )
+      .run(preset.key, preset.name, index);
+  });
+}
+
 export function getOrm() {
   getDb();
   if (!orm) throw new Error("Database ORM failed to initialize.");
@@ -197,6 +211,13 @@ export function getAppState(user: User, listId?: number | null): AppState {
     )
     .all() as RatingDefinitionRow[]).map(parseRatingDefinition);
 
+  const noteSections = database
+    .prepare(
+      `SELECT id, preset_key AS presetKey, name, active, sort_order AS sortOrder
+       FROM note_sections ORDER BY sort_order, id`,
+    )
+    .all() as NoteSectionDefinition[];
+
   const restaurants = getRestaurants(activeListId);
   const allRestaurants = activeListId ? getRestaurants(null) : restaurants;
   const users =
@@ -208,7 +229,7 @@ export function getAppState(user: User, listId?: number | null): AppState {
       .prepare("SELECT self_signup_enabled AS selfSignupEnabled FROM app_settings WHERE id = 1")
       .get() as AppState["appSettings"] | undefined) ?? { selfSignupEnabled: false };
 
-  return { user, lists, activeList, activeListId, restaurants, allRestaurants, globalRatingDefinitions, ratingDefinitions, allRatingDefinitions, users, appSettings };
+  return { user, lists, activeList, activeListId, restaurants, allRestaurants, globalRatingDefinitions, ratingDefinitions, allRatingDefinitions, noteSections, users, appSettings };
 }
 
 export function getRestaurants(listId: number | null = null): Restaurant[] {
@@ -220,9 +241,7 @@ export function getRestaurants(listId: number | null = null): Restaurant[] {
     .prepare(
       `SELECT restaurants.id, places.id AS placeId,
               places.name, places.address, places.lat, places.lon, places.osm_type AS osmType,
-              places.osm_id AS osmId, restaurants.standing_notes AS standingNotes,
-              restaurants.favorite_items AS favoriteItems,
-              restaurants.ordering_tips AS orderingTips,
+              places.osm_id AS osmId, restaurants.notes AS notes,
               restaurants.google_maps_url AS googleMapsUrl,
               restaurants.yelp_url AS yelpUrl
        FROM restaurants

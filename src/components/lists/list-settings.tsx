@@ -1,10 +1,10 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GripVertical, ListChecks, Pencil, Search, SlidersHorizontal, Star, Tag, ToggleRight, Trash2, X } from "lucide-react";
+import { GripVertical, ListChecks, Pencil, Search, SlidersHorizontal, Star, StickyNote, Tag, ToggleRight, Trash2, X } from "lucide-react";
 import { RATING_PRESETS } from "@/lib/ratings";
 import { RATING_ICON_MAP, RATING_ICON_CHOICES } from "@/components/restaurant/rating-common";
 import { PanelTitle } from "@/components/shared/panel-title";
-import type { AppState, RatingDefinition } from "@/lib/types";
+import type { AppState, NoteSectionDefinition, RatingDefinition } from "@/lib/types";
 
 function presetDescription(key: string) {
   if (key === "go_back") return "Yes/no decision for whether you would return.";
@@ -111,6 +111,11 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
             <PanelTitle icon={<Tag size={17} />} title="Custom globals" detail="User-defined ratings shown for every restaurant." />
             <AttributeCards definitions={definitions.filter((d) => !d.presetKey)} />
             <AddCustomFieldForm scope="global" />
+          </section>
+          <section className="settings-section">
+            <PanelTitle icon={<StickyNote size={17} />} title="Note headings" detail="Sections shown in every restaurant's notes." />
+            <NoteSectionCards sections={state.noteSections} />
+            <AddNoteSectionForm />
           </section>
         </>
       ) : null}
@@ -276,6 +281,145 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function NoteSectionCards({ sections }: { sections: NoteSectionDefinition[] }) {
+  const router = useRouter();
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const dragId = useRef<number | null>(null);
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [pendingOrder, setPendingOrder] = useState<number[] | null>(null);
+
+  const baseOrder = sections.map((s) => s.id);
+  const order = pendingOrder ?? baseOrder;
+  const sorted = order.map((id) => sections.find((s) => s.id === id)).filter(Boolean) as NoteSectionDefinition[];
+
+  const handleDragStart = (id: number) => {
+    dragId.current = id;
+    setDraggingId(id);
+    setPendingOrder((prev) => prev ?? baseOrder);
+  };
+
+  const handleDragOver = (e: React.DragEvent, overId: number) => {
+    e.preventDefault();
+    if (dragId.current === null || dragId.current === overId) return;
+    setPendingOrder((prev) => {
+      const current = prev ?? baseOrder;
+      const from = current.indexOf(dragId.current!);
+      const to = current.indexOf(overId);
+      if (from === -1 || to === -1) return current;
+      const next = [...current];
+      next.splice(from, 1);
+      next.splice(to, 0, dragId.current!);
+      return next;
+    });
+  };
+
+  const handleDrop = async () => {
+    setDraggingId(null);
+    dragId.current = null;
+    const fd = new FormData();
+    fd.set("__action", "reorderNoteSections");
+    fd.set("orderedIdsJson", JSON.stringify(order));
+    await fetch("/mutate", { method: "POST", body: fd, redirect: "manual" });
+    setPendingOrder(null);
+    router.refresh();
+  };
+
+  const saveName = async (id: number, name: string) => {
+    if (!name.trim()) return;
+    const fd = new FormData();
+    fd.set("__action", "updateNoteSectionName");
+    fd.set("sectionId", String(id));
+    fd.set("name", name.trim());
+    await fetch("/mutate", { method: "POST", body: fd, redirect: "manual" });
+    setEditingId(null);
+    router.refresh();
+  };
+
+  const closeRename = () => setEditingId(null);
+
+  if (!sections.length) return <p className="muted">No note headings yet.</p>;
+
+  return (
+    <div className="preset-grid">
+      {sorted.map((s) => (
+        <div
+          key={s.id}
+          className={`attribute-card${s.active ? " enabled" : ""}${draggingId === s.id ? " dragging" : ""}`}
+          onDragOver={(e) => handleDragOver(e, s.id)}
+          onDrop={handleDrop}
+          onDragEnd={() => { setDraggingId(null); dragId.current = null; }}
+        >
+          <span
+            className="attribute-card-drag"
+            aria-hidden="true"
+            draggable
+            onDragStart={() => handleDragStart(s.id)}
+          ><GripVertical size={15} /></span>
+          <div className="attribute-card-copy">
+            {editingId === s.id ? (
+              <RenameForm
+                name={s.name}
+                onSave={(name) => void saveName(s.id, name)}
+                onCancel={closeRename}
+              />
+            ) : (
+              <>
+                <strong>{s.name}</strong>
+                <small>{s.presetKey ? "Built-in" : "Custom"}</small>
+              </>
+            )}
+          </div>
+          <div className="attribute-card-actions">
+            {editingId !== s.id && !s.presetKey ? (
+              <button
+                type="button"
+                className="ghost-button icon-button compact-icon-button"
+                aria-label={`Rename ${s.name}`}
+                onClick={() => setEditingId(s.id)}
+              >
+                <Pencil size={14} />
+              </button>
+            ) : null}
+            <form action="/mutate" method="post">
+              <input type="hidden" name="__action" value="updateNoteSectionActive" />
+              <input type="hidden" name="sectionId" value={s.id} />
+              <input type="hidden" name="active" value={s.active ? "0" : "1"} />
+              <button className="compact-button">{s.active ? "Disable" : "Enable"}</button>
+            </form>
+            {s.presetKey ? null : (
+              <form action="/mutate" method="post">
+                <input type="hidden" name="__action" value="deleteNoteSection" />
+                <input type="hidden" name="sectionId" value={s.id} />
+                <button className="ghost-button icon-button compact-icon-button" aria-label={`Remove ${s.name}`} title={`Remove ${s.name}`}>
+                  <Trash2 size={15} />
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AddNoteSectionForm() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="manual-add">
+      <button type="button" className="ghost-button" onClick={() => setOpen((value) => !value)}>
+        Add heading
+      </button>
+      {open ? (
+        <form action="/mutate" method="post" className="stack-form">
+          <input type="hidden" name="__action" value="createNoteSection" />
+          <input name="name" placeholder="Heading name" required />
+          <button>Add heading</button>
+        </form>
+      ) : null}
     </div>
   );
 }

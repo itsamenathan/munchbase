@@ -50,14 +50,25 @@ export const places = sqliteTable(
   (table) => [unique().on(table.osmType, table.osmId)],
 );
 
+export const noteSections = sqliteTable(
+  "note_sections",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    presetKey: text("preset_key"),
+    name: text("name").notNull(),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [unique().on(table.presetKey)],
+);
+
 export const restaurants = sqliteTable(
   "restaurants",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     placeId: integer("place_id").notNull().references(() => places.id, { onDelete: "cascade" }),
-    standingNotes: text("standing_notes"),
-    favoriteItems: text("favorite_items"),
-    orderingTips: text("ordering_tips"),
+    notes: text("notes"),
     googleMapsUrl: text("google_maps_url"),
     yelpUrl: text("yelp_url"),
     createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),

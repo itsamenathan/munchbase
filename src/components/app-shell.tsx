@@ -170,7 +170,7 @@ export default function AppShell({
     const needle = normalize(query);
     const needleTokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean).map(normalize).filter(Boolean);
     return activeState.restaurants.filter((r) => {
-      const raw = [r.name, r.address, r.standingNotes, r.favoriteItems, r.orderingTips].filter(Boolean).join(" ");
+      const raw = [r.name, r.address, r.notes].filter(Boolean).join(" ");
       const haystack = normalize(raw);
       const haystackTokens = raw.toLowerCase().split(/\s+/).filter(Boolean).map(normalize).filter(Boolean);
       const textMatch = !needle ||
@@ -316,6 +316,8 @@ export default function AppShell({
               lists={activeState.lists}
               globalRatingDefinitions={activeState.globalRatingDefinitions}
               ratingDefinitions={activeState.ratingDefinitions}
+              allRatingDefinitions={activeState.allRatingDefinitions}
+              noteSections={activeState.noteSections}
               initialEdit={initialEntryEdit}
             />
           </section>
@@ -501,6 +503,8 @@ export default function AppShell({
                   lists={activeState.lists}
                   globalRatingDefinitions={activeState.globalRatingDefinitions}
                   ratingDefinitions={activeState.ratingDefinitions}
+                  allRatingDefinitions={activeState.allRatingDefinitions}
+                  noteSections={activeState.noteSections}
                   initialEdit={initialEntryEdit}
                 />
               ) : (
