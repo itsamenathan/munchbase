@@ -1,10 +1,58 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { GripVertical, ListChecks, Pencil, Search, SlidersHorizontal, Star, StickyNote, Tag, ToggleRight, Trash2, X } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { RATING_PRESETS } from "@/lib/ratings";
 import { RATING_ICON_MAP, RATING_ICON_CHOICES } from "@/components/restaurant/rating-common";
 import { PanelTitle } from "@/components/shared/panel-title";
 import type { AppState, NoteSectionDefinition, RatingDefinition } from "@/lib/types";
+
+function useReorderSensors() {
+  return useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+}
+
+type DragHandleProps = {
+  setActivatorNodeRef: (el: HTMLElement | null) => void;
+  attributes: ReturnType<typeof useSortable>["attributes"];
+  listeners: ReturnType<typeof useSortable>["listeners"];
+};
+
+function SortableCard({
+  id,
+  className,
+  children,
+}: {
+  id: number;
+  className: (isDragging: boolean) => string;
+  children: (handle: DragHandleProps) => ReactNode;
+}) {
+  const { setNodeRef, setActivatorNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  return (
+    <div ref={setNodeRef} style={style} className={className(isDragging)}>
+      {children({ setActivatorNodeRef, attributes, listeners })}
+    </div>
+  );
+}
 
 function presetDescription(key: string) {
   if (key === "go_back") return "Yes/no decision for whether you would return.";
@@ -165,10 +213,9 @@ function RenameForm({ name, onSave, onCancel }: { name: string; onSave: (name: s
 
 function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
   const router = useRouter();
+  const sensors = useReorderSensors();
   const [order, setOrder] = useState(() => definitions.map((d) => d.id));
   const [editingId, setEditingId] = useState<number | null>(null);
-  const dragId = useRef<number | null>(null);
-  const [draggingId, setDraggingId] = useState<number | null>(null);
 
   // Keep order in sync when definitions change (e.g. after server refresh)
   const prevIds = useRef(definitions.map((d) => d.id).join(","));
@@ -180,31 +227,16 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
 
   const sorted = order.map((id) => definitions.find((d) => d.id === id)).filter(Boolean) as RatingDefinition[];
 
-  const handleDragStart = (id: number) => {
-    dragId.current = id;
-    setDraggingId(id);
-  };
-
-  const handleDragOver = (e: React.DragEvent, overId: number) => {
-    e.preventDefault();
-    if (dragId.current === null || dragId.current === overId) return;
-    setOrder((prev) => {
-      const from = prev.indexOf(dragId.current!);
-      const to = prev.indexOf(overId);
-      if (from === -1 || to === -1) return prev;
-      const next = [...prev];
-      next.splice(from, 1);
-      next.splice(to, 0, dragId.current!);
-      return next;
-    });
-  };
-
-  const handleDrop = async () => {
-    setDraggingId(null);
-    dragId.current = null;
+  const handleDragEnd = async ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const from = order.indexOf(active.id as number);
+    const to = order.indexOf(over.id as number);
+    if (from === -1 || to === -1) return;
+    const next = arrayMove(order, from, to);
+    setOrder(next);
     const fd = new FormData();
     fd.set("__action", "reorderRatingDefinitions");
-    fd.set("orderedIdsJson", JSON.stringify(order));
+    fd.set("orderedIdsJson", JSON.stringify(next));
     await fetch("/mutate", { method: "POST", body: fd, redirect: "manual" });
     router.refresh();
   };
@@ -225,104 +257,93 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
   if (!definitions.length) return <p className="muted">No custom ratings yet.</p>;
 
   return (
-    <div className="preset-grid">
-      {sorted.map((d) => (
-        <div
-          key={d.id}
-          className={`attribute-card${d.active ? " enabled" : ""}${draggingId === d.id ? " dragging" : ""}`}
-          onDragOver={(e) => handleDragOver(e, d.id)}
-          onDrop={handleDrop}
-          onDragEnd={() => { setDraggingId(null); dragId.current = null; }}
-        >
-          <span
-            className="attribute-card-drag"
-            aria-hidden="true"
-            draggable
-            onDragStart={() => handleDragStart(d.id)}
-          ><GripVertical size={15} /></span>
-          <div className="attribute-card-copy">
-            {editingId === d.id ? (
-              <RenameForm
-                name={d.name}
-                onSave={(name) => void saveName(d.id, name)}
-                onCancel={closeRename}
-              />
-            ) : (
-              <>
-                <strong>{d.name}</strong>
-                <small>{fieldDescription(d)}</small>
-              </>
-            )}
-          </div>
-          <div className="attribute-card-actions">
-            {editingId !== d.id ? (
-              <button
-                type="button"
-                className="ghost-button icon-button compact-icon-button"
-                aria-label={`Rename ${d.name}`}
-                onClick={() => setEditingId(d.id)}
-              >
-                <Pencil size={14} />
-              </button>
-            ) : null}
-            <form action="/mutate" method="post">
-              <input type="hidden" name="__action" value="updateRatingFieldActive" />
-              <input type="hidden" name="definitionId" value={d.id} />
-              <input type="hidden" name="active" value={d.active ? "0" : "1"} />
-              <button className="compact-button">{d.active ? "Disable" : "Enable"}</button>
-            </form>
-            <form action="/mutate" method="post">
-              <input type="hidden" name="__action" value="deleteRatingField" />
-              <input type="hidden" name="definitionId" value={d.id} />
-              <button className="ghost-button icon-button compact-icon-button" aria-label={`Remove ${d.name}`} title={`Remove ${d.name}`}>
-                <Trash2 size={15} />
-              </button>
-            </form>
-          </div>
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
+      <SortableContext items={order} strategy={verticalListSortingStrategy}>
+        <div className="preset-grid">
+          {sorted.map((d) => (
+            <SortableCard
+              key={d.id}
+              id={d.id}
+              className={(isDragging) => `attribute-card${d.active ? " enabled" : ""}${isDragging ? " dragging" : ""}`}
+            >
+              {({ setActivatorNodeRef, attributes, listeners }) => (
+                <>
+                  <span
+                    className="attribute-card-drag"
+                    aria-label={`Reorder ${d.name}`}
+                    ref={setActivatorNodeRef}
+                    {...attributes}
+                    {...listeners}
+                  ><GripVertical size={15} /></span>
+                  <div className="attribute-card-copy">
+                    {editingId === d.id ? (
+                      <RenameForm
+                        name={d.name}
+                        onSave={(name) => void saveName(d.id, name)}
+                        onCancel={closeRename}
+                      />
+                    ) : (
+                      <>
+                        <strong>{d.name}</strong>
+                        <small>{fieldDescription(d)}</small>
+                      </>
+                    )}
+                  </div>
+                  <div className="attribute-card-actions">
+                    {editingId !== d.id ? (
+                      <button
+                        type="button"
+                        className="ghost-button icon-button compact-icon-button"
+                        aria-label={`Rename ${d.name}`}
+                        onClick={() => setEditingId(d.id)}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    ) : null}
+                    <form action="/mutate" method="post">
+                      <input type="hidden" name="__action" value="updateRatingFieldActive" />
+                      <input type="hidden" name="definitionId" value={d.id} />
+                      <input type="hidden" name="active" value={d.active ? "0" : "1"} />
+                      <button className="compact-button">{d.active ? "Disable" : "Enable"}</button>
+                    </form>
+                    <form action="/mutate" method="post">
+                      <input type="hidden" name="__action" value="deleteRatingField" />
+                      <input type="hidden" name="definitionId" value={d.id} />
+                      <button className="ghost-button icon-button compact-icon-button" aria-label={`Remove ${d.name}`} title={`Remove ${d.name}`}>
+                        <Trash2 size={15} />
+                      </button>
+                    </form>
+                  </div>
+                </>
+              )}
+            </SortableCard>
+          ))}
         </div>
-      ))}
-    </div>
+      </SortableContext>
+    </DndContext>
   );
 }
 
 function NoteSectionCards({ sections }: { sections: NoteSectionDefinition[] }) {
   const router = useRouter();
+  const sensors = useReorderSensors();
   const [editingId, setEditingId] = useState<number | null>(null);
-  const dragId = useRef<number | null>(null);
-  const [draggingId, setDraggingId] = useState<number | null>(null);
   const [pendingOrder, setPendingOrder] = useState<number[] | null>(null);
 
   const baseOrder = sections.map((s) => s.id);
   const order = pendingOrder ?? baseOrder;
   const sorted = order.map((id) => sections.find((s) => s.id === id)).filter(Boolean) as NoteSectionDefinition[];
 
-  const handleDragStart = (id: number) => {
-    dragId.current = id;
-    setDraggingId(id);
-    setPendingOrder((prev) => prev ?? baseOrder);
-  };
-
-  const handleDragOver = (e: React.DragEvent, overId: number) => {
-    e.preventDefault();
-    if (dragId.current === null || dragId.current === overId) return;
-    setPendingOrder((prev) => {
-      const current = prev ?? baseOrder;
-      const from = current.indexOf(dragId.current!);
-      const to = current.indexOf(overId);
-      if (from === -1 || to === -1) return current;
-      const next = [...current];
-      next.splice(from, 1);
-      next.splice(to, 0, dragId.current!);
-      return next;
-    });
-  };
-
-  const handleDrop = async () => {
-    setDraggingId(null);
-    dragId.current = null;
+  const handleDragEnd = async ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const from = order.indexOf(active.id as number);
+    const to = order.indexOf(over.id as number);
+    if (from === -1 || to === -1) return;
+    const next = arrayMove(order, from, to);
+    setPendingOrder(next);
     const fd = new FormData();
     fd.set("__action", "reorderNoteSections");
-    fd.set("orderedIdsJson", JSON.stringify(order));
+    fd.set("orderedIdsJson", JSON.stringify(next));
     await fetch("/mutate", { method: "POST", body: fd, redirect: "manual" });
     setPendingOrder(null);
     router.refresh();
@@ -344,65 +365,72 @@ function NoteSectionCards({ sections }: { sections: NoteSectionDefinition[] }) {
   if (!sections.length) return <p className="muted">No note headings yet.</p>;
 
   return (
-    <div className="preset-grid">
-      {sorted.map((s) => (
-        <div
-          key={s.id}
-          className={`attribute-card${s.active ? " enabled" : ""}${draggingId === s.id ? " dragging" : ""}`}
-          onDragOver={(e) => handleDragOver(e, s.id)}
-          onDrop={handleDrop}
-          onDragEnd={() => { setDraggingId(null); dragId.current = null; }}
-        >
-          <span
-            className="attribute-card-drag"
-            aria-hidden="true"
-            draggable
-            onDragStart={() => handleDragStart(s.id)}
-          ><GripVertical size={15} /></span>
-          <div className="attribute-card-copy">
-            {editingId === s.id ? (
-              <RenameForm
-                name={s.name}
-                onSave={(name) => void saveName(s.id, name)}
-                onCancel={closeRename}
-              />
-            ) : (
-              <>
-                <strong>{s.name}</strong>
-                <small>{s.presetKey ? "Built-in" : "Custom"}</small>
-              </>
-            )}
-          </div>
-          <div className="attribute-card-actions">
-            {editingId !== s.id ? (
-              <button
-                type="button"
-                className="ghost-button icon-button compact-icon-button"
-                aria-label={`Rename ${s.name}`}
-                onClick={() => setEditingId(s.id)}
-              >
-                <Pencil size={14} />
-              </button>
-            ) : null}
-            <form action="/mutate" method="post">
-              <input type="hidden" name="__action" value="updateNoteSectionActive" />
-              <input type="hidden" name="sectionId" value={s.id} />
-              <input type="hidden" name="active" value={s.active ? "0" : "1"} />
-              <button className="compact-button">{s.active ? "Disable" : "Enable"}</button>
-            </form>
-            {s.presetKey ? null : (
-              <form action="/mutate" method="post">
-                <input type="hidden" name="__action" value="deleteNoteSection" />
-                <input type="hidden" name="sectionId" value={s.id} />
-                <button className="ghost-button icon-button compact-icon-button" aria-label={`Remove ${s.name}`} title={`Remove ${s.name}`}>
-                  <Trash2 size={15} />
-                </button>
-              </form>
-            )}
-          </div>
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
+      <SortableContext items={order} strategy={verticalListSortingStrategy}>
+        <div className="preset-grid">
+          {sorted.map((s) => (
+            <SortableCard
+              key={s.id}
+              id={s.id}
+              className={(isDragging) => `attribute-card${s.active ? " enabled" : ""}${isDragging ? " dragging" : ""}`}
+            >
+              {({ setActivatorNodeRef, attributes, listeners }) => (
+                <>
+                  <span
+                    className="attribute-card-drag"
+                    aria-label={`Reorder ${s.name}`}
+                    ref={setActivatorNodeRef}
+                    {...attributes}
+                    {...listeners}
+                  ><GripVertical size={15} /></span>
+                  <div className="attribute-card-copy">
+                    {editingId === s.id ? (
+                      <RenameForm
+                        name={s.name}
+                        onSave={(name) => void saveName(s.id, name)}
+                        onCancel={closeRename}
+                      />
+                    ) : (
+                      <>
+                        <strong>{s.name}</strong>
+                        <small>{s.presetKey ? "Built-in" : "Custom"}</small>
+                      </>
+                    )}
+                  </div>
+                  <div className="attribute-card-actions">
+                    {editingId !== s.id ? (
+                      <button
+                        type="button"
+                        className="ghost-button icon-button compact-icon-button"
+                        aria-label={`Rename ${s.name}`}
+                        onClick={() => setEditingId(s.id)}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    ) : null}
+                    <form action="/mutate" method="post">
+                      <input type="hidden" name="__action" value="updateNoteSectionActive" />
+                      <input type="hidden" name="sectionId" value={s.id} />
+                      <input type="hidden" name="active" value={s.active ? "0" : "1"} />
+                      <button className="compact-button">{s.active ? "Disable" : "Enable"}</button>
+                    </form>
+                    {s.presetKey ? null : (
+                      <form action="/mutate" method="post">
+                        <input type="hidden" name="__action" value="deleteNoteSection" />
+                        <input type="hidden" name="sectionId" value={s.id} />
+                        <button className="ghost-button icon-button compact-icon-button" aria-label={`Remove ${s.name}`} title={`Remove ${s.name}`}>
+                          <Trash2 size={15} />
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </>
+              )}
+            </SortableCard>
+          ))}
         </div>
-      ))}
-    </div>
+      </SortableContext>
+    </DndContext>
   );
 }
 
