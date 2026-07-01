@@ -152,40 +152,40 @@ export function RestaurantDetail({
                 <h5>Ratings</h5>
                 <RatingFields entry={entry} groups={ratingGroups} />
               </section>
+              <section className="entry-edit-section">
+                <h5>Lists</h5>
+                {lists.length === 0 ? (
+                  <p className="muted" style={{ margin: 0 }}>No lists yet.</p>
+                ) : (
+                  <div className="list-toggle-grid">
+                    {lists.map((list) => {
+                      const inList = membershipIds.has(list.id);
+                      return (
+                        <button
+                          key={list.id}
+                          type="button"
+                          className={`list-toggle-btn${inList ? " active" : ""}`}
+                          aria-pressed={inList}
+                          onClick={() => toggleListMembership(list.id, inList)}
+                        >
+                          <span className="list-toggle-check" aria-hidden="true">
+                            {inList ? <Check size={13} /> : <Plus size={13} />}
+                          </span>
+                          <span className="list-toggle-name">{list.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
             </div>
             <div className="form-actions">
               <button>Save entry</button>
               <button type="button" className="ghost-button" onClick={resetEntryEdit}>Cancel</button>
             </div>
           </form>
-          <section className="settings-section restaurant-lists-section">
-            <div className="section-head"><h4>Lists</h4></div>
-            {lists.length === 0 ? (
-              <p className="muted" style={{ margin: 0 }}>No lists yet.</p>
-            ) : (
-              <div className="list-toggle-grid">
-                {lists.map((list) => {
-                  const inList = membershipIds.has(list.id);
-                  return (
-                    <button
-                      key={list.id}
-                      type="button"
-                      className={`list-toggle-btn${inList ? " active" : ""}`}
-                      aria-pressed={inList}
-                      onClick={() => toggleListMembership(list.id, inList)}
-                    >
-                      <span className="list-toggle-check" aria-hidden="true">
-                        {inList ? <Check size={13} /> : <Plus size={13} />}
-                      </span>
-                      <span className="list-toggle-name">{list.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-          <section className="settings-section restaurant-lists-section">
-            <div className="section-head"><h4>Delete restaurant</h4></div>
+          <details className="danger-zone">
+            <summary>Danger zone</summary>
             <form
               action="/mutate"
               method="post"
@@ -198,7 +198,7 @@ export function RestaurantDetail({
                 <Trash2 size={14} /> Delete restaurant
               </button>
             </form>
-          </section>
+          </details>
         </>
       ) : (
         <>
@@ -211,20 +211,19 @@ export function RestaurantDetail({
             <AttributePreview entry={entry} groups={ratingGroups} />
           </section>
           <RestaurantPhotos canWrite={canWrite} entry={entry} />
+          <section className="checkin-box">
+            <div className="section-head"><h4>Check-ins</h4></div>
+            {entry.latestCheckIn ? (
+              <div className="checkin-list">
+                {entry.checkIns.map((c) => (<CheckInCard key={c.id} canWrite={canWrite} checkIn={c} />))}
+              </div>
+            ) : (
+              <p className="muted">No check-ins yet.</p>
+            )}
+            {canWrite ? <CheckInForm entry={entry} /> : null}
+          </section>
         </>
       )}
-
-      <section className="checkin-box">
-        <div className="section-head"><h4>Check-ins</h4></div>
-        {entry.latestCheckIn ? (
-          <div className="checkin-list">
-            {entry.checkIns.map((c) => (<CheckInCard key={c.id} canWrite={canWrite} checkIn={c} />))}
-          </div>
-        ) : (
-          <p className="muted">No check-ins yet.</p>
-        )}
-        {canWrite ? <CheckInForm entry={entry} /> : null}
-      </section>
     </div>
   );
 }
