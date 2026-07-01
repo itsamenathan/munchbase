@@ -1,15 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { createSession, hashPassword } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { firstUser, getDb } from "@/lib/db";
+import { redirectTo } from "@/lib/redirect";
 
-function redirectTo(request: NextRequest, path: string) {
-  const proto = request.headers.get("x-forwarded-proto") ?? new URL(request.url).protocol.replace(":", "");
-  const host = request.headers.get("host") ?? new URL(request.url).host;
-  return NextResponse.redirect(`${proto}://${host}${path}`);
-}
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   if (env.NODE_ENV === "production") {
     return new NextResponse(null, { status: 404 });
   }
@@ -34,5 +29,5 @@ export async function GET(request: NextRequest) {
   }
 
   await createSession(userId);
-  return redirectTo(request, "/explore");
+  return redirectTo("/explore");
 }

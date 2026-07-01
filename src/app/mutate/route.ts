@@ -1,7 +1,8 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import * as mutations from "@/lib/mutations";
 import { currentUser } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { redirectTo } from "@/lib/redirect";
 
 const MUTATIONS = {
   setup: mutations.setup,
@@ -36,12 +37,6 @@ const MUTATIONS = {
   },
 } satisfies Record<string, (formData: FormData, context: mutations.MutationContext) => Promise<mutations.MutationResult>>;
 
-function redirectTo(request: NextRequest, path: string) {
-  const proto = request.headers.get("x-forwarded-proto") ?? new URL(request.url).protocol.replace(":", "");
-  const host = request.headers.get("host") ?? new URL(request.url).host;
-  return NextResponse.redirect(`${proto}://${host}${path}`);
-}
-
 function clientIp(request: NextRequest) {
   return request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? request.headers.get("x-real-ip") ?? "unknown";
 }
@@ -67,7 +62,7 @@ export async function POST(request: NextRequest) {
   const mutation = typeof actionName === "string" ? MUTATIONS[actionName as keyof typeof MUTATIONS] : undefined;
   if (!mutation) {
     logger.warn("Unknown mutation requested", { actionName });
-    return redirectTo(request, "/explore?mutationError=unknown&message=That%20action%20could%20not%20be%20handled.");
+    return redirectTo("/explore?mutationError=unknown&message=That%20action%20could%20not%20be%20handled.");
   }
 
   const user = await currentUser();
@@ -78,11 +73,11 @@ export async function POST(request: NextRequest) {
   try {
     const result = await mutation(formData, { ip });
     logger.info("Mutation ok", { action: actionName, userId: user?.id, ip, ms: Date.now() - start });
-    return redirectTo(request, result?.redirectTo ?? fallback);
+    return redirectTo(result?.redirectTo ?? fallback);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Something went wrong.";
     const code = error instanceof mutations.MutationError ? error.code : "failed";
     logger.warn("Mutation failed", { action: actionName, userId: user?.id, ip, code, error: message, ms: Date.now() - start });
-    return redirectTo(request, withMutationError(fallback, code, message));
+    return redirectTo(withMutationError(fallback, code, message));
   }
 }
