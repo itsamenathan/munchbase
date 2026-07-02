@@ -30,9 +30,9 @@ export function AdminDrawer({ state, onClose }: { state: AppState; onClose: () =
           <PanelTitle icon={<Users size={17} />} title="Create user" detail="Create an account directly. Active users can edit all restaurant data." />
           <form action="/mutate" method="post" className="stack-form">
             <input type="hidden" name="__action" value="createUser" />
-            <input name="name" placeholder="Name" required />
-            <input name="email" type="email" placeholder="Email" required />
-            <input name="password" type="password" placeholder="Temporary password, 8+ chars" minLength={8} required />
+            <input name="name" placeholder="Name" required autoComplete="name" />
+            <input name="email" type="email" placeholder="Email" required autoComplete="email" />
+            <input name="password" type="password" placeholder="Temporary password, 8+ chars" minLength={8} required autoComplete="new-password" />
             <select name="role" defaultValue="user">
               <option value="user">User</option>
               <option value="admin">Admin</option>

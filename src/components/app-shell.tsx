@@ -31,6 +31,7 @@ import { useHaptics } from "@/hooks/use-haptics";
 import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
 import { formatCityState } from "@/lib/address";
 import { readCachedLocation, writeCachedLocation } from "@/lib/location-cache";
+import { cacheAppState, cacheLists, cacheRestaurants } from "@/lib/offline-db";
 import { listSettingsHref, restaurantHref, tabHref, type BottomTab } from "@/lib/routes";
 import type { AppState, RatingDefinition } from "@/lib/types";
 
@@ -95,6 +96,14 @@ export default function AppShell({
       window.scrollTo({ top: 0, left: 0 });
     }
   }, [selectedEntryId]);
+
+  useEffect(() => {
+    // Write-through cache: keep the last successfully-loaded server state in
+    // IndexedDB so a future offline session has something to fall back to.
+    void cacheAppState("latest", state);
+    void cacheRestaurants(state.allRestaurants);
+    void cacheLists(state.lists);
+  }, [state]);
 
   useEffect(() => {
     // Seed from cache immediately so location is available before GPS resolves.
@@ -358,6 +367,7 @@ export default function AppShell({
                 <span className="sr-only">Search restaurants</span>
                 <Search size={17} />
                 <input
+                  type="search"
                   aria-label="Search restaurants"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}

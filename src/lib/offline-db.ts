@@ -1,20 +1,5 @@
 import { openDB, type IDBPDatabase } from "idb";
-
-type CachedRestaurant = {
-  id: number;
-  name: string;
-  address: string | null;
-  lat: number | null;
-  lon: number | null;
-  notes: string | null;
-  googleMapsUrl: string | null;
-  yelpUrl: string | null;
-  checkInCount: number;
-  latestCheckIn: string | null;
-  ratings: { definitionId: number; value: string }[];
-  memberships: { id: number; name: string }[];
-  ratingGroups: { list: { id: number; name: string }; definitions: { id: number; name: string; active: boolean }[] }[];
-};
+import type { List, Restaurant } from "@/lib/types";
 
 const DB_NAME = "munchbase-offline";
 const DB_VERSION = 1;
@@ -44,7 +29,7 @@ function getDb() {
   return dbPromise;
 }
 
-export async function cacheRestaurants(restaurants: CachedRestaurant[]) {
+export async function cacheRestaurants(restaurants: Restaurant[]) {
   const db = await getDb();
   const tx = db.transaction("restaurants", "readwrite");
   await Promise.all([
@@ -53,18 +38,18 @@ export async function cacheRestaurants(restaurants: CachedRestaurant[]) {
   ]);
 }
 
-export async function getCachedRestaurants(): Promise<CachedRestaurant[]> {
+export async function getCachedRestaurants(): Promise<Restaurant[]> {
   const db = await getDb();
   return db.getAll("restaurants");
 }
 
-export async function cacheLists(lists: { id: number; name: string; description: string | null }[]) {
+export async function cacheLists(lists: List[]) {
   const db = await getDb();
   const tx = db.transaction("lists", "readwrite");
   await Promise.all([...lists.map((l) => tx.store.put(l)), tx.done]);
 }
 
-export async function getCachedLists() {
+export async function getCachedLists(): Promise<List[]> {
   const db = await getDb();
   return db.getAll("lists");
 }

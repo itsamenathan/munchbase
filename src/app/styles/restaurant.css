@@ -1253,6 +1253,10 @@
     grid-template-columns: 1fr;
   }
 
+  .entry-edit-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .compact-button {
     width: 100%;
   }

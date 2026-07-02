@@ -20,6 +20,9 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@serwist/next": "^9.5.11",
     "@serwist/sw": "^9.5.11",
     "@types/leaflet": "^1.9.21",
