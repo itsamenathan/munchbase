@@ -234,7 +234,7 @@ export default function AppShell({
   };
 
   const closeSettings = () => {
-    router.push("/lists", { scroll: false });
+    router.push(tabHref("list", activeState.activeListId), { scroll: false });
   };
 
   return (
@@ -245,6 +245,8 @@ export default function AppShell({
           state={activeState}
           canWrite={canWrite}
           onOpenAddList={() => setAddListOpen(true)}
+          onOpenListSettings={openListSettings}
+          showListSettings
           showBrand={activeTab !== "lists"}
         />
       </aside>
@@ -333,7 +335,7 @@ export default function AppShell({
         ) : null}
 
         <div className={settingsOpen || selectedEntry ? "mobile-hidden-when-detail" : undefined}>
-          {activeTab === "lists" ? (
+          {activeTab === "lists" && !settingsOpen ? (
             <section className="mobile-lists-view">
               <SidebarContent
                 state={activeState}
