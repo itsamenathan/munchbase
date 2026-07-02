@@ -234,6 +234,16 @@ export async function updateListDetails(formData: FormData) {
   revalidateApp();
 }
 
+export async function deleteList(formData: FormData) {
+  await requireUser();
+  const listId = Number(text(formData, "listId"));
+  const list = getDb().prepare("SELECT id FROM lists WHERE id = ?").get(listId) as { id: number } | undefined;
+  if (!list) throw new Error("List not found.");
+  getDb().prepare("DELETE FROM lists WHERE id = ?").run(listId);
+  revalidateApp();
+  return { redirectTo: tabHref("list", null) };
+}
+
 export async function addRestaurant(formData: FormData) {
   const listIdText = text(formData, "listId");
   const listId = listIdText ? Number(listIdText) : null;

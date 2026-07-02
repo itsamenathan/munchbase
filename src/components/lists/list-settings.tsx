@@ -184,6 +184,20 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
             <AttributeCards definitions={definitions} />
             <AddCustomFieldForm scope="list" listId={state.activeList.id} />
           </section>
+          <details className="danger-zone">
+            <summary>Danger zone</summary>
+            <form
+              action="/mutate"
+              method="post"
+              onSubmit={(e) => { if (!confirm(`Permanently delete "${state.activeList!.name}"? Restaurants stay, but this list's custom fields and membership will be removed.`)) e.preventDefault(); }}
+            >
+              <input type="hidden" name="__action" value="deleteList" />
+              <input type="hidden" name="listId" value={state.activeList.id} />
+              <button className="danger-button" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Trash2 size={14} /> Delete list
+              </button>
+            </form>
+          </details>
         </>
       ) : null}
     </div>

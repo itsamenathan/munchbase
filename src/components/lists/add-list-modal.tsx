@@ -96,7 +96,12 @@ export function AddListModal({ state, onClose }: { state: AppState; onClose: () 
             <section className="stack-form">
               <label className="search-box add-list-search">
                 <Search size={17} />
-                <input value={restaurantQuery} onChange={(e) => setRestaurantQuery(e.target.value)} placeholder="Search existing restaurants" />
+                <input
+                  value={restaurantQuery}
+                  onChange={(e) => setRestaurantQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+                  placeholder="Search existing restaurants"
+                />
               </label>
               <div className="restaurant-picker-list">
                 {filteredRestaurants.map((r) => {
@@ -115,9 +120,9 @@ export function AddListModal({ state, onClose }: { state: AppState; onClose: () 
           <footer className="form-actions add-list-actions">
             <button type="button" className="ghost-button" onClick={() => setStep(step === "restaurants" ? "fields" : "details")} disabled={step === "details"}>Back</button>
             {step === "restaurants" ? (
-              <button disabled={!name.trim()}>Create list</button>
+              <button key="submit" type="submit" disabled={!name.trim()}>Create list</button>
             ) : (
-              <button type="button" onClick={() => setStep(step === "details" ? "fields" : "restaurants")} disabled={step === "details" && !name.trim()}>Next</button>
+              <button key="next" type="button" onClick={() => setStep(step === "details" ? "fields" : "restaurants")} disabled={step === "details" && !name.trim()}>Next</button>
             )}
           </footer>
         </form>

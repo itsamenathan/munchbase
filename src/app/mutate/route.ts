@@ -14,6 +14,7 @@ const MUTATIONS = {
   updateSelfSignup: mutations.updateSelfSignup,
   createList: mutations.createList,
   updateListDetails: mutations.updateListDetails,
+  deleteList: mutations.deleteList,
   addRestaurant: mutations.addRestaurant,
   updateEntry: mutations.updateEntry,
   createRatingDefinition: mutations.createRatingDefinition,
