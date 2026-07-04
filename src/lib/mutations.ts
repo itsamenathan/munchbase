@@ -4,6 +4,8 @@ import { localDateTimeInputValue } from "@/lib/datetime";
 import { getDb, userCount } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { normalizeExternalUrl } from "@/lib/external-links";
+import { googleMapsPlaceId, parseGoogleMapsUrlWithRedirects } from "@/lib/google-maps-url";
+import { reverseGeocodeAddress } from "@/lib/photon";
 import { deletePhotoFiles, saveRestaurantPhotoFiles } from "@/lib/restaurant-photos";
 import { normalizeRatingDefinition, presetByKey, validateRatingValue } from "@/lib/ratings";
 import { buildNotes } from "@/lib/note-sections";
@@ -248,13 +250,29 @@ export async function addRestaurant(formData: FormData) {
   const listIdText = text(formData, "listId");
   const listId = listIdText ? Number(listIdText) : null;
   const user = await requireUser();
-  const name = text(formData, "name");
+  const googleMapsUrlInput = text(formData, "googleMapsUrl");
+  let parsedGoogleMapsUrl: Awaited<ReturnType<typeof parseGoogleMapsUrlWithRedirects>> | null = null;
+  if (googleMapsUrlInput) {
+    try {
+      parsedGoogleMapsUrl = await parseGoogleMapsUrlWithRedirects(googleMapsUrlInput);
+    } catch {
+      parsedGoogleMapsUrl = null;
+    }
+  }
+
+  const name = text(formData, "name") || parsedGoogleMapsUrl?.name || "";
   if (!name) throw new Error("Restaurant name is required.");
-  const osmType = text(formData, "osmType") || null;
-  const osmId = text(formData, "osmId") || null;
-  const address = text(formData, "address") || null;
-  const lat = text(formData, "lat") ? Number(text(formData, "lat")) : null;
-  const lon = text(formData, "lon") ? Number(text(formData, "lon")) : null;
+  const manualLat = text(formData, "lat") ? Number(text(formData, "lat")) : null;
+  const manualLon = text(formData, "lon") ? Number(text(formData, "lon")) : null;
+  const hasParsedCoords = parsedGoogleMapsUrl?.lat !== undefined && parsedGoogleMapsUrl.lon !== undefined;
+  const osmType = text(formData, "osmType") || (hasParsedCoords && parsedGoogleMapsUrl ? "google_maps_url" : null);
+  const osmId = text(formData, "osmId") || (hasParsedCoords && parsedGoogleMapsUrl ? googleMapsPlaceId(parsedGoogleMapsUrl.finalUrl) : null);
+  const lat = manualLat ?? parsedGoogleMapsUrl?.lat ?? null;
+  const lon = manualLon ?? parsedGoogleMapsUrl?.lon ?? null;
+  const reverseGeocodedAddress = !text(formData, "address") && lat !== null && lon !== null ? await reverseGeocodeAddress(lat, lon) : null;
+  const address = text(formData, "address") || parsedGoogleMapsUrl?.address || reverseGeocodedAddress || null;
+  const rawJson = text(formData, "rawJson") || parsedGoogleMapsUrl?.rawJson || null;
+  const googleMapsUrl = parsedGoogleMapsUrl?.sourceUrl ?? null;
   const db = getDb();
   let placeId: number | undefined;
   if (osmType && osmId) {
@@ -266,14 +284,61 @@ export async function addRestaurant(formData: FormData) {
   if (!placeId) {
     const result = db
       .prepare("INSERT INTO places (osm_type, osm_id, name, address, lat, lon, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .run(osmType, osmId, name, address, lat, lon, text(formData, "rawJson") || null);
+      .run(osmType, osmId, name, address, lat, lon, rawJson);
     placeId = Number(result.lastInsertRowid);
   }
   db.prepare(
     `INSERT OR IGNORE INTO restaurants
-     (place_id, notes, created_by)
-     VALUES (?, ?, ?)`,
-  ).run(placeId, buildNotes(null, collectNoteUpdates(formData)), user.id);
+     (place_id, notes, google_maps_url, created_by)
+     VALUES (?, ?, ?, ?)`,
+  ).run(placeId, buildNotes(null, collectNoteUpdates(formData)), googleMapsUrl, user.id);
+  const restaurant = db
+    .prepare("SELECT id FROM restaurants WHERE place_id = ?")
+    .get(placeId) as { id: number } | undefined;
+  if (!restaurant) throw new Error("Restaurant could not be created.");
+  if (listId) {
+    db.prepare("INSERT OR IGNORE INTO list_restaurants (list_id, restaurant_id) VALUES (?, ?)").run(listId, restaurant.id);
+  }
+  revalidateApp();
+  return { redirectTo: restaurantHref(restaurant.id, listId, true) };
+}
+
+export async function addRestaurantFromGoogleMapsUrl(formData: FormData) {
+  const listIdText = text(formData, "listId");
+  const listId = listIdText ? Number(listIdText) : null;
+  const user = await requireUser();
+  const sourceUrl = text(formData, "googleMapsUrl");
+  if (!sourceUrl) throw new MutationError("Google Maps URL is required.", "google_maps_url_required");
+
+  let parsed: Awaited<ReturnType<typeof parseGoogleMapsUrlWithRedirects>>;
+  try {
+    parsed = await parseGoogleMapsUrlWithRedirects(sourceUrl);
+  } catch {
+    throw new MutationError("We couldn't read that Google Maps URL.", "google_maps_url_unreadable");
+  }
+
+  const name = text(formData, "name") || parsed.name;
+  if (!name) throw new MutationError("Add a restaurant name for this Google Maps URL.", "restaurant_name_required");
+  if (parsed.lat === undefined || parsed.lon === undefined) {
+    throw new MutationError("We couldn't find coordinates in that Google Maps URL. Try an expanded place URL or add the restaurant manually.", "google_maps_location_missing");
+  }
+
+  const osmType = "google_maps_url";
+  const osmId = googleMapsPlaceId(parsed.finalUrl);
+  const address = parsed.address ?? await reverseGeocodeAddress(parsed.lat, parsed.lon);
+  const db = getDb();
+  const existing = db.prepare("SELECT id FROM places WHERE osm_type = ? AND osm_id = ?").get(osmType, osmId) as
+    | { id: number }
+    | undefined;
+  const placeId = existing?.id ?? Number(db
+    .prepare("INSERT INTO places (osm_type, osm_id, name, address, lat, lon, raw_json) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run(osmType, osmId, name, address, parsed.lat, parsed.lon, parsed.rawJson).lastInsertRowid);
+
+  db.prepare(
+    `INSERT OR IGNORE INTO restaurants
+     (place_id, notes, google_maps_url, created_by)
+     VALUES (?, ?, ?, ?)`,
+  ).run(placeId, buildNotes(null, collectNoteUpdates(formData)), parsed.sourceUrl, user.id);
   const restaurant = db
     .prepare("SELECT id FROM restaurants WHERE place_id = ?")
     .get(placeId) as { id: number } | undefined;
@@ -292,12 +357,41 @@ export async function updateEntry(formData: FormData) {
   const existing = db.prepare("SELECT notes FROM restaurants WHERE id = ?").get(restaurantId) as
     | { notes: string | null }
     | undefined;
-  const notes = buildNotes(existing?.notes ?? null, collectNoteUpdates(formData));
+  if (!existing) throw new Error("Restaurant not found.");
+
+  const notes = buildNotes(existing.notes, collectNoteUpdates(formData));
   db.prepare(
     `UPDATE restaurants
      SET notes = ?, updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
   ).run(notes, restaurantId);
+  revalidateApp();
+}
+
+export async function updateRestaurantMetadata(formData: FormData) {
+  await requireUser();
+  const restaurantId = Number(text(formData, "restaurantId"));
+  const db = getDb();
+  const existing = db.prepare("SELECT place_id AS placeId FROM restaurants WHERE id = ?").get(restaurantId) as
+    | { placeId: number }
+    | undefined;
+  if (!existing) throw new Error("Restaurant not found.");
+
+  const name = text(formData, "name");
+  if (!name) throw new Error("Restaurant name is required.");
+  const latText = text(formData, "lat");
+  const lonText = text(formData, "lon");
+  const lat = latText ? Number(latText) : null;
+  const lon = lonText ? Number(lonText) : null;
+  if (latText && (lat === null || !Number.isFinite(lat) || lat < -90 || lat > 90)) throw new Error("Latitude must be between -90 and 90.");
+  if (lonText && (lon === null || !Number.isFinite(lon) || lon < -180 || lon > 180)) throw new Error("Longitude must be between -180 and 180.");
+
+  db.prepare(
+    `UPDATE places
+     SET name = ?, address = ?, lat = ?, lon = ?
+     WHERE id = ?`,
+  ).run(name, text(formData, "address") || null, lat, lon, existing.placeId);
+  db.prepare("UPDATE restaurants SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(restaurantId);
   revalidateApp();
 }
 

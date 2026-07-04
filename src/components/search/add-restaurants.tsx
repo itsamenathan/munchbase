@@ -18,17 +18,19 @@ type PlaceResult = {
 export function ManualRestaurantForm({ listId }: { listId: number | null }) {
   return (
     <details className="manual-add">
-      <summary>Add manually instead</summary>
+      <summary>Manually Add</summary>
       <form action="/mutate" method="post" className="stack-form">
         <input type="hidden" name="__action" value="addRestaurant" />
         {listId ? <input type="hidden" name="listId" value={listId} /> : null}
-        <input name="name" placeholder="Restaurant name" required />
+        <input name="googleMapsUrl" type="url" inputMode="url" placeholder="Google Maps URL (optional)" />
+        <p className="microcopy">Paste a Google Maps URL to fill details when possible, or enter the restaurant yourself.</p>
+        <input name="name" placeholder="Restaurant name" />
         <input name="address" placeholder="Address" />
         <div className="split">
           <input name="lat" placeholder="Lat" inputMode="decimal" />
           <input name="lon" placeholder="Lon" inputMode="decimal" />
         </div>
-        <button>Add manually</button>
+        <button>Add restaurant</button>
       </form>
     </details>
   );

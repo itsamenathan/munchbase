@@ -180,12 +180,25 @@ export function RestaurantDetail({
               </section>
             </div>
             <div className="form-actions entry-edit-actions">
-              <button>Save entry</button>
+              <button>Save notes and ratings</button>
               <button type="button" className="ghost-button" onClick={resetEntryEdit}>Cancel</button>
             </div>
           </form>
           <details className="danger-zone">
             <summary>Danger zone</summary>
+            <form action="/mutate" method="post" className="stack-form">
+              <input type="hidden" name="__action" value="updateRestaurantMetadata" />
+              <input type="hidden" name="restaurantId" value={entry.id} />
+              <h5>Details</h5>
+              <p className="microcopy">Changing these fields can move this restaurant on the Map and affect search labels.</p>
+              <input name="name" defaultValue={entry.name} required placeholder="Restaurant name" />
+              <input name="address" defaultValue={entry.address ?? ""} placeholder="Address" />
+              <div className="split">
+                <input name="lat" defaultValue={entry.lat ?? ""} inputMode="decimal" placeholder="Lat" />
+                <input name="lon" defaultValue={entry.lon ?? ""} inputMode="decimal" placeholder="Lon" />
+              </div>
+              <button>Update details</button>
+            </form>
             <form
               action="/mutate"
               method="post"

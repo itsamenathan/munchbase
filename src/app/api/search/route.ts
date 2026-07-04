@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { mapPhotonFeature, type PhotonFeature } from "@/lib/photon";
 
 let lastRequestAt = 0;
 
@@ -13,57 +14,12 @@ const FOOD_TAGS = [
   "amenity:food_court",
 ];
 
-type PhotonFeature = {
-  geometry: { coordinates: [number, number] };
-  properties: {
-    name?: string;
-    osm_type?: string;
-    osm_id?: number;
-    osm_key?: string;
-    osm_value?: string;
-    street?: string;
-    housenumber?: string;
-    city?: string;
-    state?: string;
-    postcode?: string;
-    country?: string;
-    display_name?: string;
-  };
-};
-
-const OSM_TYPE: Record<string, string> = { N: "node", W: "way", R: "relation" };
-
 const KM_PER_DEGREE_LAT = 111;
 
 function boxAround(lat: number, lon: number, radiusKm: number): [number, number, number, number] {
   const latDelta = radiusKm / KM_PER_DEGREE_LAT;
   const lonDelta = radiusKm / (KM_PER_DEGREE_LAT * Math.cos((lat * Math.PI) / 180));
   return [lon - lonDelta, lat - latDelta, lon + lonDelta, lat + latDelta];
-}
-
-function buildAddress(p: PhotonFeature["properties"]): string {
-  const parts = [
-    [p.housenumber, p.street].filter(Boolean).join(" "),
-    p.city,
-    p.state,
-    p.postcode,
-    p.country,
-  ].filter(Boolean);
-  return parts.join(", ");
-}
-
-function mapFeature(f: PhotonFeature) {
-  const p = f.properties;
-  const [fLon, fLat] = f.geometry.coordinates;
-  return {
-    osmType: OSM_TYPE[p.osm_type ?? ""] ?? p.osm_type ?? "",
-    osmId: String(p.osm_id ?? ""),
-    name: p.name ?? p.display_name ?? "Unnamed place",
-    address: buildAddress(p),
-    lat: String(fLat),
-    lon: String(fLon),
-    rawJson: JSON.stringify(f),
-  };
 }
 
 export async function GET(request: Request) {
@@ -100,7 +56,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Nearby search failed." }, { status: 502 });
     }
     const data = (await response.json()) as { features: PhotonFeature[] };
-    const results = data.features.filter((f) => f.properties.name).map(mapFeature);
+    const results = data.features.filter((f) => f.properties.name).map(mapPhotonFeature);
     logger.info("Nearby search", { userId: user.id, lat, lon, results: results.length, ms: Date.now() - start });
     return NextResponse.json({ results });
   }
@@ -135,7 +91,7 @@ export async function GET(request: Request) {
   }
 
   const data = (await response.json()) as { features: PhotonFeature[] };
-  const results = data.features.map(mapFeature);
+  const results = data.features.map(mapPhotonFeature);
   logger.info("Place search", { userId: user.id, q, hasLocation, results: results.length, ms: Date.now() - start });
   return NextResponse.json({ results });
 }
