@@ -27,8 +27,8 @@ export const metadata: Metadata = {
 
 export const viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#0055da" },
-    { media: "(prefers-color-scheme: dark)", color: "#090c1b" },
+    { media: "(prefers-color-scheme: light)", color: "#f8f8f2" },
+    { media: "(prefers-color-scheme: dark)", color: "#1e2029" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -47,9 +47,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               (function () {
                 try {
                   var choice = localStorage.getItem("munchbase-theme") || "system";
-                  if (choice !== "light" && choice !== "dark" && choice !== "system" && choice !== "lavender" && choice !== "lavender-dark") choice = "system";
+                  if (choice !== "light" && choice !== "dark" && choice !== "system" && choice !== "lavender" && choice !== "lavender-dark" && choice !== "rose" && choice !== "rose-dark") choice = "system";
                   var system = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-                  var effective = choice === "system" ? system : (choice === "dark" || choice === "lavender-dark" ? "dark" : "light");
+                  var effective = choice === "system" ? system : (choice === "dark" || choice === "lavender-dark" || choice === "rose-dark" ? "dark" : "light");
                   document.documentElement.dataset.themeChoice = choice;
                   document.documentElement.dataset.theme = choice === "system" ? effective : choice;
                   document.documentElement.style.colorScheme = effective;

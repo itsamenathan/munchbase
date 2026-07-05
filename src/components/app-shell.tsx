@@ -576,11 +576,13 @@ function ThemePicker({
   onChange: (choice: ThemeChoice) => void;
 }) {
   const options: Array<{ value: ThemeChoice; label: string; swatches: string[] }> = [
-    { value: "system", label: "Auto", swatches: ["#fff8df", "#fffdf4", "#111833", "#090c1b"] },
-    { value: "light", label: "Classic", swatches: ["#fff8df", "#fffdf4", "#0055da"] },
-    { value: "dark", label: "Midnight", swatches: ["#090c1b", "#111833", "#e0b83c"] },
+    { value: "system", label: "Auto", swatches: ["#f8f8f2", "#bd93f9", "#282a36", "#ff79c6"] },
+    { value: "light", label: "Light", swatches: ["#f8f8f2", "#e6e6dc", "#bd93f9"] },
+    { value: "dark", label: "Dark", swatches: ["#1e2029", "#282a36", "#ff79c6"] },
     { value: "lavender", label: "Lavender", swatches: ["#f5f5ff", "#ededff", "#9fa1ff"] },
     { value: "lavender-dark", label: "Lavender Dark", swatches: ["#0d0b1e", "#151232", "#b5baff"] },
+    { value: "rose", label: "Rose", swatches: ["#ffe5ec", "#ffc2d1", "#fb6f92"] },
+    { value: "rose-dark", label: "Rose Dark", swatches: ["#190812", "#3a1020", "#fb6f92"] },
   ];
 
   return (

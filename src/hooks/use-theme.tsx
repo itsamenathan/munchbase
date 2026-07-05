@@ -2,14 +2,16 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-export type ThemeChoice = "system" | "light" | "dark" | "lavender" | "lavender-dark";
+export type ThemeChoice = "system" | "light" | "dark" | "lavender" | "lavender-dark" | "rose" | "rose-dark";
 type EffectiveTheme = "light" | "dark";
 
 const THEME_STORAGE_KEY = "munchbase-theme";
-const DARK_THEME_COLOR = "#090c1b";
-const LIGHT_THEME_COLOR = "#0055da";
+const DARK_THEME_COLOR = "#1e2029";
+const LIGHT_THEME_COLOR = "#f8f8f2";
 const LAVENDER_THEME_COLOR = "#9fa1ff";
 const LAVENDER_DARK_THEME_COLOR = "#0d0b1e";
+const ROSE_THEME_COLOR = "#fb6f92";
+const ROSE_DARK_THEME_COLOR = "#190812";
 
 type ThemeContextValue = {
   choice: ThemeChoice;
@@ -27,12 +29,12 @@ function systemTheme(): EffectiveTheme {
 function storedThemeChoice(): ThemeChoice {
   if (typeof window === "undefined") return "system";
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return stored === "light" || stored === "dark" || stored === "system" || stored === "lavender" || stored === "lavender-dark" ? stored : "system";
+  return stored === "light" || stored === "dark" || stored === "system" || stored === "lavender" || stored === "lavender-dark" || stored === "rose" || stored === "rose-dark" ? stored : "system";
 }
 
 function effectiveThemeFor(choice: ThemeChoice, system: EffectiveTheme): EffectiveTheme {
   if (choice === "system") return system;
-  if (choice === "dark" || choice === "lavender-dark") return "dark";
+  if (choice === "dark" || choice === "lavender-dark" || choice === "rose-dark") return "dark";
   return "light";
 }
 
@@ -40,7 +42,7 @@ function applyTheme(choice: ThemeChoice, effectiveTheme: EffectiveTheme) {
   document.documentElement.dataset.themeChoice = choice;
   document.documentElement.dataset.theme = choice === "system" ? effectiveTheme : choice;
   document.documentElement.style.colorScheme = effectiveTheme;
-  const themeColor = choice === "lavender" ? LAVENDER_THEME_COLOR : choice === "lavender-dark" ? LAVENDER_DARK_THEME_COLOR : effectiveTheme === "dark" ? DARK_THEME_COLOR : LIGHT_THEME_COLOR;
+  const themeColor = choice === "rose-dark" ? ROSE_DARK_THEME_COLOR : choice === "rose" ? ROSE_THEME_COLOR : choice === "lavender" ? LAVENDER_THEME_COLOR : choice === "lavender-dark" ? LAVENDER_DARK_THEME_COLOR : effectiveTheme === "dark" ? DARK_THEME_COLOR : LIGHT_THEME_COLOR;
   document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
     meta.setAttribute("content", themeColor);
   });
