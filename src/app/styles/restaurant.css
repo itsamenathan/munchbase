@@ -504,8 +504,27 @@
   font-weight: 700;
 }
 
+.coordinate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.coordinate-row .split {
+  min-width: 0;
+}
+
 .notes-edit-field textarea {
   min-height: 108px;
+  resize: vertical;
+  overflow: auto;
+}
+
+@media (pointer: coarse) {
+  .notes-edit-field textarea {
+    resize: none;
+  }
 }
 
 .markdown-sections {

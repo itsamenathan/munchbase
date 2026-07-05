@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Check, Pencil, Plus, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Check, LocateFixed, Pencil, Plus, Trash2 } from "lucide-react";
 import { formatCityState } from "@/lib/address";
 import { NOTE_SECTION_PRESETS, parseNotes } from "@/lib/note-sections";
 import { NotePreview, NotesEditField } from "./notes";
@@ -47,6 +47,10 @@ export function RestaurantDetail({
   const [entryMode, setEntryMode] = useState<"edit" | "preview">(initialEdit && canWrite ? "edit" : "preview");
   const [noteValues, setNoteValues] = useState(() => parseNotes(entry.notes));
   const [membershipIds, setMembershipIds] = useState(() => new Set(entry.memberships.map((m) => m.id)));
+  const [locationStatus, setLocationStatus] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
+  const latInputRef = useRef<HTMLInputElement>(null);
+  const lonInputRef = useRef<HTMLInputElement>(null);
 
   const toggleListMembership = async (listId: number, inList: boolean) => {
     setMembershipIds((prev) => {
@@ -80,6 +84,31 @@ export function RestaurantDetail({
   const resetEntryEdit = () => {
     setNoteValues(parseNotes(entry.notes));
     setEditMode(false);
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationStatus("Current location is not available in this browser.");
+      return;
+    }
+
+    setLocating(true);
+    setLocationStatus("Getting current location…");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lon = position.coords.longitude.toFixed(6);
+        if (latInputRef.current) latInputRef.current.value = lat;
+        if (lonInputRef.current) lonInputRef.current.value = lon;
+        setLocationStatus("Current location added. Save to update the restaurant.");
+        setLocating(false);
+      },
+      () => {
+        setLocationStatus("Could not get current location. Check location permissions and try again.");
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
   };
 
   const globalSummaryDefinitions = globalRatingDefinitions.filter((d) => d.active);
@@ -180,7 +209,7 @@ export function RestaurantDetail({
               </section>
             </div>
             <div className="form-actions entry-edit-actions">
-              <button>Save notes and ratings</button>
+              <button>Save</button>
               <button type="button" className="ghost-button" onClick={resetEntryEdit}>Cancel</button>
             </div>
           </form>
@@ -193,10 +222,23 @@ export function RestaurantDetail({
               <p className="microcopy">Changing these fields can move this restaurant on the Map and affect search labels.</p>
               <input name="name" defaultValue={entry.name} required placeholder="Restaurant name" />
               <input name="address" defaultValue={entry.address ?? ""} placeholder="Address" />
-              <div className="split">
-                <input name="lat" defaultValue={entry.lat ?? ""} inputMode="decimal" placeholder="Lat" />
-                <input name="lon" defaultValue={entry.lon ?? ""} inputMode="decimal" placeholder="Lon" />
+              <div className="coordinate-row">
+                <div className="split">
+                  <input ref={latInputRef} name="lat" defaultValue={entry.lat ?? ""} inputMode="decimal" placeholder="Lat" />
+                  <input ref={lonInputRef} name="lon" defaultValue={entry.lon ?? ""} inputMode="decimal" placeholder="Lon" />
+                </div>
+                <button
+                  type="button"
+                  className="ghost-button icon-button"
+                  onClick={useCurrentLocation}
+                  disabled={locating}
+                  aria-label={locating ? "Getting current location" : "Use current location"}
+                  title={locating ? "Getting location…" : "Use current location"}
+                >
+                  <LocateFixed size={16} />
+                </button>
               </div>
+              {locationStatus ? <p className="microcopy" aria-live="polite">{locationStatus}</p> : null}
               <button>Update details</button>
             </form>
             <form

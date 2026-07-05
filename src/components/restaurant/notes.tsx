@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import type { NoteSectionDefinition } from "@/lib/types";
 
@@ -30,10 +31,32 @@ export function NotesEditField({ title, name, value, onChange, placeholder }: {
   onChange: (v: string) => void;
   placeholder: string;
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const resizeForMobile = () => {
+    const textarea = textareaRef.current;
+    if (!textarea || !window.matchMedia("(pointer: coarse)").matches) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  };
+
+  useEffect(() => {
+    resizeForMobile();
+  }, [value]);
+
   return (
     <label className="notes-edit-field">
       <span>{title}</span>
-      <textarea name={name} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+      <textarea
+        ref={textareaRef}
+        name={name}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          resizeForMobile();
+        }}
+      />
     </label>
   );
 }
