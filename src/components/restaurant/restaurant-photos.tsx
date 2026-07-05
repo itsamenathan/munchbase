@@ -2,7 +2,7 @@
 
 import { startTransition, useEffect, useRef, useState, type TouchEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, ImagePlus, Pencil, Trash2, X } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, ImagePlus, Pencil, Trash2, X } from "lucide-react";
 import { formatShortDateTime } from "@/lib/datetime";
 import type { Restaurant, RestaurantPhoto } from "@/lib/types";
 
@@ -12,18 +12,26 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
   const router = useRouter();
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
+  const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
 
   useEffect(() => {
-    const photos = selectedPhotos;
-    return () => { photos.forEach((p) => URL.revokeObjectURL(p.preview)); };
+    selectedPhotosRef.current = selectedPhotos;
   }, [selectedPhotos]);
 
+  useEffect(() => () => {
+    selectedPhotosRef.current.forEach((p) => URL.revokeObjectURL(p.preview));
+  }, []);
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    selectedPhotos.forEach((p) => URL.revokeObjectURL(p.preview));
     const files = Array.from(e.target.files ?? []);
-    setSelectedPhotos(files.map((file) => ({ file, description: "", preview: URL.createObjectURL(file) })));
+    if (!files.length) return;
+    setSelectedPhotos((prev) => [
+      ...prev,
+      ...files.map((file) => ({ file, description: "", preview: URL.createObjectURL(file) })),
+    ]);
+    e.currentTarget.value = "";
     setUploadError(null);
   }
 
@@ -61,6 +69,7 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
     }
 
     if (anySuccess) {
+      selectedPhotosRef.current.forEach((p) => URL.revokeObjectURL(p.preview));
       setSelectedPhotos([]);
       form.reset();
       router.refresh();
@@ -81,52 +90,6 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
         <h4>Photos</h4>
         {entry.photos.length ? <span className="pill">{entry.photos.length}</span> : null}
       </div>
-
-      {canWrite ? (
-        <form onSubmit={handleUpload} className="photo-upload-form">
-          <input type="hidden" name="restaurantId" value={entry.id} />
-          <label className={`photo-upload-zone${count > 0 ? " has-file" : ""}`}>
-            <input
-              name="photo"
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp"
-              required
-              className="photo-upload-input"
-              onChange={handleFileChange}
-            />
-            <ImagePlus size={22} />
-            <div className="photo-upload-zone-text">
-              <span>{count === 0 ? "Add photos" : count === 1 ? "1 photo selected" : `${count} photos selected`}</span>
-              {count === 0 ? <small>JPEG, PNG or WebP</small> : null}
-            </div>
-          </label>
-          {uploadError ? <p className="upload-error">{uploadError}</p> : null}
-          {count > 0 ? (
-            <>
-              <ul className="photo-preview-list">
-                {selectedPhotos.map((photo, index) => (
-                  <li key={photo.preview} className="photo-preview-item">
-                    <img src={photo.preview} alt="" className="photo-preview-thumb" />
-                    <input
-                      type="text"
-                      className="photo-preview-field"
-                      placeholder="Description (optional)"
-                      maxLength={280}
-                      value={photo.description}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setSelectedPhotos((prev) => prev.map((p, i) => i === index ? { ...p, description: value } : p));
-                      }}
-                    />
-                  </li>
-                ))}
-              </ul>
-              <button type="submit" className="compact-button" disabled={uploading}>{buttonLabel}</button>
-            </>
-          ) : null}
-        </form>
-      ) : null}
 
       {entry.photos.length ? (
         <>
@@ -157,6 +120,69 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
       ) : (
         <p className="muted">No photos yet.</p>
       )}
+
+      {canWrite ? (
+        <form onSubmit={handleUpload} className="photo-upload-form">
+          <input type="hidden" name="restaurantId" value={entry.id} />
+          <div className="photo-upload-actions">
+            <label className="photo-upload-zone">
+              <input
+                name="cameraPhoto"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/*"
+                capture="environment"
+                className="photo-upload-input"
+                onChange={handleFileChange}
+              />
+              <Camera size={18} />
+              <div className="photo-upload-zone-text">
+                <span>Take photo</span>
+                <small>Use camera</small>
+              </div>
+            </label>
+            <label className="photo-upload-zone">
+              <input
+                name="photo"
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp,image/*"
+                className="photo-upload-input"
+                onChange={handleFileChange}
+              />
+              <ImagePlus size={18} />
+              <div className="photo-upload-zone-text">
+                <span>Choose photos</span>
+                <small>From library</small>
+              </div>
+            </label>
+          </div>
+          {count > 0 ? <p className="photo-upload-selection">{count === 1 ? "1 photo selected" : `${count} photos selected`}</p> : null}
+          {uploadError ? <p className="upload-error">{uploadError}</p> : null}
+          {count > 0 ? (
+            <>
+              <ul className="photo-preview-list">
+                {selectedPhotos.map((photo, index) => (
+                  <li key={photo.preview} className="photo-preview-item">
+                    <img src={photo.preview} alt="" className="photo-preview-thumb" />
+                    <input
+                      type="text"
+                      className="photo-preview-field"
+                      placeholder="Description (optional)"
+                      maxLength={280}
+                      value={photo.description}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSelectedPhotos((prev) => prev.map((p, i) => i === index ? { ...p, description: value } : p));
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+              <button type="submit" className="compact-button" disabled={uploading}>{buttonLabel}</button>
+            </>
+          ) : null}
+        </form>
+      ) : null}
     </section>
   );
 }
