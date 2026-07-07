@@ -76,6 +76,69 @@
   width: 100%;
 }
 
+.admin-drawer .admin-action-button {
+  width: auto;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.admin-drawer .admin-inline-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.admin-drawer .admin-stack-form {
+  grid-template-columns: 1fr;
+}
+
+.admin-drawer .admin-submit-button {
+  justify-self: end;
+  margin-top: 2px;
+}
+
+.admin-drawer .member-row {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  padding: 8px;
+}
+
+.admin-drawer .member-row-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admin-drawer .member-row .admin-action-button {
+  justify-self: end;
+}
+
+@media (max-width: 759px) {
+  .admin-drawer .member-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .admin-drawer .member-row div {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-drawer .admin-inline-form,
+  .admin-drawer .member-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-drawer .admin-action-button,
+  .admin-drawer .admin-submit-button,
+  .admin-drawer .member-row .admin-action-button {
+    justify-self: start;
+  }
+}
+
 .add-list-modal {
   width: min(680px, 100%);
   max-height: min(760px, calc(100svh - 36px));

@@ -5,7 +5,7 @@ import type { AppState } from "@/lib/types";
 export function AdminDrawer({ state, onClose }: { state: AppState; onClose: () => void }) {
   return (
     <div className="drawer-backdrop">
-      <aside className="settings-drawer" aria-label="Admin settings">
+      <aside className="settings-drawer admin-drawer" aria-label="Admin settings">
         <header className="drawer-head">
           <div>
             <p className="kicker">Admin</p>
@@ -16,19 +16,19 @@ export function AdminDrawer({ state, onClose }: { state: AppState; onClose: () =
 
         <section className="settings-section">
           <PanelTitle icon={<Shield size={17} />} title="Self-signup" detail="When enabled, anyone who can reach this site can create an account." />
-          <form action="/mutate" method="post" className="inline-form">
+          <form action="/mutate" method="post" className="inline-form admin-inline-form">
             <input type="hidden" name="__action" value="updateSelfSignup" />
             <select name="selfSignupEnabled" defaultValue={state.appSettings.selfSignupEnabled ? "1" : "0"}>
               <option value="0">Disabled</option>
               <option value="1">Enabled</option>
             </select>
-            <button>Save</button>
+            <button className="admin-action-button">Save</button>
           </form>
         </section>
 
         <section className="settings-section">
           <PanelTitle icon={<Users size={17} />} title="Create user" detail="Create an account directly. Active users can edit all restaurant data." />
-          <form action="/mutate" method="post" className="stack-form">
+          <form action="/mutate" method="post" className="stack-form admin-stack-form">
             <input type="hidden" name="__action" value="createUser" />
             <input name="name" placeholder="Name" required autoComplete="name" />
             <input name="email" type="email" placeholder="Email" required autoComplete="email" />
@@ -37,7 +37,7 @@ export function AdminDrawer({ state, onClose }: { state: AppState; onClose: () =
               <option value="user">User</option>
               <option value="admin">Admin</option>
             </select>
-            <button>Create user</button>
+            <button className="admin-action-button admin-submit-button">Create user</button>
           </form>
         </section>
 
@@ -52,13 +52,13 @@ export function AdminDrawer({ state, onClose }: { state: AppState; onClose: () =
                   <input type="hidden" name="active" value={u.active ? "0" : "1"} />
                   <div><strong>{u.name}</strong><small>{u.email} - {u.role}</small></div>
                   <span className="pill">{u.active ? "Active" : "Inactive"}</span>
-                  {u.id === state.user.id ? null : <button className={u.active ? "danger-button" : ""}>{u.active ? "Deactivate" : "Reactivate"}</button>}
+                  {u.id === state.user.id ? null : <button className={`admin-action-button ${u.active ? "danger-button" : ""}`}>{u.active ? "Deactivate" : "Reactivate"}</button>}
                 </form>
                 {u.id !== state.user.id && (
-                  <form action="/mutate" method="post" onSubmit={(e) => { if (!confirm(`Permanently delete ${u.name}? This removes all their check-ins and photos.`)) e.preventDefault(); }}>
+                  <form action="/mutate" method="post" className="member-row-action" onSubmit={(e) => { if (!confirm(`Permanently delete ${u.name}? This removes all their check-ins and photos.`)) e.preventDefault(); }}>
                     <input type="hidden" name="__action" value="deleteUser" />
                     <input type="hidden" name="userId" value={u.id} />
-                    <button className="danger-button">Delete</button>
+                    <button className="admin-action-button danger-button">Delete</button>
                   </form>
                 )}
               </div>
