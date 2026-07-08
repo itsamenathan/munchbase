@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { CSRF_COOKIE } from "@/lib/csrf-constants";
 
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Frame-Options": "DENY",
@@ -36,6 +37,13 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next();
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     response.headers.set(key, value);
+  }
+  if (!request.cookies.get(CSRF_COOKIE)?.value) {
+    response.cookies.set(CSRF_COOKIE, crypto.randomUUID(), {
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
   }
   if (process.env.NODE_ENV === "production") {
     response.headers.set("Content-Security-Policy", CSP);

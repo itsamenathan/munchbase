@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { enqueueAction, getQueuedActions, removeQueuedAction } from "@/lib/offline-db";
+import { CSRF_FIELD } from "@/lib/csrf-constants";
+import { readCsrfToken } from "@/lib/csrf-client";
 
 const MUTATE_PATH = "/mutate";
 
@@ -64,6 +66,17 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       } catch {
         return;
       }
+      if ([MUTATE_PATH, "/login", "/logout"].includes(url.pathname)) {
+        let csrfInput = form.querySelector<HTMLInputElement>(`input[name="${CSRF_FIELD}"]`);
+        if (!csrfInput) {
+          csrfInput = document.createElement("input");
+          csrfInput.type = "hidden";
+          csrfInput.name = CSRF_FIELD;
+          form.prepend(csrfInput);
+        }
+        csrfInput.value = readCsrfToken();
+      }
+
       if (url.pathname !== MUTATE_PATH || navigator.onLine) return;
 
       const formData = new FormData(form);
@@ -99,6 +112,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         Object.entries(action.payload as Record<string, string>).forEach(([key, value]) => {
           formData.set(key, value);
         });
+        formData.set(CSRF_FIELD, readCsrfToken());
         try {
           await fetch(MUTATE_PATH, { method: "POST", body: formData, redirect: "manual" });
           await removeQueuedAction(action.id);

@@ -1,13 +1,15 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import sharp from "sharp";
+import sharp, { type Metadata } from "sharp";
 
-const ALLOWED_MIME_TYPES = new Map([
-  ["image/jpeg", ".jpg"],
-  ["image/png", ".png"],
-  ["image/webp", ".webp"],
+const ALLOWED_IMAGE_FORMATS = new Map([
+  ["jpeg", ".jpg"],
+  ["png", ".png"],
+  ["webp", ".webp"],
 ]);
+
+const MAX_IMAGE_PIXELS = 40_000_000;
 
 export function getMaxPhotoUploadBytes() {
   const mb = Number(process.env.PHOTO_MAX_SIZE_MB ?? 10);
@@ -28,13 +30,26 @@ export function assertPhotoUpload(file: File | null | undefined) {
   const maxBytes = getMaxPhotoUploadBytes();
   const maxMb = Math.round(maxBytes / (1024 * 1024));
   if (file.size > maxBytes) throw new Error(`Photos must be ${maxMb} MB or smaller.`);
-  const extension = ALLOWED_MIME_TYPES.get(file.type);
-  if (!extension) throw new Error("Only JPEG, PNG, and WebP images are supported.");
-  return extension;
 }
 
 export async function saveRestaurantPhotoFiles(restaurantId: number, file: File) {
-  const originalExtension = assertPhotoUpload(file);
+  assertPhotoUpload(file);
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const image = sharp(bytes, { limitInputPixels: MAX_IMAGE_PIXELS });
+  let metadata: Metadata;
+  try {
+    metadata = await image.metadata();
+  } catch {
+    throw new Error("That file could not be read as an image.");
+  }
+
+  const originalExtension = metadata.format ? ALLOWED_IMAGE_FORMATS.get(metadata.format) : undefined;
+  if (!originalExtension) throw new Error("Only JPEG, PNG, and WebP images are supported.");
+  if (!metadata.width || !metadata.height) throw new Error("That image is missing dimensions.");
+  if (metadata.width * metadata.height > MAX_IMAGE_PIXELS) {
+    throw new Error("Photos are too large in pixel dimensions.");
+  }
+
   const uploadId = crypto.randomUUID();
   const baseDir = path.posix.join("restaurants", String(restaurantId));
   const originalStorageKey = path.posix.join(baseDir, `${uploadId}-original${originalExtension}`);
@@ -46,16 +61,14 @@ export async function saveRestaurantPhotoFiles(restaurantId: number, file: File)
   const thumbnailPath = resolvePhotoStoragePath(thumbnailStorageKey);
   await fs.mkdir(path.dirname(originalPath), { recursive: true });
 
-  const bytes = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(originalPath, bytes);
-
   try {
-    await sharp(bytes)
+    await fs.writeFile(originalPath, bytes);
+    await sharp(bytes, { limitInputPixels: MAX_IMAGE_PIXELS })
       .rotate()
       .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
       .webp({ quality: 84 })
       .toFile(imagePath);
-    await sharp(bytes)
+    await sharp(bytes, { limitInputPixels: MAX_IMAGE_PIXELS })
       .rotate()
       .resize({ width: 420, height: 420, fit: "cover", position: "centre" })
       .webp({ quality: 78 })
@@ -92,7 +105,8 @@ export function resolvePhotoStoragePath(storageKey: string) {
   }
   const root = path.resolve(getPhotoStorageRoot());
   const absolute = path.resolve(root, normalized);
-  if (!absolute.startsWith(root)) throw new Error("Invalid media path.");
+  const relative = path.relative(root, absolute);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("Invalid media path.");
   return absolute;
 }
 

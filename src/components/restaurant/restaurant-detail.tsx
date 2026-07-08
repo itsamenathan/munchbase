@@ -8,6 +8,7 @@ import { RatingInput } from "./rating-input";
 import { CheckInCard, CheckInForm } from "./checkin";
 import { RestaurantPhotos } from "./restaurant-photos";
 import { RATING_ICON_MAP, RATING_PRESETS, type RatingDefinition, repeatedIcon } from "./rating-common";
+import { appendCsrfToken } from "@/lib/csrf-client";
 import type { AppState, NoteSectionDefinition, Restaurant } from "@/lib/types";
 
 const NOTE_PRESET_PLACEHOLDERS: Record<string, string> = Object.fromEntries(
@@ -60,6 +61,7 @@ export function RestaurantDetail({
     });
     const formData = new FormData();
     formData.set("__action", inList ? "removeRestaurantFromList" : "attachRestaurantToList");
+    appendCsrfToken(formData);
     formData.set("restaurantId", String(entry.id));
     formData.set("listId", String(listId));
     try {

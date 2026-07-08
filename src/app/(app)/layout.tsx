@@ -3,9 +3,12 @@ import { getAppState, getDb, userCount } from "@/lib/db";
 import AppShell from "@/components/app-shell";
 import { LoginForm } from "@/components/auth/login-form";
 import { MutationErrorMessage } from "@/components/auth/mutation-error";
+import { CsrfInput } from "@/components/shared/csrf-input";
+import { getCsrfTokenFromCookies } from "@/lib/csrf";
 
 export default async function AuthenticatedAppLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
+  const csrfToken = await getCsrfTokenFromCookies();
   const hasUsers = userCount().count > 0;
   const selfSignupEnabled =
     (getDb()
@@ -17,6 +20,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
       <AuthFrame title="Create your Munchbase" subtitle="First account becomes the admin and gets a starter list.">
         <MutationErrorMessage />
         <form action="/mutate" method="post" className="auth-form">
+          <CsrfInput token={csrfToken} />
           <input type="hidden" name="__action" value="setup" />
           <input name="name" placeholder="Name" required autoComplete="name" />
           <input name="email" type="email" placeholder="Email" required autoComplete="email" />
@@ -31,11 +35,12 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
     return (
       <AuthFrame title="Munchbase" subtitle="Your private map of places worth remembering.">
         <MutationErrorMessage />
-        <LoginForm />
+        <LoginForm csrfToken={csrfToken} />
         {selfSignupEnabled ? (
           <details className="signup-panel" style={{ marginTop: "16px" }}>
             <summary style={{ cursor: "pointer", fontWeight: 700, minHeight: "44px", display: "inline-flex", alignItems: "center" }}>Create an account</summary>
             <form action="/mutate" method="post" className="auth-form" style={{ marginTop: "12px" }}>
+              <CsrfInput token={csrfToken} />
               <input type="hidden" name="__action" value="signup" />
               <input name="name" placeholder="Name" required autoComplete="name" />
               <input name="email" type="email" placeholder="Email" required autoComplete="email" />

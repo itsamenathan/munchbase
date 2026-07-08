@@ -4,6 +4,7 @@ import { getUserByEmail } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { redirectTo } from "@/lib/redirect";
+import { assertCsrfToken } from "@/lib/csrf";
 
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -23,6 +24,13 @@ export async function POST(request: NextRequest) {
   }
 
   const formData = await request.formData();
+  try {
+    await assertCsrfToken(formData);
+  } catch {
+    logger.warn("Login CSRF validation failed", { ip });
+    return redirectTo("/explore?loginError=csrf");
+  }
+
   const email = text(formData, "email").toLowerCase();
   const password = text(formData, "password");
   const user = getUserByEmail(email);

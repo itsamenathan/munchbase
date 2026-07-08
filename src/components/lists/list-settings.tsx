@@ -21,6 +21,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { RATING_PRESETS } from "@/lib/ratings";
 import { RATING_ICON_MAP, RATING_ICON_CHOICES } from "@/components/restaurant/rating-common";
 import { PanelTitle } from "@/components/shared/panel-title";
+import { appendCsrfToken } from "@/lib/csrf-client";
 import type { AppState, NoteSectionDefinition, RatingDefinition } from "@/lib/types";
 
 function useReorderSensors() {
@@ -250,6 +251,7 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
     const next = arrayMove(order, from, to);
     setOrder(next);
     const fd = new FormData();
+    appendCsrfToken(fd);
     fd.set("__action", "reorderRatingDefinitions");
     fd.set("orderedIdsJson", JSON.stringify(next));
     await fetch("/mutate", { method: "POST", body: fd, redirect: "manual" });
@@ -259,6 +261,7 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
   const saveName = async (id: number, name: string) => {
     if (!name.trim()) return;
     const fd = new FormData();
+    appendCsrfToken(fd);
     fd.set("__action", "updateRatingDefinitionName");
     fd.set("definitionId", String(id));
     fd.set("name", name.trim());
@@ -358,6 +361,7 @@ function NoteSectionCards({ sections }: { sections: NoteSectionDefinition[] }) {
     const next = arrayMove(order, from, to);
     setPendingOrder(next);
     const fd = new FormData();
+    appendCsrfToken(fd);
     fd.set("__action", "reorderNoteSections");
     fd.set("orderedIdsJson", JSON.stringify(next));
     await fetch("/mutate", { method: "POST", body: fd, redirect: "manual" });
@@ -368,6 +372,7 @@ function NoteSectionCards({ sections }: { sections: NoteSectionDefinition[] }) {
   const saveName = async (id: number, name: string) => {
     if (!name.trim()) return;
     const fd = new FormData();
+    appendCsrfToken(fd);
     fd.set("__action", "updateNoteSectionName");
     fd.set("sectionId", String(id));
     fd.set("name", name.trim());

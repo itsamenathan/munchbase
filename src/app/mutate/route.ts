@@ -3,6 +3,7 @@ import * as mutations from "@/lib/mutations";
 import { currentUser } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { redirectTo } from "@/lib/redirect";
+import { assertCsrfToken, CsrfError } from "@/lib/csrf";
 
 const MUTATIONS = {
   setup: mutations.setup,
@@ -66,6 +67,14 @@ function withMutationError(path: string, code: string, message: string) {
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
+  try {
+    await assertCsrfToken(formData);
+  } catch (error) {
+    const message = error instanceof CsrfError ? error.message : "Security check failed.";
+    logger.warn("Mutation CSRF validation failed", { ip: clientIp(request) });
+    return redirectTo(`/explore?mutationError=csrf&message=${encodeURIComponent(message)}`);
+  }
+
   const actionName = formData.get("__action");
   const mutation = typeof actionName === "string" ? MUTATIONS[actionName as keyof typeof MUTATIONS] : undefined;
   if (!mutation) {

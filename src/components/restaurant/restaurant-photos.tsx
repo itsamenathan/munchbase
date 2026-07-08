@@ -3,6 +3,7 @@
 import { startTransition, useEffect, useRef, useState, type TouchEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, ChevronLeft, ChevronRight, ImagePlus, Pencil, Trash2, X } from "lucide-react";
+import { appendCsrfToken } from "@/lib/csrf-client";
 import { formatShortDateTime } from "@/lib/datetime";
 import type { Restaurant, RestaurantPhoto } from "@/lib/types";
 
@@ -48,6 +49,7 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
     const results = await Promise.allSettled(selectedPhotos.map(async ({ file, description }) => {
       const fd = new FormData();
       fd.append("__action", "uploadRestaurantPhoto");
+      appendCsrfToken(fd);
       fd.append("restaurantId", restaurantId);
       fd.append("photo", file);
       if (description) fd.append("description", description);
@@ -205,6 +207,7 @@ function PhotoCard({
   async function handleDelete() {
     const fd = new FormData();
     fd.append("__action", "deleteRestaurantPhoto");
+    appendCsrfToken(fd);
     fd.append("photoId", String(photo.id));
     await fetch("/mutate", { method: "POST", body: fd });
     onDelete();
@@ -215,6 +218,7 @@ function PhotoCard({
     e.preventDefault();
     const fd = new FormData();
     fd.append("__action", "updateRestaurantPhotoDescription");
+    appendCsrfToken(fd);
     fd.append("photoId", String(photo.id));
     fd.append("description", description);
     await fetch("/mutate", { method: "POST", body: fd });
