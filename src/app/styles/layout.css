@@ -2,7 +2,7 @@
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(64px + var(--safe-inset-bottom));
+  padding-bottom: calc(var(--nav-height) + var(--nav-float-gap) + 24px + var(--safe-inset-bottom));
 }
 
 .workbench {
@@ -76,6 +76,7 @@
 .mobile-add-view,
 .mobile-detail-view {
   flex: none;
+  margin-top: 4px;
   display: grid;
   align-content: start;
   gap: var(--space-2);
@@ -93,12 +94,13 @@
 }
 
 .mobile-detail-view .detail-content {
-  padding: 0;
+  padding: 0 0 calc(var(--nav-height) + var(--nav-float-gap) + 18px);
 }
 
 .mobile-add-view {
   padding: 0;
   overflow: hidden;
+  margin-bottom: calc(var(--nav-height) + var(--nav-float-gap) + 12px);
 }
 
 .mobile-add-view .tool-panel {

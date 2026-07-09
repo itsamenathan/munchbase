@@ -1,8 +1,11 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 
 let deferredPrompt: Event | null = null;
+
+const DISMISSED_KEY = "pwainstall-dismissed";
 
 function isIosSafari() {
   const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -11,31 +14,40 @@ function isIosSafari() {
 }
 
 export function InstallPrompt() {
+  const pathname = usePathname();
   const [show, setShow] = useState(false);
   const [ios, setIos] = useState(false);
+  const hiddenOnThisScreen = pathname.startsWith("/restaurants/") || pathname.startsWith("/map") || pathname.includes("/settings");
+
+  const revealPrompt = useCallback(() => {
+    if (hiddenOnThisScreen || localStorage.getItem(DISMISSED_KEY)) return;
+    setShow(true);
+  }, [hiddenOnThisScreen]);
 
   const handleBeforeInstall = useCallback((e: Event) => {
     e.preventDefault();
     deferredPrompt = e;
-    if (!sessionStorage.getItem("pwainstall-dismissed")) {
-      setShow(true);
-    }
-  }, []);
+    revealPrompt();
+  }, [revealPrompt]);
 
   useEffect(() => {
+    if (hiddenOnThisScreen) {
+      setShow(false);
+      return;
+    }
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
     // iOS Safari never fires beforeinstallprompt, so fall back to manual instructions.
-    if (isIosSafari() && !sessionStorage.getItem("pwainstall-dismissed")) {
+    if (isIosSafari() && !localStorage.getItem(DISMISSED_KEY)) {
       setIos(true);
-      setShow(true);
+      revealPrompt();
     }
     return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
-  }, [handleBeforeInstall]);
+  }, [handleBeforeInstall, hiddenOnThisScreen, revealPrompt]);
 
   if (!show) return null;
 
   const dismiss = () => {
-    sessionStorage.setItem("pwainstall-dismissed", "1");
+    localStorage.setItem(DISMISSED_KEY, "1");
     setShow(false);
   };
 

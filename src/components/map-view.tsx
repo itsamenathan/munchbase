@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
-import { Star, DollarSign } from "lucide-react";
+import { Crosshair, Star, DollarSign } from "lucide-react";
 import { formatShortDateTime } from "@/lib/datetime";
 import { readCachedLocation, writeCachedLocation } from "@/lib/location-cache";
 import type { RatingDefinition, Restaurant } from "@/lib/types";
@@ -37,6 +37,38 @@ function MapStateTracker() {
     return () => { map.off("moveend", save); };
   }, [map]);
   return null;
+}
+
+function LocateControl() {
+  const map = useMap();
+  const [locating, setLocating] = useState(false);
+
+  const recenter = () => {
+    const cached = readCachedLocation();
+    if (cached) {
+      map.setView([cached.lat, cached.lon], Math.max(map.getZoom(), 14));
+      return;
+    }
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        writeCachedLocation(coords[0], coords[1]);
+        map.setView(coords, 14);
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { maximumAge: 5 * 60 * 1000, timeout: 15000 },
+    );
+  };
+
+  return (
+    <button type="button" className="map-locate-button" onClick={recenter} aria-label="Center map on my location" disabled={locating}>
+      <Crosshair size={16} />
+      <span>{locating ? "Locating…" : "My location"}</span>
+    </button>
+  );
 }
 
 function LocationMarker() {
@@ -149,14 +181,16 @@ export default function MapView({
   const initialZoom = savedMapState?.zoom ?? defaultZoom;
 
   return (
-    <MapContainer center={initialCenter} zoom={initialZoom} className="map">
-      <TileLayer
+    <div className="map-shell">
+      <MapContainer center={initialCenter} zoom={initialZoom} className="map">
+        <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url={process.env.NEXT_PUBLIC_TILE_URL ?? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
       />
-      <MapStateTracker />
-      <LocationMarker />
-      {withCoords.map((restaurant) => (
+        <MapStateTracker />
+        <LocationMarker />
+        <LocateControl />
+        {withCoords.map((restaurant) => (
         <Marker
           key={restaurant.id}
           position={[restaurant.lat!, restaurant.lon!]}
@@ -170,8 +204,9 @@ export default function MapView({
             />
           </Popup>
         </Marker>
-      ))}
-    </MapContainer>
+        ))}
+      </MapContainer>
+    </div>
   );
 }
 

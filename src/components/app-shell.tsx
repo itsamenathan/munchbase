@@ -92,6 +92,10 @@ export default function AppShell({
         : "list";
 
   useEffect(() => {
+    setFiltersOpen(false);
+  }, [activeTab]);
+
+  useEffect(() => {
     if (selectedEntryId) {
       window.scrollTo({ top: 0, left: 0 });
     }

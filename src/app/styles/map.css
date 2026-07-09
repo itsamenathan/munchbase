@@ -1,9 +1,59 @@
+.map-shell {
+  display: grid;
+  gap: 8px;
+}
+
 .map {
+  position: relative;
   width: 100%;
   min-height: 68svh;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
+}
+
+.map-locate-button {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 500;
+  width: auto;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  box-shadow: 0 8px 22px rgba(31, 38, 31, 0.16);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.map-locate-button span {
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+}
+
+
+@media (max-width: 759px) {
+  .map-shell {
+    margin-bottom: calc(var(--nav-height) + var(--nav-float-gap) + 12px);
+  }
+
+  .map {
+    min-height: clamp(420px, calc(100svh - var(--nav-height) - var(--nav-float-gap) - 190px - var(--safe-inset-bottom)), 72svh);
+    margin-bottom: 0;
+  }
+
+  .map-locate-button {
+    top: 12px;
+    right: 10px;
+    bottom: auto;
+  }
+
 }
 
 .restaurant-marker {
