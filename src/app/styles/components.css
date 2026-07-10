@@ -277,6 +277,32 @@
   color: var(--accent);
 }
 
+.inline-field-editor {
+  display: grid;
+  gap: 14px;
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 5%, var(--panel));
+}
+
+.field-editor-head {
+  display: grid;
+  gap: 2px;
+}
+
+.field-editor-head small,
+.field-editor-kicker {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+
+.field-editor-kicker {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
 .field-extras {
   display: grid;
   gap: 8px;
@@ -1157,6 +1183,16 @@ code {
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
   padding: 10px;
+}
+
+.icon-picker-current > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.icon-picker-current .compact-button {
+  width: auto;
+  flex-shrink: 0;
 }
 
 .icon-picker-current strong,

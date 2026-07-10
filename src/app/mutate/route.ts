@@ -23,7 +23,7 @@ const MUTATIONS = {
   createRatingDefinition: mutations.createRatingDefinition,
   setRatingPresetEnabled: mutations.setRatingPresetEnabled,
   updateRatingFieldActive: mutations.updateRatingFieldActive,
-  updateRatingDefinitionName: mutations.updateRatingDefinitionName,
+  updateRatingDefinition: mutations.updateRatingDefinition,
   reorderRatingDefinitions: mutations.reorderRatingDefinitions,
   deleteRatingField: mutations.deleteRatingField,
   saveRatings: mutations.saveRatings,

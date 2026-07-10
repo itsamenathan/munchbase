@@ -470,12 +470,32 @@ export async function updateRatingFieldActive(formData: FormData) {
   revalidateApp();
 }
 
-export async function updateRatingDefinitionName(formData: FormData) {
+export async function updateRatingDefinition(formData: FormData) {
   await requireUser();
   const definitionId = Number(text(formData, "definitionId"));
-  const name = text(formData, "name");
-  if (!name) throw new Error("Name is required.");
-  getDb().prepare("UPDATE rating_definitions SET name = ? WHERE id = ?").run(name, definitionId);
+  const db = getDb();
+  const existing = db
+    .prepare("SELECT name, type, icon FROM rating_definitions WHERE id = ?")
+    .get(definitionId) as { name: string; type: RatingType; icon: string } | undefined;
+  if (!existing) throw new Error("Attribute not found.");
+
+  const definition = normalizeRatingDefinition({
+    name: text(formData, "name"),
+    type: existing.type,
+    icon: text(formData, "icon") || existing.icon,
+    options: text(formData, "options"),
+    min: text(formData, "min") || null,
+    max: text(formData, "max") || null,
+  });
+  db.prepare("UPDATE rating_definitions SET name = ?, icon = ?, options_json = ?, min = ?, max = ? WHERE id = ?")
+    .run(
+      definition.name,
+      definition.icon ?? "tag",
+      JSON.stringify(definition.options),
+      definition.type === "scale" ? definition.min : null,
+      definition.type === "scale" ? definition.max : null,
+      definitionId,
+    );
   revalidateApp();
 }
 

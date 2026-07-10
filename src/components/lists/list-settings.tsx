@@ -205,19 +205,47 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
   );
 }
 
+function EditDefinitionForm({ definition, onSave, onCancel }: { definition: RatingDefinition; onSave: (values: { name: string; options: string; min: string; max: string; icon: string }) => void; onCancel: () => void }) {
+  const [name, setName] = useState(definition.name);
+  const [options, setOptions] = useState(definition.options.join(", "));
+  const [min, setMin] = useState(String(definition.min ?? 1));
+  const [max, setMax] = useState(String(definition.max ?? 5));
+  const [icon, setIcon] = useState(definition.icon);
+
+  return (
+    <form className="attribute-card-rename inline-field-editor" onSubmit={(e) => { e.preventDefault(); onSave({ name, options, min, max, icon }); }}>
+      <span className="field-editor-kicker">Editing {definition.type} field</span>
+      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} className="attribute-card-name-input" aria-label="Attribute name" />
+      <IconPicker field={{ icon }} onChange={(values) => setIcon(values.icon ?? icon)} />
+      {definition.type === "choice" ? (
+        <label className="field-extra-block">
+          <span>Choice options</span>
+          <textarea value={options} onChange={(e) => setOptions(e.target.value)} placeholder="Pizza, tacos, noodles" />
+          <small>Separate options with commas. Their order controls how they appear.</small>
+        </label>
+      ) : null}
+      {definition.type === "scale" ? (
+        <div className="field-extra-block">
+          <span>Scale range</span>
+          <div className="split">
+            <input type="number" value={min} onChange={(e) => setMin(e.target.value)} aria-label="Scale minimum" />
+            <input type="number" value={max} onChange={(e) => setMax(e.target.value)} aria-label="Scale maximum" />
+          </div>
+        </div>
+      ) : null}
+      <div className="rename-actions">
+        <button type="submit" className="rename-save">Save</button>
+        <button type="button" className="rename-cancel" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
 function RenameForm({ name, onSave, onCancel }: { name: string; onSave: (name: string) => void; onCancel: () => void }) {
   const [editName, setEditName] = useState(name);
   return (
-    <form
-      className="attribute-card-rename"
-      onSubmit={(e) => { e.preventDefault(); onSave(editName); }}
-    >
-      <input
-        autoFocus
-        value={editName}
-        onChange={(e) => setEditName(e.target.value)}
-        className="attribute-card-name-input"
-      />
+    <form className="attribute-card-rename" onSubmit={(e) => { e.preventDefault(); onSave(editName); }}>
+      <input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)} className="attribute-card-name-input" />
       <div className="rename-actions">
         <button type="submit" className="rename-save">Save</button>
         <button type="button" className="rename-cancel" onClick={onCancel}>Cancel</button>
@@ -258,13 +286,17 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
     router.refresh();
   };
 
-  const saveName = async (id: number, name: string) => {
-    if (!name.trim()) return;
+  const saveDefinition = async (id: number, values: { name: string; options: string; min: string; max: string; icon: string }) => {
+    if (!values.name.trim()) return;
     const fd = new FormData();
     appendCsrfToken(fd);
-    fd.set("__action", "updateRatingDefinitionName");
+    fd.set("__action", "updateRatingDefinition");
     fd.set("definitionId", String(id));
-    fd.set("name", name.trim());
+    fd.set("name", values.name.trim());
+    fd.set("icon", values.icon);
+    fd.set("options", values.options);
+    fd.set("min", values.min);
+    fd.set("max", values.max);
     await fetch("/mutate", { method: "POST", body: fd, redirect: "manual" });
     setEditingId(null);
     router.refresh();
@@ -295,9 +327,9 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
                   ><GripVertical size={15} /></span>
                   <div className="attribute-card-copy">
                     {editingId === d.id ? (
-                      <RenameForm
-                        name={d.name}
-                        onSave={(name) => void saveName(d.id, name)}
+                      <EditDefinitionForm
+                        definition={d}
+                        onSave={(values) => void saveDefinition(d.id, values)}
                         onCancel={closeRename}
                       />
                     ) : (
@@ -312,7 +344,7 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
                       <button
                         type="button"
                         className="ghost-button icon-button compact-icon-button"
-                        aria-label={`Rename ${d.name}`}
+                        aria-label={`Edit ${d.name}`}
                         onClick={() => setEditingId(d.id)}
                       >
                         <Pencil size={14} />
@@ -482,15 +514,19 @@ function AddCustomFieldForm({ scope, listId }: { scope: "global" | "list"; listI
         {scope === "global" ? "Add global attribute" : "Add new field"}
       </button>
       {open ? (
-        <form
-          action="/mutate" method="post"
-          className="stack-form"
-        >
+        <form action="/mutate" method="post" className="stack-form inline-field-editor">
+          <div className="field-editor-head">
+            <strong>New custom field</strong>
+            <small>Choose a type, set its values, then save.</small>
+          </div>
           <input type="hidden" name="__action" value="createRatingDefinition" />
           <input type="hidden" name="scope" value={scope} />
           {listId ? <input type="hidden" name="listId" value={listId} /> : null}
           <CustomFieldControls field={field} onChange={(p) => setField((c) => ({ ...c, ...p }))} includeNames />
-          <button>Add custom field</button>
+          <div className="rename-actions">
+            <button type="submit" className="rename-save">Add custom field</button>
+            <button type="button" className="rename-cancel" onClick={() => setOpen(false)}>Cancel</button>
+          </div>
         </form>
       ) : null}
     </div>
@@ -611,10 +647,11 @@ function IconPicker({
   onChange,
   includeNames = false,
 }: {
-  field: CustomFieldDraft;
-  onChange: (p: Partial<CustomFieldDraft>) => void;
+  field: Pick<CustomFieldDraft, "icon">;
+  onChange: (p: Pick<CustomFieldDraft, "icon">) => void;
   includeNames?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const groupedIcons = groupIcons(query);
   const selectedIcon = RATING_ICON_CHOICES.find((choice) => choice.value === field.icon) ?? RATING_ICON_CHOICES[0];
@@ -622,47 +659,52 @@ function IconPicker({
   return (
     <div className="icon-picker">
       {includeNames ? <input type="hidden" name="icon" value={field.icon} /> : null}
-      <div className="icon-picker-head">
-        <label className="icon-picker-search">
-          <span>Find an icon</span>
-          <div className="icon-picker-search-box">
-            <Search size={15} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or vibe" />
-          </div>
-        </label>
-        <div className="icon-picker-current">
-          <span className="icon-preview">{RATING_ICON_MAP[selectedIcon.value] ?? <Tag size={14} />}</span>
-          <div>
-            <strong>{selectedIcon.label}</strong>
-            <small>{selectedIcon.group}</small>
-          </div>
+      <div className="icon-picker-current">
+        <span className="icon-preview">{RATING_ICON_MAP[selectedIcon.value] ?? <Tag size={14} />}</span>
+        <div>
+          <strong>{selectedIcon.label}</strong>
+          <small>{selectedIcon.group}</small>
         </div>
+        <button type="button" className="ghost-button compact-button" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+          {open ? "Done" : "Change icon"}
+        </button>
       </div>
-      <div className="icon-picker-groups">
-        {groupedIcons.map((group) => (
-          <section className="icon-picker-group" key={group.label}>
-            <h4>{group.label}</h4>
-            <div className="icon-picker-grid">
-              {group.icons.map((icon) => {
-                const active = field.icon === icon.value;
-                return (
-                  <button
-                    key={icon.value}
-                    type="button"
-                    className={`icon-choice ${active ? "active" : ""}`}
-                    aria-pressed={active}
-                    aria-label={icon.label}
-                    onClick={() => onChange({ icon: icon.value })}
-                  >
-                    <span className="icon-choice-icon">{icon.icon}</span>
-                    <span className="icon-choice-label">{icon.label}</span>
-                  </button>
-                );
-              })}
+      {open ? (
+        <>
+          <label className="icon-picker-search">
+            <span>Find an icon</span>
+            <div className="icon-picker-search-box">
+              <Search size={15} />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search food, drink, or mood" />
             </div>
-          </section>
-        ))}
-      </div>
+          </label>
+          <div className="icon-picker-groups">
+            {groupedIcons.map((group) => (
+              <section className="icon-picker-group" key={group.label}>
+                <h4>{group.label}</h4>
+                <div className="icon-picker-grid">
+                  {group.icons.map((icon) => {
+                    const active = field.icon === icon.value;
+                    return (
+                      <button
+                        key={icon.value}
+                        type="button"
+                        className={`icon-choice ${active ? "active" : ""}`}
+                        aria-pressed={active}
+                        aria-label={icon.label}
+                        onClick={() => { onChange({ icon: icon.value }); setOpen(false); }}
+                      >
+                        <span className="icon-choice-icon">{icon.icon}</span>
+                        <span className="icon-choice-label">{icon.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -218,8 +218,8 @@
 
 .entry-rating-badge.positive {
   border-color: color-mix(in srgb, var(--positive) 38%, var(--line));
-  background: var(--selected-surface);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--positive) 12%, var(--field));
+  color: var(--positive);
 }
 
 .entry-rating-badge.negative {
