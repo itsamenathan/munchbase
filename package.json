@@ -53,5 +53,15 @@
     "jsdom": "^29.1.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.1": true,
+    "agent-browser@0.31.1": true,
+    "sharp@0.34.5": true,
+    "sharp@0.35.2": true,
+    "unrs-resolver@1.12.2": true
   }
 }

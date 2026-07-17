@@ -47,9 +47,36 @@
 .results-heading {
   display: block;
   font-size: var(--font-size-lg);
-  margin: 4px 0 8px;
+  margin: 4px 0 0;
   padding: 0 4px;
   line-height: 1.1;
+}
+
+.restaurant-section {
+  display: grid;
+  gap: 8px;
+}
+
+.restaurant-section + .restaurant-section {
+  margin-top: var(--space-2);
+}
+
+.restaurant-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1);
+  padding: 2px 4px 0;
+}
+
+.restaurant-section-heading strong {
+  font-size: var(--font-size-sm);
+}
+
+.restaurant-section-heading span {
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  font-weight: 650;
 }
 
 .results {
@@ -58,7 +85,7 @@
   padding: 0;
   display: grid;
   align-content: start;
-  gap: 10px;
+  gap: 8px;
 }
 
 .detail {
@@ -133,7 +160,7 @@
     flex: 1;
     overflow-y: auto;
     padding: 8px;
-    gap: 6px;
+    gap: 8px;
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: var(--radius-lg);

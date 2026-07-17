@@ -47,6 +47,27 @@ type PlaceResult = {
   rawJson: string;
 };
 
+const NEARBY_RADIUS_MILES = 5;
+
+function distanceMiles(
+  from: { lat: number; lon: number },
+  to: { lat: number; lon: number },
+) {
+  const toRadians = (degrees: number) => degrees * (Math.PI / 180);
+  const latitudeDelta = toRadians(to.lat - from.lat);
+  const longitudeDelta = toRadians(to.lon - from.lon);
+  const fromLatitude = toRadians(from.lat);
+  const toLatitude = toRadians(to.lat);
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+  return 3958.8 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function formatDistance(miles: number) {
+  return miles < 0.1 ? "< 0.1 mi" : `${miles.toFixed(miles < 10 ? 1 : 0)} mi`;
+}
+
 export default function AppShell({
   state,
   children,
@@ -194,8 +215,37 @@ export default function AppShell({
         !filterValue ||
         r.ratings.some((rating) => String(rating.definitionId) === filterDefinition && rating.value === filterValue);
       return textMatch && ratingMatch;
-    });
+    }).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
   }, [activeState.restaurants, filterDefinition, filterValue, query]);
+
+  const restaurantDistances = useMemo(() => {
+    const distances = new globalThis.Map<number, number>();
+    if (!locationCoords) return distances;
+    restaurants.forEach((restaurant) => {
+      if (restaurant.lat !== null && restaurant.lon !== null) {
+        distances.set(
+          restaurant.id,
+          distanceMiles(locationCoords, { lat: restaurant.lat, lon: restaurant.lon }),
+        );
+      }
+    });
+    return distances;
+  }, [locationCoords, restaurants]);
+
+  const nearbyRestaurants = useMemo(
+    () => restaurants
+      .filter((restaurant) => (restaurantDistances.get(restaurant.id) ?? Number.POSITIVE_INFINITY) <= NEARBY_RADIUS_MILES)
+      .sort((a, b) =>
+        (restaurantDistances.get(a.id) ?? 0) - (restaurantDistances.get(b.id) ?? 0) ||
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      ),
+    [restaurantDistances, restaurants],
+  );
+
+  const otherRestaurants = useMemo(() => {
+    const nearbyIds = new Set(nearbyRestaurants.map((restaurant) => restaurant.id));
+    return restaurants.filter((restaurant) => !nearbyIds.has(restaurant.id));
+  }, [nearbyRestaurants, restaurants]);
 
   const selectedEntry =
     activeState.allRestaurants.find((r) => r.id === selectedEntryId) ?? null;
@@ -476,7 +526,26 @@ export default function AppShell({
                   ) : undefined}
                 />
               ) : (
-                restaurants.map((rst) => {
+                (locationCoords && nearbyRestaurants.length > 0
+                  ? [
+                      { label: "Nearby", detail: `Within ${NEARBY_RADIUS_MILES} miles`, restaurants: nearbyRestaurants, showDistance: true },
+                      ...(otherRestaurants.length > 0
+                        ? [{ label: "More restaurants", detail: "A–Z", restaurants: otherRestaurants, showDistance: false }]
+                        : []),
+                    ]
+                  : [{
+                      label: "All restaurants",
+                      detail: locationCoords ? `None within ${NEARBY_RADIUS_MILES} miles · A–Z` : "A–Z",
+                      restaurants,
+                      showDistance: false,
+                    }]
+                ).map((section) => (
+                  <div className="restaurant-section" key={section.label}>
+                    <div className="restaurant-section-heading">
+                      <strong>{section.label}</strong>
+                      <span>{section.detail}</span>
+                    </div>
+                    {section.restaurants.map((rst) => {
                 const globalRatingIcons = activeState.globalRatingDefinitions.filter((d) => d.active).map((d) => {
                   const rating = rst.ratings.find((r) => r.definitionId === d.id);
                   if (!rating?.value && d.presetKey !== "go_back") return null;
@@ -501,10 +570,19 @@ export default function AppShell({
                         {globalRatingIcons.some((i) => i) ? <span className="rating-icons">{globalRatingIcons}</span> : null}
                         {listRatingIcons.some((i) => i) ? <span className="rating-icons">{listRatingIcons}</span> : null}
                       </span>
-                      <span className="meta">{rst.checkInCount ? `${rst.checkInCount} visit${rst.checkInCount === 1 ? "" : "s"}` : ""}</span>
+                      <span className="restaurant-row-meta">
+                        {section.showDistance ? (
+                          <strong>{formatDistance(restaurantDistances.get(rst.id) ?? 0)}</strong>
+                        ) : null}
+                        {rst.checkInCount ? (
+                          <span>{`${rst.checkInCount} visit${rst.checkInCount === 1 ? "" : "s"}`}</span>
+                        ) : null}
+                      </span>
                     </button>
                 );
-              })
+                    })}
+                  </div>
+                ))
               )}
             </section>
             <section className="detail">
