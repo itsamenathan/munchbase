@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
+  CalendarClock,
   ClipboardList,
   Filter,
   Map,
@@ -22,6 +23,7 @@ import { AddRestaurantsPanel } from "@/components/search/add-restaurants";
 import { ListSettingsPanel } from "@/components/lists/list-settings";
 import { AddListModal } from "@/components/lists/add-list-modal";
 import { AdminDrawer } from "@/components/admin/admin-panel";
+import { CheckInFeed } from "@/components/checkins/check-in-feed";
 import { RestaurantDetail } from "@/components/restaurant/restaurant-detail";
 import { RatingBadge } from "@/components/restaurant/rating-badge";
 import { NetworkStatus } from "@/components/shared/network-status";
@@ -104,13 +106,15 @@ export default function AppShell({
   const selectedEntryId = Number(pathname.match(/^\/restaurants\/(\d+)$/)?.[1] ?? "") || null;
   const initialEntryEdit = searchParams.get("edit") === "1";
   const settingsOpen = pathname === "/lists/settings" || /^\/lists\/\d+\/settings$/.test(pathname);
-  const activeTab: BottomTab = pathname.startsWith("/map")
-    ? "map"
-    : pathname.startsWith("/lists")
-      ? "lists"
-      : pathname.startsWith("/add")
-        ? "add"
-        : "list";
+  const activeTab: BottomTab = pathname.startsWith("/check-ins") || (selectedEntryId && searchParams.get("from") === "checkins")
+    ? "checkins"
+    : pathname.startsWith("/map")
+      ? "map"
+      : pathname.startsWith("/lists")
+        ? "lists"
+        : pathname.startsWith("/add")
+          ? "add"
+          : "list";
 
   useEffect(() => {
     setFiltersOpen(false);
@@ -326,6 +330,9 @@ export default function AppShell({
               <button className={activeTab === "map" ? "active" : ""} onClick={() => router.push(tabHref("map", activeState.activeListId), { scroll: false })}>
                 <Map size={16} /> Map
               </button>
+              <button className={activeTab === "checkins" ? "active" : ""} onClick={() => router.push(tabHref("checkins", activeState.activeListId), { scroll: false })}>
+                <CalendarClock size={16} /> Check-ins
+              </button>
             </div>
             <div className="user-menu-wrap" ref={userMenuRef}>
               <button
@@ -416,6 +423,36 @@ export default function AppShell({
                 setSearchGlobal={setSearchGlobal}
               />
             </section>
+          ) : activeTab === "checkins" ? (
+            <div className="content-grid checkin-content-grid">
+              <CheckInFeed
+                restaurants={activeState.restaurants}
+                activeListId={activeState.activeListId}
+                activeListName={activeListName}
+              />
+              <section className="detail">
+                {selectedEntry ? (
+                  <RestaurantDetail
+                    key={`${selectedEntry.id}:${initialEntryEdit ? "edit" : "view"}`}
+                    canWrite={canWrite}
+                    entry={selectedEntry}
+                    activeListId={activeState.activeListId}
+                    lists={activeState.lists}
+                    globalRatingDefinitions={activeState.globalRatingDefinitions}
+                    ratingDefinitions={activeState.ratingDefinitions}
+                    allRatingDefinitions={activeState.allRatingDefinitions}
+                    noteSections={activeState.noteSections}
+                    initialEdit={initialEntryEdit}
+                  />
+                ) : (
+                  <EmptyState
+                    icon={<CalendarClock size={28} />}
+                    title="Select a check-in"
+                    description="Pick a visit to see its Restaurant details."
+                  />
+                )}
+              </section>
+            </div>
           ) : (
             <>
             <div className="toolbar">

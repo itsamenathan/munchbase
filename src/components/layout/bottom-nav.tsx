@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ClipboardList, LayoutList, Map, Plus } from "lucide-react";
+import { CalendarClock, ClipboardList, LayoutList, Map, Plus } from "lucide-react";
 import { tabHref, type BottomTab } from "@/lib/routes";
 
 export function BottomNav({
@@ -28,6 +28,14 @@ export function BottomNav({
       >
         <Map size={22} />
         <span>Map</span>
+      </Link>
+      <Link
+        href={tabHref("checkins", activeListId)}
+        className={activeTab === "checkins" ? "active" : ""}
+        aria-label="Check-ins"
+      >
+        <CalendarClock size={22} />
+        <span>Check-ins</span>
       </Link>
       <Link
         href={tabHref("lists", activeListId)}
