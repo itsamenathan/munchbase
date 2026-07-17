@@ -663,6 +663,9 @@ export async function attachRestaurantToList(formData: FormData) {
   if (!restaurantId || !listId) throw new Error("Choose a list.");
   getDb().prepare("INSERT OR IGNORE INTO list_restaurants (list_id, restaurant_id) VALUES (?, ?)").run(listId, restaurantId);
   revalidateApp();
+  if (text(formData, "openRestaurant") === "1") {
+    return { redirectTo: restaurantHref(restaurantId, listId) };
+  }
 }
 
 export async function removeRestaurantFromList(formData: FormData) {

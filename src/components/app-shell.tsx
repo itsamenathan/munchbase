@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   CalendarClock,
   ClipboardList,
@@ -11,6 +11,7 @@ import {
   Map,
   LogOut,
   Monitor,
+  Plus,
   Search,
   Shield,
   User,
@@ -20,6 +21,7 @@ import {
 import { SidebarContent } from "@/components/layout/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { AddRestaurantsPanel } from "@/components/search/add-restaurants";
+import { AddRestaurantSheet } from "@/components/search/add-restaurant-sheet";
 import { ListSettingsPanel } from "@/components/lists/list-settings";
 import { AddListModal } from "@/components/lists/add-list-modal";
 import { AdminDrawer } from "@/components/admin/admin-panel";
@@ -34,7 +36,7 @@ import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
 import { formatCityState } from "@/lib/address";
 import { readCachedLocation, writeCachedLocation } from "@/lib/location-cache";
 import { cacheAppState, cacheLists, cacheRestaurants } from "@/lib/offline-db";
-import { listSettingsHref, restaurantHref, tabHref, type BottomTab } from "@/lib/routes";
+import { addHref, listSettingsHref, restaurantHref, tabHref, type BottomTab } from "@/lib/routes";
 import type { AppState, RatingDefinition } from "@/lib/types";
 
 const MapView = dynamic(() => import("@/components/map-view"), { ssr: false });
@@ -106,15 +108,14 @@ export default function AppShell({
   const selectedEntryId = Number(pathname.match(/^\/restaurants\/(\d+)$/)?.[1] ?? "") || null;
   const initialEntryEdit = searchParams.get("edit") === "1";
   const settingsOpen = pathname === "/lists/settings" || /^\/lists\/\d+\/settings$/.test(pathname);
+  const addOpen = pathname.startsWith("/add");
   const activeTab: BottomTab = pathname.startsWith("/check-ins") || (selectedEntryId && searchParams.get("from") === "checkins")
     ? "checkins"
     : pathname.startsWith("/map")
       ? "map"
       : pathname.startsWith("/lists")
         ? "lists"
-        : pathname.startsWith("/add")
-          ? "add"
-          : "list";
+        : "list";
 
   useEffect(() => {
     setFiltersOpen(false);
@@ -152,13 +153,13 @@ export default function AppShell({
   }, []);
 
   useEffect(() => {
-    if (activeTab !== "add" || !locationCoords) return;
+    if (!addOpen || !locationCoords) return;
     const { lat, lon } = locationCoords;
     fetch(`/api/search?nearby=1&lat=${lat}&lon=${lon}`)
       .then((r) => r.json())
       .then((data: { results?: PlaceResult[] }) => setNearbyResults(data.results ?? []))
       .catch(() => {});
-  }, [activeTab, locationCoords]);
+  }, [addOpen, locationCoords]);
 
   useEffect(() => {
     if (!userMenuOpen) return;
@@ -295,6 +296,14 @@ export default function AppShell({
     router.push(tabHref("list", activeState.activeListId), { scroll: false });
   };
 
+  const closeAdd = useCallback(() => {
+    setPlaceQuery("");
+    setPlaceResults([]);
+    setPlaceSearchStatus("");
+    setSearchGlobal(false);
+    router.replace(tabHref("list", activeState.activeListId), { scroll: false });
+  }, [activeState.activeListId, router]);
+
   return (
     <main className="app">
       <NetworkStatus />
@@ -408,21 +417,6 @@ export default function AppShell({
                 showBrand={false}
               />
             </section>
-          ) : activeTab === "add" ? (
-            <section className="mobile-add-view">
-              <AddRestaurantsPanel
-                state={activeState}
-                canWrite={canWrite}
-                placeQuery={placeQuery}
-                setPlaceQuery={setPlaceQuery}
-                placeResults={placeResults}
-                nearbyResults={nearbyResults}
-                placeSearchStatus={placeSearchStatus}
-                searchPlaces={searchPlaces}
-                searchGlobal={searchGlobal}
-                setSearchGlobal={setSearchGlobal}
-              />
-            </section>
           ) : activeTab === "checkins" ? (
             <div className="content-grid checkin-content-grid">
               <CheckInFeed
@@ -477,6 +471,17 @@ export default function AppShell({
               >
                 <Filter size={16} />
                 <span>{filterDefinition ? "Filtered" : "Filter"}</span>
+              </button>
+              <button
+                type="button"
+                className="add-restaurant-trigger"
+                onClick={() => router.push(addHref(activeState.activeListId), { scroll: false })}
+                aria-label="Add restaurant"
+                aria-expanded={addOpen}
+                aria-controls="add-restaurant-sheet"
+              >
+                <Plus size={17} />
+                <span>Add</span>
               </button>
             </div>
             {filtersOpen ? (
@@ -678,6 +683,23 @@ export default function AppShell({
         activeTab={activeTab}
         activeListId={activeState.activeListId}
       />
+
+      {addOpen ? (
+        <AddRestaurantSheet
+          activeListName={activeListName}
+          onClose={closeAdd}
+          state={activeState}
+          canWrite={canWrite}
+          placeQuery={placeQuery}
+          setPlaceQuery={setPlaceQuery}
+          placeResults={placeResults}
+          nearbyResults={nearbyResults}
+          placeSearchStatus={placeSearchStatus}
+          searchPlaces={searchPlaces}
+          searchGlobal={searchGlobal}
+          setSearchGlobal={setSearchGlobal}
+        />
+      ) : null}
 
       {adminOpen ? <AdminDrawer state={activeState} onClose={() => setAdminOpen(false)} /> : null}
       {addListOpen ? <AddListModal state={activeState} onClose={() => setAddListOpen(false)} /> : null}

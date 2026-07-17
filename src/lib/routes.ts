@@ -1,4 +1,4 @@
-export type BottomTab = "list" | "map" | "checkins" | "lists" | "add";
+export type BottomTab = "list" | "map" | "checkins" | "lists";
 
 export function listQuery(listId: number | null) {
   return listId ? `?list=${listId}` : "";
@@ -7,6 +7,10 @@ export function listQuery(listId: number | null) {
 export function tabHref(tab: BottomTab, listId: number | null) {
   const path = tab === "list" ? "/explore" : tab === "checkins" ? "/check-ins" : `/${tab}`;
   return `${path}${listQuery(listId)}`;
+}
+
+export function addHref(listId: number | null) {
+  return `/add${listQuery(listId)}`;
 }
 
 export function checkInRestaurantHref(id: number, listId: number | null) {

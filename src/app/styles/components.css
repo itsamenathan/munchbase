@@ -925,6 +925,22 @@ code {
   color: var(--accent);
 }
 
+.add-restaurant-trigger {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--touch-target);
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 800;
+  box-shadow: var(--shadow-soft);
+}
+
 .toolbar input,
 .toolbar select {
   border: 0;
@@ -951,6 +967,21 @@ code {
   .filter-toggle {
     flex-basis: var(--touch-target);
     padding: 0;
+  }
+
+  .add-restaurant-trigger {
+    flex-basis: var(--touch-target);
+    padding: 0;
+  }
+
+  .add-restaurant-trigger span {
+    display: none;
+  }
+}
+
+@media (min-width: 1080px) {
+  .add-restaurant-trigger {
+    display: none;
   }
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarClock, ClipboardList, LayoutList, Map, Plus } from "lucide-react";
+import { CalendarClock, ClipboardList, LayoutList, Map } from "lucide-react";
 import { tabHref, type BottomTab } from "@/lib/routes";
 
 export function BottomNav({
@@ -44,14 +44,6 @@ export function BottomNav({
       >
         <LayoutList size={22} />
         <span>Lists</span>
-      </Link>
-      <Link
-        href={tabHref("add", activeListId)}
-        className={activeTab === "add" ? "active" : ""}
-        aria-label="Add restaurant"
-      >
-        <Plus size={22} />
-        <span>Add</span>
       </Link>
     </nav>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, type ReactNode } from "react";
+import { type FormEvent, type ReactNode, type Ref } from "react";
 import { MapPin, Plus, Search } from "lucide-react";
 import { restaurantHref } from "@/lib/routes";
 import type { AppState } from "@/lib/types";
@@ -36,6 +36,21 @@ export function ManualRestaurantForm({ listId }: { listId: number | null }) {
   );
 }
 
+export type AddRestaurantsPanelProps = {
+  state: AppState;
+  canWrite: boolean;
+  placeQuery: string;
+  setPlaceQuery: (v: string) => void;
+  placeResults: PlaceResult[];
+  nearbyResults: PlaceResult[];
+  placeSearchStatus: string;
+  searchPlaces: (e?: FormEvent<HTMLFormElement>) => Promise<void>;
+  searchGlobal: boolean;
+  setSearchGlobal: (v: boolean) => void;
+  showListContext?: boolean;
+  searchInputRef?: Ref<HTMLInputElement>;
+};
+
 export function AddRestaurantsPanel({
   state,
   canWrite,
@@ -47,18 +62,9 @@ export function AddRestaurantsPanel({
   searchPlaces,
   searchGlobal,
   setSearchGlobal,
-}: {
-  state: AppState;
-  canWrite: boolean;
-  placeQuery: string;
-  setPlaceQuery: (v: string) => void;
-  placeResults: PlaceResult[];
-  nearbyResults: PlaceResult[];
-  placeSearchStatus: string;
-  searchPlaces: (e?: FormEvent<HTMLFormElement>) => Promise<void>;
-  searchGlobal: boolean;
-  setSearchGlobal: (v: boolean) => void;
-}) {
+  showListContext = true,
+  searchInputRef,
+}: AddRestaurantsPanelProps) {
   if (!canWrite) return null;
   const isSearching = placeQuery.trim().length >= 2;
   const existingMatches = isSearching
@@ -78,9 +84,10 @@ export function AddRestaurantsPanel({
 
   return (
     <section className="tool-panel add-restaurants-panel">
-      {state.activeList ? <p className="kicker">{state.activeList.name}</p> : null}
+      {showListContext && state.activeList ? <p className="kicker">{state.activeList.name}</p> : null}
       <form className="place-search" onSubmit={searchPlaces}>
         <input
+          ref={searchInputRef}
           type="search"
           aria-label="Search for a restaurant to add"
           value={placeQuery}
@@ -111,6 +118,7 @@ export function AddRestaurantsPanel({
                 <form action={state.activeListId && !alreadyInList ? "/mutate" : undefined} method="post" className="place-result" key={r.id}>
                   <input type="hidden" name="__action" value="attachRestaurantToList" />
                   <input type="hidden" name="restaurantId" value={r.id} />
+                  <input type="hidden" name="openRestaurant" value="1" />
                   {state.activeListId ? <input type="hidden" name="listId" value={state.activeListId} /> : null}
                   <button type={state.activeListId && !alreadyInList ? "submit" : "button"} onClick={() => {
                     if (!state.activeListId || alreadyInList) window.location.href = restaurantHref(r.id, state.activeListId);

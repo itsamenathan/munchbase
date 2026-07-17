@@ -100,7 +100,6 @@
 }
 
 .mobile-lists-view,
-.mobile-add-view,
 .mobile-detail-view {
   flex: none;
   margin-top: 4px;
@@ -122,19 +121,6 @@
 
 .mobile-detail-view .detail-content {
   padding: 0 0 calc(var(--nav-height) + var(--nav-float-gap) + 18px);
-}
-
-.mobile-add-view {
-  padding: 0;
-  overflow: hidden;
-  margin-bottom: calc(var(--nav-height) + var(--nav-float-gap) + 12px);
-}
-
-.mobile-add-view .tool-panel {
-  padding: 14px;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
 }
 
 .mobile-page-header {
