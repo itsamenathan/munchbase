@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "Self-hosted restaurant tracker",
   "scripts": {
-    "dev": "next dev -H 0.0.0.0",
+    "dev": "next dev -H 0.0.0.0 -p 3001",
     "build": "next build",
     "start": "next start -H 0.0.0.0",
-    "db:generate": "mkdir -p data && drizzle-kit generate",
-    "db:migrate": "mkdir -p data && drizzle-kit migrate",
+    "db:generate": "node -e \"require('node:fs').mkdirSync('data',{recursive:true})\" && drizzle-kit generate",
+    "db:migrate": "node -e \"require('node:fs').mkdirSync('data',{recursive:true})\" && drizzle-kit migrate",
+    "db:seed:test": "node scripts/seed-test-data.mjs",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest"

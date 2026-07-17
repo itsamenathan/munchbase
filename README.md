@@ -82,15 +82,18 @@ The default maximum is 10 MB per photo. If you change `PHOTO_MAX_SIZE_MB`, the s
 ## Development
 
 ```bash
-cp .env.example .env.local
-npm install
-npm run db:migrate
-npm run dev
+mise install
+mise run setup
+mise run dev
 ```
 
-Tests: `npm test`  
-Lint: `npm run lint`  
-Typecheck: `npx tsc --noEmit`
+The setup task creates `.env.local` when needed, installs locked dependencies,
+applies database migrations, and loads repeatable local test data.
+
+- Tests: `mise run test`
+- Lint: `mise exec -- npm run lint`
+- Typecheck: `mise exec -- npx tsc --noEmit`
+- All required checks: `mise run check`
 
 ## Building the Docker image
 

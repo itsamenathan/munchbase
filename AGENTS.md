@@ -137,13 +137,22 @@ Cookie-based sessions. `currentUser()` in `src/lib/auth.ts` reads the session co
 ## Dev Commands
 
 ```bash
-npm run dev          # Start dev server on 0.0.0.0:3000
-npm run build        # Production build
-npm run db:generate  # Regenerate Drizzle migration files
-npm run db:migrate   # Apply migrations
-npm test             # Run Vitest unit tests
-npx tsc --noEmit     # TypeScript check (run before declaring done)
+mise install                  # Install the pinned Node.js and SQLite versions
+mise run setup                # Install packages, migrate, and load local test data
+mise run dev                  # Start dev server on 0.0.0.0:3001
+mise run build                # Production build
+mise run start                # Serve the production build
+mise exec -- npm run db:generate # Regenerate Drizzle migration files
+mise exec -- npm run db:migrate  # Apply migrations
+mise exec -- npm run db:seed:test # Refresh repeatable local test data
+mise run test                 # Run Vitest unit tests
+mise exec -- npx tsc --noEmit # TypeScript check (run before declaring done)
+mise run check                # Run TypeScript and unit tests together
 ```
+
+Run project commands through `mise` so every agent and developer uses the
+versions pinned in `mise.toml`. For a fresh checkout, `mise run setup` is the
+preferred one-command local setup.
 
 ## Testing with agent-browser
 
@@ -156,18 +165,18 @@ npx tsc --noEmit     # TypeScript check (run before declaring done)
   };
   ```
   ```bash
-  agent-browser --init-script /path/to/geo-init.js open http://localhost:3000/api/dev-login
+  agent-browser --init-script /path/to/geo-init.js open http://localhost:3001/api/dev-login
   ```
 
 ## Before Declaring a Task Complete
 
 Always run the following checks after making code changes, before reporting done:
 
-1. **TypeScript** — `npx tsc --noEmit`
+1. **TypeScript** — `mise exec -- npx tsc --noEmit`
    Catches type errors that would fail the Docker build. This is the most important check — the build pipeline runs TypeScript and will reject the image if it fails.
 
 2. **Check for multiple usages** — when adding a required prop to a component, grep for all usages before finishing:
-   `grep -n "ComponentName" src/**/*.tsx`
+   `rg -n "ComponentName" src -g "*.tsx"`
    Missing a second usage site is a common build failure cause.
 
 3. **Check imports** — if creating a new file that is imported elsewhere, confirm the file is actually saved and the import path is correct.

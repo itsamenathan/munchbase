@@ -1,3 +1,37 @@
 [tools]
-node = "latest"
-sqlite = "latest"
+node = "26.5.0"
+sqlite = "3.53.3"
+
+[tasks.setup]
+description = "Install dependencies, migrate the local database, and load test data"
+run = [
+  "node -e \"const fs=require('node:fs');const p='.env.local';if(!fs.existsSync(p)){const env=fs.readFileSync('.env.example','utf8').replace('APP_ORIGIN=http://localhost:3000','APP_ORIGIN=http://localhost:3001');fs.writeFileSync(p,env)}\"",
+  "npm ci",
+  "npm run db:migrate",
+  "npm run db:seed:test",
+]
+
+[tasks.dev]
+description = "Start Munchbase in development mode"
+# Launch Node directly so Ctrl+C does not trigger cmd.exe's
+# "Terminate batch job (Y/N)?" prompt on Windows.
+run = "node node_modules/next/dist/bin/next dev -H 0.0.0.0 -p 3001"
+
+[tasks.build]
+description = "Create a production build"
+run = "npm run build"
+
+[tasks.test]
+description = "Run the unit tests"
+run = "npm test"
+
+[tasks.start]
+description = "Serve the production build"
+run = "npm run start"
+
+[tasks.check]
+description = "Run the required local verification suite"
+run = [
+  "npx tsc --noEmit",
+  "npm test",
+]
