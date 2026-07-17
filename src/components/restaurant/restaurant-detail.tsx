@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Check, LocateFixed, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronLeft, LocateFixed, Pencil, Plus, Trash2 } from "lucide-react";
 import { formatCityState } from "@/lib/address";
 import { NOTE_SECTION_PRESETS, parseNotes } from "@/lib/note-sections";
 import { NotePreview, NotesEditField } from "./notes";
@@ -57,6 +57,13 @@ export function RestaurantDetail({
   allRatingDefinitions,
   noteSections,
   initialEdit,
+  onBack,
+  backLabel,
+  onEditChange,
+  activePhotoId,
+  onOpenPhoto,
+  onSelectPhoto,
+  onClosePhoto,
 }: {
   canWrite: boolean;
   entry: Restaurant;
@@ -67,6 +74,13 @@ export function RestaurantDetail({
   allRatingDefinitions: RatingDefinition[];
   noteSections: NoteSectionDefinition[];
   initialEdit: boolean;
+  onBack: () => void;
+  backLabel: string;
+  onEditChange: (edit: boolean) => void;
+  activePhotoId: number | null;
+  onOpenPhoto: (photoId: number) => void;
+  onSelectPhoto: (photoId: number) => void;
+  onClosePhoto: () => void;
 }) {
   const [entryMode, setEntryMode] = useState<"edit" | "preview">(initialEdit && canWrite ? "edit" : "preview");
   const [noteValues, setNoteValues] = useState(() => parseNotes(entry.notes));
@@ -100,9 +114,7 @@ export function RestaurantDetail({
   };
 
   const setEditMode = (edit: boolean) => {
-    const url = new URL(window.location.href);
-    if (edit) { url.searchParams.set("edit", "1"); } else { url.searchParams.delete("edit"); }
-    history.replaceState(null, "", url.toString());
+    onEditChange(edit);
     setEntryMode(edit ? "edit" : "preview");
   };
 
@@ -154,6 +166,9 @@ export function RestaurantDetail({
 
   return (
     <div className="detail-content">
+      <button type="button" className="mobile-back-button" onClick={onBack}>
+        <ChevronLeft size={18} /> Back to {initialEdit ? "Restaurant" : backLabel}
+      </button>
       <div className="detail-head">
         <div className="detail-title-group">
           <h3>{entry.name}</h3>
@@ -286,7 +301,14 @@ export function RestaurantDetail({
             <div className="section-head"><h4>Ratings</h4></div>
             <AttributePreview entry={entry} groups={ratingGroups} />
           </section>
-          <RestaurantPhotos canWrite={canWrite} entry={entry} />
+          <RestaurantPhotos
+            canWrite={canWrite}
+            entry={entry}
+            activePhotoId={activePhotoId}
+            onOpenPhoto={onOpenPhoto}
+            onSelectPhoto={onSelectPhoto}
+            onClosePhoto={onClosePhoto}
+          />
           <section className="checkin-box">
             <div className="section-head"><h4>Check-ins</h4></div>
             {entry.latestCheckIn ? (

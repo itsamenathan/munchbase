@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { GripVertical, ListChecks, Pencil, Search, SlidersHorizontal, Star, StickyNote, Tag, ToggleRight, Trash2, X } from "lucide-react";
+import { ChevronLeft, GripVertical, ListChecks, Pencil, Search, SlidersHorizontal, Star, StickyNote, Tag, ToggleRight, Trash2 } from "lucide-react";
 import {
   DndContext,
   KeyboardSensor,
@@ -126,13 +126,16 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
 
   return (
     <div className="detail-content">
+      <button type="button" className="mobile-back-button" onClick={onClose}>
+        <ChevronLeft size={18} /> Back to Lists
+      </button>
       <div className="detail-head">
         <div className="detail-title-group">
           <span className="kicker">{isGlobal ? "Global ratings" : "List settings"}</span>
           <h3>{state.activeList?.name ?? "All restaurants"}</h3>
         </div>
         <div className="detail-actions">
-          <button className="ghost-button icon-button" onClick={onClose} aria-label="Close settings"><X size={18} /></button>
+          <button className="ghost-button desktop-close-button" onClick={onClose}>Close</button>
         </div>
       </div>
 

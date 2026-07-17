@@ -36,7 +36,19 @@ import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
 import { formatCityState } from "@/lib/address";
 import { readCachedLocation, writeCachedLocation } from "@/lib/location-cache";
 import { cacheAppState, cacheLists, cacheRestaurants } from "@/lib/offline-db";
-import { addHref, listSettingsHref, restaurantHref, tabHref, type BottomTab } from "@/lib/routes";
+import {
+  addHref,
+  addListHref,
+  addListStep,
+  listSettingsHref,
+  restaurantHref,
+  restaurantOrigin,
+  restaurantOriginHref,
+  tabHref,
+  type BottomTab,
+  type RestaurantOrigin,
+} from "@/lib/routes";
+import { submitMutation } from "@/lib/mutation-client";
 import type { AppState, RatingDefinition } from "@/lib/types";
 
 const MapView = dynamic(() => import("@/components/map-view"), { ssr: false });
@@ -94,10 +106,20 @@ export default function AppShell({
   const [searchGlobal, setSearchGlobal] = useState(false);
   const [nearbyResults, setNearbyResults] = useState<PlaceResult[]>([]);
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
-  const [adminOpen, setAdminOpen] = useState(false);
-  const [addListOpen, setAddListOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const scrollPositionsRef = useRef(new globalThis.Map<string, number>());
+  const pendingRootRestoreRef = useRef<string | null>(null);
+  const restaurantOpenedInAppRef = useRef(false);
+  const settingsOpenedInAppRef = useRef(false);
+  const addOpenedInAppRef = useRef(false);
+  const addListOpenedInAppRef = useRef(false);
+  const adminOpenedInAppRef = useRef(false);
+  const photoOpenedInAppRef = useRef(false);
+  const editHasPreviewRef = useRef(false);
+  const editOpenedFromPreviewRef = useRef(false);
+  const pendingEditRefreshRef = useRef(false);
+  const previousSelectedEntryRef = useRef<number | null>(null);
   const canWrite = true;
 
   const routeListId = Number(searchParams.get("list"));
@@ -109,23 +131,53 @@ export default function AppShell({
   const initialEntryEdit = searchParams.get("edit") === "1";
   const settingsOpen = pathname === "/lists/settings" || /^\/lists\/\d+\/settings$/.test(pathname);
   const addOpen = pathname.startsWith("/add");
-  const activeTab: BottomTab = pathname.startsWith("/check-ins") || (selectedEntryId && searchParams.get("from") === "checkins")
-    ? "checkins"
+  const selectedEntryOrigin = restaurantOrigin(searchParams.get("from"));
+  const adminOpen = state.user.role === "admin" && searchParams.get("overlay") === "admin";
+  const addListOpen = pathname === "/lists" && searchParams.get("overlay") === "add-list";
+  const activeAddListStep = addListStep(searchParams.get("step"));
+  const activePhotoId = Number(searchParams.get("photo")) || null;
+  const activeTab: BottomTab = selectedEntryId
+    ? selectedEntryOrigin
+    : pathname.startsWith("/check-ins")
+      ? "checkins"
     : pathname.startsWith("/map")
       ? "map"
       : pathname.startsWith("/lists")
         ? "lists"
-        : "list";
+        : "explore";
 
   useEffect(() => {
     setFiltersOpen(false);
   }, [activeTab]);
 
   useEffect(() => {
-    if (selectedEntryId) {
+    const previousId = previousSelectedEntryRef.current;
+    if (selectedEntryId && previousId !== selectedEntryId) {
       window.scrollTo({ top: 0, left: 0 });
+    } else if (!selectedEntryId && previousId) {
+      const rootHref = tabHref(activeTab, activeListId);
+      const top = scrollPositionsRef.current.get(rootHref);
+      if (top !== undefined) window.requestAnimationFrame(() => window.scrollTo({ top, left: 0 }));
+      restaurantOpenedInAppRef.current = false;
+      editHasPreviewRef.current = false;
+      photoOpenedInAppRef.current = false;
     }
-  }, [selectedEntryId]);
+    previousSelectedEntryRef.current = selectedEntryId;
+  }, [activeListId, activeTab, selectedEntryId]);
+
+  useEffect(() => {
+    if (!settingsOpen) settingsOpenedInAppRef.current = false;
+    if (!adminOpen) adminOpenedInAppRef.current = false;
+    if (!addListOpen) addListOpenedInAppRef.current = false;
+  }, [addListOpen, adminOpen, settingsOpen]);
+
+  useEffect(() => {
+    if (selectedEntryId || !pendingRootRestoreRef.current) return;
+    const href = pendingRootRestoreRef.current;
+    pendingRootRestoreRef.current = null;
+    const top = scrollPositionsRef.current.get(href) ?? 0;
+    window.requestAnimationFrame(() => window.scrollTo({ top, left: 0 }));
+  }, [activeListId, activeTab, selectedEntryId]);
 
   useEffect(() => {
     // Write-through cache: keep the last successfully-loaded server state in
@@ -169,8 +221,24 @@ export default function AppShell({
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setUserMenuOpen(false);
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, [userMenuOpen]);
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFiltersOpen(false);
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [filtersOpen]);
 
   const activeState = useMemo(() => {
     const activeListRestaurants = activeListId
@@ -193,15 +261,39 @@ export default function AppShell({
     [activeState.globalRatingDefinitions, activeState.ratingDefinitions],
   );
 
+  const rememberRootScroll = (origin: RestaurantOrigin) => {
+    scrollPositionsRef.current.set(tabHref(origin, activeState.activeListId), window.scrollY);
+  };
+
+  const prepareRootNavigation = (tab: BottomTab, listId = activeState.activeListId) => {
+    if (!selectedEntryId) {
+      scrollPositionsRef.current.set(tabHref(activeTab, activeState.activeListId), window.scrollY);
+    }
+    pendingRootRestoreRef.current = tabHref(tab, listId);
+  };
+
+  const navigateRoot = (tab: BottomTab) => {
+    prepareRootNavigation(tab);
+    router.replace(tabHref(tab, activeState.activeListId), { scroll: false });
+  };
+
+  const openRestaurant = (id: number, origin: RestaurantOrigin, replace = false) => {
+    rememberRootScroll(origin);
+    restaurantOpenedInAppRef.current = true;
+    const href = restaurantHref(id, activeState.activeListId, { origin });
+    if (replace) router.replace(href, { scroll: false });
+    else router.push(href, { scroll: false });
+  };
+
   const selectEntry = (id: number | null) => {
     haptics.light();
     if (id !== null) {
-      router.push(restaurantHref(id, activeState.activeListId, false));
+      openRestaurant(id, "explore", selectedEntryId !== null);
     }
   };
 
   const openEntryFromMap = (id: number) => {
-    router.push(restaurantHref(id, activeState.activeListId, false));
+    openRestaurant(id, "map", selectedEntryId !== null);
   };
 
   const restaurants = useMemo(() => {
@@ -256,6 +348,52 @@ export default function AppShell({
     activeState.allRestaurants.find((r) => r.id === selectedEntryId) ?? null;
   const selectedFilterDefinition = activeDefinitions.find((d) => String(d.id) === filterDefinition);
 
+  useEffect(() => {
+    if (!selectedEntryId || !initialEntryEdit) return;
+    if (editOpenedFromPreviewRef.current) {
+      editOpenedFromPreviewRef.current = false;
+      editHasPreviewRef.current = true;
+      return;
+    }
+    const previewHref = restaurantHref(selectedEntryId, activeState.activeListId, { origin: selectedEntryOrigin });
+    const editHref = restaurantHref(selectedEntryId, activeState.activeListId, { origin: selectedEntryOrigin, edit: true });
+    const currentState = window.history.state;
+    window.history.replaceState(currentState, "", previewHref);
+    window.history.pushState(currentState, "", editHref);
+    editHasPreviewRef.current = true;
+  }, [activeState.activeListId, initialEntryEdit, selectedEntryId, selectedEntryOrigin]);
+
+  useEffect(() => {
+    if (!initialEntryEdit && pendingEditRefreshRef.current) {
+      pendingEditRefreshRef.current = false;
+      router.refresh();
+    }
+  }, [initialEntryEdit, router]);
+
+  const previousAddOpenRef = useRef(addOpen);
+  useEffect(() => {
+    if (previousAddOpenRef.current && !addOpen) {
+      setPlaceQuery("");
+      setPlaceResults([]);
+      setPlaceSearchStatus("");
+      setSearchGlobal(false);
+      addOpenedInAppRef.current = false;
+    }
+    previousAddOpenRef.current = addOpen;
+  }, [addOpen]);
+
+  useEffect(() => {
+    if (!adminOpen && !addListOpen && !activePhotoId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (activePhotoId) closePhoto();
+      else if (adminOpen) closeAdmin();
+      else closeAddList();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  });
+
   async function searchPlaces(e?: FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (document.activeElement instanceof HTMLElement) {
@@ -288,12 +426,23 @@ export default function AppShell({
   const activeListName = activeState.activeList?.name ?? "All restaurants";
   const mutationMessage = searchParams.get("message");
 
+  const hrefWithParams = useCallback((updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null) params.delete(key); else params.set(key, value);
+    }
+    const queryString = params.toString();
+    return `${pathname}${queryString ? `?${queryString}` : ""}`;
+  }, [pathname, searchParams]);
+
   const openListSettings = (listId: number | null) => {
+    settingsOpenedInAppRef.current = true;
     router.push(listSettingsHref(listId), { scroll: false });
   };
 
   const closeSettings = () => {
-    router.push(tabHref("list", activeState.activeListId), { scroll: false });
+    if (settingsOpenedInAppRef.current) router.back();
+    else router.replace(tabHref("lists", activeState.activeListId), { scroll: false });
   };
 
   const closeAdd = useCallback(() => {
@@ -301,18 +450,125 @@ export default function AppShell({
     setPlaceResults([]);
     setPlaceSearchStatus("");
     setSearchGlobal(false);
-    router.replace(tabHref("list", activeState.activeListId), { scroll: false });
+    if (addOpenedInAppRef.current) router.back();
+    else router.replace(tabHref("explore", activeState.activeListId), { scroll: false });
   }, [activeState.activeListId, router]);
 
+  const openAdmin = () => {
+    adminOpenedInAppRef.current = true;
+    router.push(hrefWithParams({ overlay: "admin" }), { scroll: false });
+    setUserMenuOpen(false);
+  };
+
+  const closeAdmin = () => {
+    if (!adminOpen) return;
+    if (adminOpenedInAppRef.current) router.back();
+    else router.replace(hrefWithParams({ overlay: null }), { scroll: false });
+  };
+
+  const openAddList = () => {
+    addListOpenedInAppRef.current = true;
+    router.push(addListHref(activeState.activeListId, "details"), { scroll: false });
+  };
+
+  const closeAddList = () => {
+    if (!addListOpen) return;
+    if (addListOpenedInAppRef.current) {
+      const depth = activeAddListStep === "restaurants" ? 3 : activeAddListStep === "fields" ? 2 : 1;
+      window.history.go(-depth);
+    } else {
+      router.replace(tabHref("lists", activeState.activeListId), { scroll: false });
+    }
+  };
+
+  const setAddListStep = (step: typeof activeAddListStep) => {
+    router.push(addListHref(activeState.activeListId, step), { scroll: false });
+  };
+
+  const backFromRestaurant = () => {
+    if (initialEntryEdit) {
+      router.back();
+      return;
+    }
+    if (restaurantOpenedInAppRef.current || editHasPreviewRef.current) router.back();
+    else router.replace(restaurantOriginHref(selectedEntryOrigin, activeState.activeListId), { scroll: false });
+  };
+
+  const setRestaurantEdit = (edit: boolean) => {
+    if (!selectedEntryId) return;
+    if (edit) {
+      editOpenedFromPreviewRef.current = true;
+      editHasPreviewRef.current = true;
+      router.push(restaurantHref(selectedEntryId, activeState.activeListId, { origin: selectedEntryOrigin, edit: true }), { scroll: false });
+    } else {
+      router.back();
+    }
+  };
+
+  const openPhoto = (photoId: number) => {
+    photoOpenedInAppRef.current = true;
+    router.push(hrefWithParams({ photo: String(photoId) }), { scroll: false });
+  };
+
+  const selectPhoto = (photoId: number) => {
+    router.replace(hrefWithParams({ photo: String(photoId) }), { scroll: false });
+  };
+
+  const closePhoto = () => {
+    if (!activePhotoId) return;
+    if (photoOpenedInAppRef.current) router.back();
+    else router.replace(hrefWithParams({ photo: null }), { scroll: false });
+  };
+
+  const handleMutationSubmit = async (event: FormEvent<HTMLElement>) => {
+    if (event.defaultPrevented) return;
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || new URL(form.action, window.location.href).pathname !== "/mutate") return;
+    event.preventDefault();
+    const action = String(new FormData(form).get("__action") ?? "");
+    const fromAddSheet = form.closest(".add-restaurant-sheet") !== null;
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    if (submitter instanceof HTMLButtonElement) submitter.disabled = true;
+    try {
+      const result = await submitMutation(form);
+      if (!result.ok) {
+        router.replace(result.redirectTo, { scroll: false });
+        return;
+      }
+      if (action === "updateEntryAndRatings") {
+        pendingEditRefreshRef.current = true;
+        router.back();
+      } else if (action === "createList" && addListOpenedInAppRef.current) {
+        const depth = activeAddListStep === "restaurants" ? 3 : activeAddListStep === "fields" ? 2 : 1;
+        window.addEventListener("popstate", () => router.replace(result.redirectTo, { scroll: false }), { once: true });
+        window.history.go(-depth);
+      } else if (["addRestaurant", "addRestaurantFromGoogleMapsUrl", "attachRestaurantToList"].includes(action)) {
+        if (fromAddSheet) router.replace(result.redirectTo, { scroll: false });
+        else router.push(result.redirectTo, { scroll: false });
+      } else if (action === "deleteRestaurant") {
+        router.replace(restaurantOriginHref(selectedEntryOrigin, activeState.activeListId), { scroll: false });
+      } else if (["createList", "deleteList"].includes(action)) {
+        router.replace(result.redirectTo, { scroll: false });
+      } else if (result.redirectTo !== `${window.location.pathname}${window.location.search}`) {
+        router.replace(result.redirectTo, { scroll: false });
+      } else {
+        router.refresh();
+      }
+    } finally {
+      if (submitter instanceof HTMLButtonElement) submitter.disabled = false;
+    }
+  };
+
   return (
-    <main className="app">
+    <main className="app" onSubmit={handleMutationSubmit}>
       <NetworkStatus />
       <aside className="sidebar">
         <SidebarContent
           state={activeState}
           canWrite={canWrite}
-          onOpenAddList={() => setAddListOpen(true)}
+          onOpenAddList={openAddList}
           onOpenListSettings={openListSettings}
+          onNavigateToExplore={(listId) => prepareRootNavigation("explore", listId)}
           showListSettings
           showBrand={activeTab !== "lists"}
         />
@@ -326,20 +582,20 @@ export default function AppShell({
         ) : null}
         <header className="topbar">
           <div className="topbar-title">
-            <Link href={tabHref("list", activeState.activeListId)} className="topbar-brand" aria-label="Munchbase home">
+            <Link href={tabHref("explore", activeState.activeListId)} replace onClick={() => prepareRootNavigation("explore")} className="topbar-brand" aria-label="Munchbase home">
               <Utensils size={18} />
               <h2>Munchbase</h2>
             </Link>
           </div>
           <div className="top-actions">
             <div className="mode-toggle">
-              <button className={activeTab === "list" ? "active" : ""} onClick={() => router.push(tabHref("list", activeState.activeListId), { scroll: false })}>
+              <button className={activeTab === "explore" ? "active" : ""} onClick={() => navigateRoot("explore")}>
                 <ClipboardList size={16} /> List
               </button>
-              <button className={activeTab === "map" ? "active" : ""} onClick={() => router.push(tabHref("map", activeState.activeListId), { scroll: false })}>
+              <button className={activeTab === "map" ? "active" : ""} onClick={() => navigateRoot("map")}>
                 <Map size={16} /> Map
               </button>
-              <button className={activeTab === "checkins" ? "active" : ""} onClick={() => router.push(tabHref("checkins", activeState.activeListId), { scroll: false })}>
+              <button className={activeTab === "checkins" ? "active" : ""} onClick={() => navigateRoot("checkins")}>
                 <CalendarClock size={16} /> Check-ins
               </button>
             </div>
@@ -365,8 +621,7 @@ export default function AppShell({
                       type="button"
                       className="ghost-button"
                       onClick={() => {
-                        setAdminOpen(true);
-                        setUserMenuOpen(false);
+                        openAdmin();
                       }}
                     >
                       <Shield size={16} /> Admin
@@ -400,6 +655,13 @@ export default function AppShell({
               allRatingDefinitions={activeState.allRatingDefinitions}
               noteSections={activeState.noteSections}
               initialEdit={initialEntryEdit}
+              onBack={backFromRestaurant}
+              backLabel={selectedEntryOrigin === "map" ? "Map" : selectedEntryOrigin === "checkins" ? "Check-ins" : "Explore"}
+              onEditChange={setRestaurantEdit}
+              activePhotoId={activePhotoId}
+              onOpenPhoto={openPhoto}
+              onSelectPhoto={selectPhoto}
+              onClosePhoto={closePhoto}
             />
           </section>
         ) : null}
@@ -410,11 +672,12 @@ export default function AppShell({
               <SidebarContent
                 state={activeState}
                 canWrite={canWrite}
-                onOpenAddList={() => setAddListOpen(true)}
+                onOpenAddList={openAddList}
                 onOpenListSettings={openListSettings}
                 showAccountActions={false}
                 showListSettings
                 showBrand={false}
+                onNavigateToExplore={(listId) => prepareRootNavigation("explore", listId)}
               />
             </section>
           ) : activeTab === "checkins" ? (
@@ -423,6 +686,10 @@ export default function AppShell({
                 restaurants={activeState.restaurants}
                 activeListId={activeState.activeListId}
                 activeListName={activeListName}
+                onOpenRestaurant={() => {
+                  rememberRootScroll("checkins");
+                  restaurantOpenedInAppRef.current = true;
+                }}
               />
               <section className="detail">
                 {selectedEntry ? (
@@ -437,6 +704,13 @@ export default function AppShell({
                     allRatingDefinitions={activeState.allRatingDefinitions}
                     noteSections={activeState.noteSections}
                     initialEdit={initialEntryEdit}
+                    onBack={backFromRestaurant}
+                    backLabel="Check-ins"
+                    onEditChange={setRestaurantEdit}
+                    activePhotoId={activePhotoId}
+                    onOpenPhoto={openPhoto}
+                    onSelectPhoto={selectPhoto}
+                    onClosePhoto={closePhoto}
                   />
                 ) : (
                   <EmptyState
@@ -475,7 +749,10 @@ export default function AppShell({
               <button
                 type="button"
                 className="add-restaurant-trigger"
-                onClick={() => router.push(addHref(activeState.activeListId), { scroll: false })}
+                onClick={() => {
+                  addOpenedInAppRef.current = true;
+                  router.push(addHref(activeState.activeListId), { scroll: false });
+                }}
                 aria-label="Add restaurant"
                 aria-expanded={addOpen}
                 aria-controls="add-restaurant-sheet"
@@ -642,6 +919,13 @@ export default function AppShell({
                   allRatingDefinitions={activeState.allRatingDefinitions}
                   noteSections={activeState.noteSections}
                   initialEdit={initialEntryEdit}
+                  onBack={backFromRestaurant}
+                  backLabel={selectedEntryOrigin === "map" ? "Map" : selectedEntryOrigin === "checkins" ? "Check-ins" : "Explore"}
+                  onEditChange={setRestaurantEdit}
+                  activePhotoId={activePhotoId}
+                  onOpenPhoto={openPhoto}
+                  onSelectPhoto={selectPhoto}
+                  onClosePhoto={closePhoto}
                 />
               ) : (
                 <EmptyState
@@ -675,6 +959,7 @@ export default function AppShell({
             searchPlaces={searchPlaces}
             searchGlobal={searchGlobal}
             setSearchGlobal={setSearchGlobal}
+            onOpenRestaurant={(id) => openRestaurant(id, "explore")}
           />
         </aside>
       ) : null}
@@ -682,6 +967,7 @@ export default function AppShell({
       <BottomNav
         activeTab={activeTab}
         activeListId={activeState.activeListId}
+        onNavigate={(tab) => prepareRootNavigation(tab)}
       />
 
       {addOpen ? (
@@ -698,11 +984,20 @@ export default function AppShell({
           searchPlaces={searchPlaces}
           searchGlobal={searchGlobal}
           setSearchGlobal={setSearchGlobal}
+          onOpenRestaurant={(id) => router.replace(restaurantHref(id, activeState.activeListId, { origin: "explore" }), { scroll: false })}
         />
       ) : null}
 
-      {adminOpen ? <AdminDrawer state={activeState} onClose={() => setAdminOpen(false)} /> : null}
-      {addListOpen ? <AddListModal state={activeState} onClose={() => setAddListOpen(false)} /> : null}
+      {adminOpen ? <AdminDrawer state={activeState} onClose={closeAdmin} /> : null}
+      {addListOpen ? (
+        <AddListModal
+          state={activeState}
+          step={activeAddListStep}
+          onStepChange={setAddListStep}
+          onBackStep={() => router.back()}
+          onClose={closeAddList}
+        />
+      ) : null}
       <InstallPrompt />
       {children ? <span hidden>{children}</span> : null}
     </main>

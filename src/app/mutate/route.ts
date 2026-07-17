@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import * as mutations from "@/lib/mutations";
 import { currentUser } from "@/lib/auth";
 import { logger } from "@/lib/logger";
@@ -66,20 +66,28 @@ function withMutationError(path: string, code: string, message: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const wantsJson = request.headers.get("accept")?.includes("application/json") ?? false;
   const formData = await request.formData();
   try {
     await assertCsrfToken(formData);
   } catch (error) {
     const message = error instanceof CsrfError ? error.message : "Security check failed.";
     logger.warn("Mutation CSRF validation failed", { ip: clientIp(request) });
-    return redirectTo(`/explore?mutationError=csrf&message=${encodeURIComponent(message)}`);
+    const redirectToPath = `/explore?mutationError=csrf&message=${encodeURIComponent(message)}`;
+    return wantsJson
+      ? NextResponse.json({ ok: false, code: "csrf", message, redirectTo: redirectToPath }, { status: 403 })
+      : redirectTo(redirectToPath);
   }
 
   const actionName = formData.get("__action");
   const mutation = typeof actionName === "string" ? MUTATIONS[actionName as keyof typeof MUTATIONS] : undefined;
   if (!mutation) {
     logger.warn("Unknown mutation requested", { actionName });
-    return redirectTo("/explore?mutationError=unknown&message=That%20action%20could%20not%20be%20handled.");
+    const message = "That action could not be handled.";
+    const redirectToPath = `/explore?mutationError=unknown&message=${encodeURIComponent(message)}`;
+    return wantsJson
+      ? NextResponse.json({ ok: false, code: "unknown", message, redirectTo: redirectToPath }, { status: 400 })
+      : redirectTo(redirectToPath);
   }
 
   const user = await currentUser();
@@ -90,11 +98,17 @@ export async function POST(request: NextRequest) {
   try {
     const result = await mutation(formData, { ip });
     logger.info("Mutation ok", { action: actionName, userId: user?.id, ip, ms: Date.now() - start });
-    return redirectTo(result?.redirectTo ?? fallback);
+    const redirectToPath = result?.redirectTo ?? fallback;
+    return wantsJson
+      ? NextResponse.json({ ok: true, redirectTo: redirectToPath })
+      : redirectTo(redirectToPath);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Something went wrong.";
     const code = error instanceof mutations.MutationError ? error.code : "failed";
     logger.warn("Mutation failed", { action: actionName, userId: user?.id, ip, code, error: message, ms: Date.now() - start });
-    return redirectTo(withMutationError(fallback, code, message));
+    const redirectToPath = withMutationError(fallback, code, message);
+    return wantsJson
+      ? NextResponse.json({ ok: false, code, message, redirectTo: redirectToPath }, { status: 400 })
+      : redirectTo(redirectToPath);
   }
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Search, X } from "lucide-react";
 import { CustomFieldControls } from "@/components/lists/list-settings";
 import type { AppState, RatingDefinition } from "@/lib/types";
+import type { AddListStep } from "@/lib/routes";
 
 type CustomFieldDraft = {
   id: string;
@@ -25,8 +26,19 @@ function emptyCustomFieldDraft(): CustomFieldDraft {
   };
 }
 
-export function AddListModal({ state, onClose }: { state: AppState; onClose: () => void }) {
-  const [step, setStep] = useState<"details" | "fields" | "restaurants">("details");
+export function AddListModal({
+  state,
+  step,
+  onStepChange,
+  onBackStep,
+  onClose,
+}: {
+  state: AppState;
+  step: AddListStep;
+  onStepChange: (step: AddListStep) => void;
+  onBackStep: () => void;
+  onClose: () => void;
+}) {
   const [name, setName] = useState("");
   const [fields, setFields] = useState<CustomFieldDraft[]>([emptyCustomFieldDraft()]);
   const [restaurantQuery, setRestaurantQuery] = useState("");
@@ -52,7 +64,7 @@ export function AddListModal({ state, onClose }: { state: AppState; onClose: () 
 
   return (
     <div className="drawer-backdrop add-list-backdrop" onClick={onClose}>
-      <section className="add-list-modal" onClick={(e) => e.stopPropagation()} aria-label="Add list">
+      <section className="add-list-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} aria-label="Add list">
         <header className="drawer-head">
           <div>
             <p className="kicker">Add list</p>
@@ -63,7 +75,7 @@ export function AddListModal({ state, onClose }: { state: AppState; onClose: () 
         <form
           action="/mutate" method="post"
           className="add-list-form"
-          onSubmit={(e) => { if (step !== "restaurants") { e.preventDefault(); if (step === "details" && name.trim()) setStep("fields"); if (step === "fields") setStep("restaurants"); } }}
+          onSubmit={(e) => { if (step !== "restaurants") { e.preventDefault(); if (step === "details" && name.trim()) onStepChange("fields"); if (step === "fields") onStepChange("restaurants"); } }}
         >
           <input type="hidden" name="__action" value="createList" />
           <input type="hidden" name="name" value={name} />
@@ -118,11 +130,11 @@ export function AddListModal({ state, onClose }: { state: AppState; onClose: () 
             </section>
           ) : null}
           <footer className="form-actions add-list-actions">
-            <button type="button" className="ghost-button" onClick={() => setStep(step === "restaurants" ? "fields" : "details")} disabled={step === "details"}>Back</button>
+            <button type="button" className="ghost-button" onClick={onBackStep} disabled={step === "details"}>Back</button>
             {step === "restaurants" ? (
               <button key="submit" type="submit" disabled={!name.trim()}>Create list</button>
             ) : (
-              <button key="next" type="button" onClick={() => setStep(step === "details" ? "fields" : "restaurants")} disabled={step === "details" && !name.trim()}>Next</button>
+              <button key="next" type="button" onClick={() => onStepChange(step === "details" ? "fields" : "restaurants")} disabled={step === "details" && !name.trim()}>Next</button>
             )}
           </footer>
         </form>

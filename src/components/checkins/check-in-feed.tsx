@@ -10,10 +10,12 @@ export function CheckInFeed({
   restaurants,
   activeListId,
   activeListName,
+  onOpenRestaurant,
 }: {
   restaurants: Restaurant[];
   activeListId: number | null;
   activeListName: string;
+  onOpenRestaurant?: () => void;
 }) {
   const checkIns = buildCheckInFeed(restaurants);
   const groups = groupCheckInFeed(checkIns);
@@ -31,7 +33,7 @@ export function CheckInFeed({
             title="No check-ins yet."
             description="Log a visit from a Restaurant to see it here."
             action={(
-              <Link className="ghost-button" href={tabHref("list", activeListId)}>
+              <Link className="ghost-button" replace href={tabHref("explore", activeListId)}>
                 Explore Restaurants
               </Link>
             )}
@@ -44,6 +46,7 @@ export function CheckInFeed({
             <Link
               className="checkin-feed-row"
               href={checkInRestaurantHref(checkIn.restaurantId, activeListId)}
+              onClick={onOpenRestaurant}
               key={checkIn.id}
             >
               <span className="checkin-feed-main">

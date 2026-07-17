@@ -4,8 +4,8 @@ import type { AppState } from "@/lib/types";
 
 export function AdminDrawer({ state, onClose }: { state: AppState; onClose: () => void }) {
   return (
-    <div className="drawer-backdrop">
-      <aside className="settings-drawer admin-drawer" aria-label="Admin settings">
+    <div className="drawer-backdrop" onClick={onClose}>
+      <aside className="settings-drawer admin-drawer" role="dialog" aria-modal="true" aria-label="Admin settings" onClick={(event) => event.stopPropagation()}>
         <header className="drawer-head">
           <div>
             <p className="kicker">Admin</p>

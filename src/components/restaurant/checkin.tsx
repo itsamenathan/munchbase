@@ -1,16 +1,28 @@
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CalendarClock, Pencil, Trash2 } from "lucide-react";
 import { formatShortDateTime, localDateTimeInputValue } from "@/lib/datetime";
 import type { CheckIn } from "@/lib/types";
 import type { Restaurant } from "@/lib/types";
+import { submitMutation } from "@/lib/mutation-client";
 
 export function CheckInCard({ canWrite, checkIn }: { canWrite: boolean; checkIn: CheckIn }) {
+  const router = useRouter();
   const [mode, setMode] = useState<"preview" | "edit">("preview");
   const [visitedAt, setVisitedAt] = useState(checkIn.visitedAt);
 
   if (mode === "edit") {
     return (
-      <form action="/mutate" method="post" className="checkin-card checkin-card-editing">
+      <form action="/mutate" method="post" className="checkin-card checkin-card-editing" onSubmit={async (event) => {
+        event.preventDefault();
+        const result = await submitMutation(event.currentTarget);
+        if (result.ok) {
+          setMode("preview");
+          router.refresh();
+        } else {
+          router.replace(result.redirectTo, { scroll: false });
+        }
+      }}>
         <input type="hidden" name="__action" value="updateCheckIn" />
         <input type="hidden" name="checkInId" value={checkIn.id} />
         <div className="checkin-meta">

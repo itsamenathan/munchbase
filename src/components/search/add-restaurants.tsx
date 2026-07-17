@@ -49,6 +49,7 @@ export type AddRestaurantsPanelProps = {
   setSearchGlobal: (v: boolean) => void;
   showListContext?: boolean;
   searchInputRef?: Ref<HTMLInputElement>;
+  onOpenRestaurant?: (restaurantId: number) => void;
 };
 
 export function AddRestaurantsPanel({
@@ -64,6 +65,7 @@ export function AddRestaurantsPanel({
   setSearchGlobal,
   showListContext = true,
   searchInputRef,
+  onOpenRestaurant,
 }: AddRestaurantsPanelProps) {
   if (!canWrite) return null;
   const isSearching = placeQuery.trim().length >= 2;
@@ -121,7 +123,10 @@ export function AddRestaurantsPanel({
                   <input type="hidden" name="openRestaurant" value="1" />
                   {state.activeListId ? <input type="hidden" name="listId" value={state.activeListId} /> : null}
                   <button type={state.activeListId && !alreadyInList ? "submit" : "button"} onClick={() => {
-                    if (!state.activeListId || alreadyInList) window.location.href = restaurantHref(r.id, state.activeListId);
+                    if (!state.activeListId || alreadyInList) {
+                      if (onOpenRestaurant) onOpenRestaurant(r.id);
+                      else window.location.href = restaurantHref(r.id, state.activeListId, { origin: "explore" });
+                    }
                   }}>
                     <strong>{r.name}</strong>
                     <small>{alreadyInList ? "View restaurant" : `Add to ${targetLabel}`}</small>

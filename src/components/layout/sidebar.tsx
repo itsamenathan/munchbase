@@ -12,6 +12,7 @@ export function SidebarContent({
   showAccountActions = true,
   showListSettings = false,
   showBrand = true,
+  onNavigateToExplore,
 }: {
   state: AppState;
   canWrite: boolean;
@@ -21,6 +22,7 @@ export function SidebarContent({
   showAccountActions?: boolean;
   showListSettings?: boolean;
   showBrand?: boolean;
+  onNavigateToExplore?: (listId: number | null) => void;
 }) {
   const restaurantCountForList = (listId: number) =>
     state.allRestaurants.filter((r) => r.memberships.some((m) => m.id === listId)).length;
@@ -38,7 +40,7 @@ export function SidebarContent({
       ) : null}
       <nav className="list-nav">
         <div className={`list-nav-row ${state.activeListId === null ? "active" : ""}`}>
-          <Link href={tabHref("list", null)} onClick={onCloseDrawer}>
+          <Link href={tabHref("explore", null)} replace onClick={() => { onNavigateToExplore?.(null); onCloseDrawer?.(); }}>
             All restaurants
             <span>{state.allRestaurants.length}</span>
           </Link>
@@ -59,8 +61,9 @@ export function SidebarContent({
             className={`list-nav-row ${list.id === state.activeListId ? "active" : ""}`}
           >
             <Link
-              href={tabHref("list", list.id)}
-              onClick={onCloseDrawer}
+              href={tabHref("explore", list.id)}
+              replace
+              onClick={() => { onNavigateToExplore?.(list.id); onCloseDrawer?.(); }}
             >
               {list.name}
               <span>{restaurantCountForList(list.id)}</span>

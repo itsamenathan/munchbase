@@ -9,9 +9,23 @@ import type { Restaurant, RestaurantPhoto } from "@/lib/types";
 
 type SelectedPhoto = { file: File; description: string; preview: string };
 
-export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry: Restaurant }) {
+export function RestaurantPhotos({
+  canWrite,
+  entry,
+  activePhotoId,
+  onOpenPhoto,
+  onSelectPhoto,
+  onClosePhoto,
+}: {
+  canWrite: boolean;
+  entry: Restaurant;
+  activePhotoId: number | null;
+  onOpenPhoto: (photoId: number) => void;
+  onSelectPhoto: (photoId: number) => void;
+  onClosePhoto: () => void;
+}) {
   const router = useRouter();
-  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const viewerIndex = activePhotoId ? entry.photos.findIndex((photo) => photo.id === activePhotoId) : -1;
   const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
   const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -101,21 +115,18 @@ export function RestaurantPhotos({ canWrite, entry }: { canWrite: boolean; entry
                 canWrite={canWrite}
                 key={photo.id}
                 photo={photo}
-                onOpen={() => setViewerIndex(index)}
-                onDelete={() => {
-                  if (viewerIndex !== null && entry.photos[viewerIndex]?.id === photo.id) {
-                    setViewerIndex(null);
-                  }
-                }}
+                onOpen={() => onOpenPhoto(photo.id)}
+                onDelete={() => { if (activePhotoId === photo.id) onClosePhoto(); }}
               />
             ))}
           </div>
-          {viewerIndex !== null ? (
+          {viewerIndex >= 0 ? (
             <PhotoViewer
               key={viewerIndex}
               photos={entry.photos}
               initialIndex={viewerIndex}
-              onClose={() => setViewerIndex(null)}
+              onSelect={(photoId) => onSelectPhoto(photoId)}
+              onClose={onClosePhoto}
             />
           ) : null}
         </>
@@ -266,10 +277,12 @@ function PhotoCard({
 function PhotoViewer({
   photos,
   initialIndex,
+  onSelect,
   onClose,
 }: {
   photos: RestaurantPhoto[];
   initialIndex: number;
+  onSelect: (photoId: number) => void;
   onClose: () => void;
 }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -319,6 +332,7 @@ function PhotoViewer({
       setZoom(1);
       setPan({ x: 0, y: 0 });
     });
+    onSelect(photos[bounded].id);
   };
 
   function touchDist(touches: React.TouchList) {
@@ -435,6 +449,9 @@ function PhotoViewer({
     <div className="photo-viewer-backdrop" onClick={onClose}>
       <div
         className="photo-viewer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Restaurant photos"
         onClick={(event) => event.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

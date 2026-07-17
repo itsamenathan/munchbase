@@ -138,6 +138,28 @@
   gap: var(--space-3);
 }
 
+.mobile-back-button {
+  width: fit-content;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  box-shadow: none;
+}
+
+.desktop-close-button {
+  display: none;
+}
+
+@media (min-width: 760px) {
+  .mobile-back-button { display: none; }
+  .desktop-close-button { display: inline-flex; }
+}
+
 .detail-head {
   display: flex;
   align-items: flex-start;

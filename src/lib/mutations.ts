@@ -164,7 +164,7 @@ export async function deleteRestaurant(formData: FormData) {
   db.prepare("DELETE FROM restaurants WHERE id = ?").run(restaurantId);
   db.prepare("DELETE FROM places WHERE id = ?").run(restaurant.placeId);
   revalidateApp();
-  return { redirectTo: tabHref("list", listId) };
+  return { redirectTo: tabHref("explore", listId) };
 }
 
 export async function deleteUser(formData: FormData) {
@@ -222,7 +222,7 @@ export async function createList(formData: FormData) {
   });
   const listId = create();
   revalidateApp();
-  return { redirectTo: tabHref("list", listId) };
+  return { redirectTo: tabHref("explore", listId) };
 }
 
 export async function updateListDetails(formData: FormData) {
@@ -243,7 +243,7 @@ export async function deleteList(formData: FormData) {
   if (!list) throw new Error("List not found.");
   getDb().prepare("DELETE FROM lists WHERE id = ?").run(listId);
   revalidateApp();
-  return { redirectTo: tabHref("list", null) };
+  return { redirectTo: tabHref("lists", null) };
 }
 
 export async function addRestaurant(formData: FormData) {
@@ -300,7 +300,7 @@ export async function addRestaurant(formData: FormData) {
     db.prepare("INSERT OR IGNORE INTO list_restaurants (list_id, restaurant_id) VALUES (?, ?)").run(listId, restaurant.id);
   }
   revalidateApp();
-  return { redirectTo: restaurantHref(restaurant.id, listId, true) };
+  return { redirectTo: restaurantHref(restaurant.id, listId, { origin: "explore", edit: true }) };
 }
 
 export async function addRestaurantFromGoogleMapsUrl(formData: FormData) {
@@ -347,7 +347,7 @@ export async function addRestaurantFromGoogleMapsUrl(formData: FormData) {
     db.prepare("INSERT OR IGNORE INTO list_restaurants (list_id, restaurant_id) VALUES (?, ?)").run(listId, restaurant.id);
   }
   revalidateApp();
-  return { redirectTo: restaurantHref(restaurant.id, listId, true) };
+  return { redirectTo: restaurantHref(restaurant.id, listId, { origin: "explore", edit: true }) };
 }
 
 export async function updateEntry(formData: FormData) {
@@ -664,7 +664,7 @@ export async function attachRestaurantToList(formData: FormData) {
   getDb().prepare("INSERT OR IGNORE INTO list_restaurants (list_id, restaurant_id) VALUES (?, ?)").run(listId, restaurantId);
   revalidateApp();
   if (text(formData, "openRestaurant") === "1") {
-    return { redirectTo: restaurantHref(restaurantId, listId) };
+    return { redirectTo: restaurantHref(restaurantId, listId, { origin: "explore" }) };
   }
 }
 
