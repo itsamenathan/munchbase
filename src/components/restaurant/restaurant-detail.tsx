@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CalendarClock, Check, ChevronLeft, LocateFixed, NotebookText, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { CalendarClock, Check, LocateFixed, NotebookText, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { formatCityState } from "@/lib/address";
 import { NOTE_SECTION_PRESETS, parseNotes } from "@/lib/note-sections";
 import { NotePreview, NotesEditField } from "./notes";
@@ -57,8 +57,6 @@ export function RestaurantDetail({
   allRatingDefinitions,
   noteSections,
   initialEdit,
-  onBack,
-  backLabel,
   onEditChange,
   activePhotoId,
   onOpenPhoto,
@@ -74,8 +72,6 @@ export function RestaurantDetail({
   allRatingDefinitions: RatingDefinition[];
   noteSections: NoteSectionDefinition[];
   initialEdit: boolean;
-  onBack: () => void;
-  backLabel: string;
   onEditChange: (edit: boolean) => void;
   activePhotoId: number | null;
   onOpenPhoto: (photoId: number) => void;
@@ -169,19 +165,18 @@ export function RestaurantDetail({
         .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id),
     })),
   ];
+  const listRatingGroups = ratingGroups.filter((group) => group.list.id !== 0);
+  const hasListRatings = listRatingGroups.some((group) => group.definitions.some((definition) =>
+    definition.active && Boolean(entry.ratings.find((rating) => rating.definitionId === definition.id)?.value),
+  ));
 
   return (
     <div className="detail-content">
       <div className="detail-head">
-        <div className="detail-title-with-back">
-          <button type="button" className="mobile-title-back" onClick={onBack} aria-label={`Back to ${initialEdit ? "Restaurant" : backLabel}`}>
-            <ChevronLeft size={20} />
-          </button>
-          <div className="detail-title-group">
-            <h3>{entry.name}</h3>
-            <span className="detail-location">{formatCityState(entry.address)}</span>
-            <RatingSummary entry={entry} definitions={globalSummaryDefinitions} />
-          </div>
+        <div className="detail-title-group">
+          <h3>{entry.name}</h3>
+          <span className="detail-location">{formatCityState(entry.address)}</span>
+          <RatingSummary entry={entry} definitions={globalSummaryDefinitions} />
         </div>
         <div className="detail-actions">
           {canWrite && entryMode === "preview" ? (
@@ -305,10 +300,12 @@ export function RestaurantDetail({
             <div className="section-head"><span className="detail-section-title"><NotebookText size={16} /><h4>Notes</h4></span></div>
             <NotePreview sections={noteSections} values={noteValues} />
           </section>
-          <section className="detail-section-card notes-panel">
-            <div className="section-head"><span className="detail-section-title"><Star size={16} /><h4>Ratings</h4></span></div>
-            <AttributePreview entry={entry} groups={ratingGroups} />
-          </section>
+          {hasListRatings ? (
+            <section className="detail-section-card notes-panel">
+              <div className="section-head"><span className="detail-section-title"><Star size={16} /><h4>Ratings</h4></span></div>
+              <AttributePreview entry={entry} groups={listRatingGroups} />
+            </section>
+          ) : null}
           <RestaurantPhotos
             canWrite={canWrite}
             entry={entry}

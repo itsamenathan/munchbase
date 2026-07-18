@@ -130,9 +130,9 @@ export function RestaurantPhotos({
             />
           ) : null}
         </>
-      ) : (
+      ) : !canWrite ? (
         <p className="muted">No photos yet.</p>
-      )}
+      ) : null}
 
       {canWrite ? (
         <form onSubmit={handleUpload} className="photo-upload-form">

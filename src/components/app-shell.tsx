@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   CalendarClock,
+  ChevronLeft,
   ClipboardList,
   Filter,
   Map,
@@ -581,12 +582,18 @@ export default function AppShell({
             {mutationMessage}
           </p>
         ) : null}
-        <header className="topbar">
+        <header className={`topbar${selectedEntryId ? " restaurant-open" : ""}`}>
           <div className="topbar-title">
-            <Link href={tabHref("explore", activeState.activeListId)} replace onClick={() => prepareRootNavigation("explore")} className="topbar-brand" aria-label="Munchbase home">
+            <Link href={tabHref("explore", activeState.activeListId)} replace onClick={() => prepareRootNavigation("explore")} className="topbar-brand topbar-default-brand" aria-label="Munchbase home">
               <Utensils size={18} />
               <h2>Munchbase</h2>
             </Link>
+            {selectedEntryId ? (
+              <button type="button" className="topbar-brand topbar-restaurant-back" onClick={backFromRestaurant}>
+                <ChevronLeft size={18} />
+                <h2>{initialEntryEdit ? "Restaurant" : selectedEntryOrigin === "map" ? "Map" : selectedEntryOrigin === "checkins" ? "Check-ins" : "Explore"}</h2>
+              </button>
+            ) : null}
           </div>
           <div className="top-actions">
             <div className="mode-toggle">
@@ -656,8 +663,6 @@ export default function AppShell({
               allRatingDefinitions={activeState.allRatingDefinitions}
               noteSections={activeState.noteSections}
               initialEdit={initialEntryEdit}
-              onBack={backFromRestaurant}
-              backLabel={selectedEntryOrigin === "map" ? "Map" : selectedEntryOrigin === "checkins" ? "Check-ins" : "Explore"}
               onEditChange={setRestaurantEdit}
               activePhotoId={activePhotoId}
               onOpenPhoto={openPhoto}
@@ -705,8 +710,6 @@ export default function AppShell({
                     allRatingDefinitions={activeState.allRatingDefinitions}
                     noteSections={activeState.noteSections}
                     initialEdit={initialEntryEdit}
-                    onBack={backFromRestaurant}
-                    backLabel="Check-ins"
                     onEditChange={setRestaurantEdit}
                     activePhotoId={activePhotoId}
                     onOpenPhoto={openPhoto}
@@ -920,8 +923,6 @@ export default function AppShell({
                   allRatingDefinitions={activeState.allRatingDefinitions}
                   noteSections={activeState.noteSections}
                   initialEdit={initialEntryEdit}
-                  onBack={backFromRestaurant}
-                  backLabel={selectedEntryOrigin === "map" ? "Map" : selectedEntryOrigin === "checkins" ? "Check-ins" : "Explore"}
                   onEditChange={setRestaurantEdit}
                   activePhotoId={activePhotoId}
                   onOpenPhoto={openPhoto}

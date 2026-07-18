@@ -740,6 +740,16 @@ code {
   line-height: 1;
 }
 
+.topbar-restaurant-back {
+  display: none;
+  width: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent);
+}
+
 .top-actions {
   display: flex;
   gap: var(--touch-gap);
@@ -1128,6 +1138,14 @@ code {
 
   .topbar-brand h2 {
     font-size: var(--font-size-lg);
+  }
+
+  .topbar.restaurant-open .topbar-default-brand {
+    display: none;
+  }
+
+  .topbar.restaurant-open .topbar-restaurant-back {
+    display: inline-flex;
   }
 
   .user-menu-button {
