@@ -2,14 +2,26 @@
   min-width: 0;
   display: grid;
   align-content: start;
-  gap: var(--space-2);
-  padding-bottom: calc(var(--nav-height) + var(--nav-float-gap) + 18px);
+  gap: var(--space-3);
+  margin-bottom: calc(var(--nav-height) + var(--nav-float-gap) + 18px);
+  padding: var(--space-3);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
 }
 
 .checkin-feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.checkin-feed-header > div {
+  min-width: 0;
   display: grid;
   gap: 3px;
-  padding: 4px 4px 0;
 }
 
 .checkin-feed-header h3,
@@ -27,89 +39,118 @@
   font-size: var(--font-size-sm);
 }
 
+.checkin-feed-count {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
 .checkin-day-group {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .checkin-day-heading {
-  padding: 0 4px;
+  padding-left: 2px;
   color: var(--muted);
   font-size: var(--font-size-sm);
   font-weight: 750;
 }
 
-.checkin-feed-row {
+.checkin-history-list {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-1);
+  padding-left: 17px;
+}
+
+.checkin-history-item {
+  position: relative;
+  min-width: 0;
   min-height: 64px;
-  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  border-left: 2px solid var(--line);
+  padding: 8px 4px 8px 25px;
   color: var(--ink);
-  background:
-    linear-gradient(135deg, var(--panel-sheen), transparent 52%),
-    var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
   text-decoration: none;
 }
 
-.checkin-feed-row:hover {
-  border-color: var(--accent);
-}
-
-.checkin-feed-main,
-.checkin-feed-meta {
-  min-width: 0;
+.checkin-history-marker {
+  position: absolute;
+  left: -17px;
+  top: 50%;
+  width: 32px;
+  height: 32px;
   display: grid;
-  align-content: start;
+  place-items: center;
+  border: 3px solid var(--panel);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  color: var(--accent);
+  transform: translateY(-50%);
+  transition: background-color 120ms ease, color 120ms ease;
 }
 
-.checkin-feed-main {
+.checkin-history-item:hover .checkin-history-marker,
+.checkin-history-item:focus-visible .checkin-history-marker {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.checkin-history-content {
+  min-width: 0;
+  width: 100%;
+  display: grid;
   gap: 2px;
 }
 
-.checkin-feed-main strong,
-.checkin-feed-main small,
+.checkin-history-heading {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.checkin-history-heading strong,
+.checkin-history-content small,
 .checkin-feed-note {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.checkin-feed-main strong {
-  font-size: var(--font-size-lg);
+.checkin-history-heading strong {
+  min-width: 0;
+  font-size: var(--font-size-base);
   white-space: nowrap;
 }
 
-.checkin-feed-main small,
-.checkin-feed-meta,
+.checkin-history-heading time {
+  flex: 0 0 auto;
+  color: var(--ink);
+  font-size: var(--font-size-sm);
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.checkin-history-content small,
 .checkin-feed-note {
   color: var(--muted);
   font-size: var(--font-size-sm);
+  white-space: nowrap;
 }
 
 .checkin-feed-note {
   margin: 2px 0 0;
-  white-space: nowrap;
-}
-
-.checkin-feed-meta {
-  justify-items: end;
-  gap: 2px;
-  white-space: nowrap;
-  font-size: var(--font-size-xs);
-}
-
-.checkin-feed-meta time {
-  color: var(--accent);
-  font-weight: 750;
 }
 
 .checkin-feed-author {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: var(--font-size-xs);
 }
 
 .checkin-feed-empty {
@@ -117,28 +158,18 @@
   display: grid;
   place-items: center;
   padding: var(--space-3);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
 }
 
 @media (min-width: 760px) {
   .checkin-feed {
     max-height: calc(100svh - 116px);
     overflow-y: auto;
+    margin-bottom: 0;
     padding: var(--space-2);
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-soft);
     overscroll-behavior: contain;
   }
 
-  .checkin-feed-row {
+  .checkin-history-item {
     min-height: 60px;
-    padding: 9px 10px;
-    background: transparent;
-    box-shadow: none;
   }
 }
