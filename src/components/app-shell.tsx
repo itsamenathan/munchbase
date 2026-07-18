@@ -48,6 +48,7 @@ import {
   type BottomTab,
   type RestaurantOrigin,
 } from "@/lib/routes";
+import { compareRestaurantNames } from "@/lib/restaurant-sort";
 import { submitMutation } from "@/lib/mutation-client";
 import type { AppState, RatingDefinition } from "@/lib/types";
 
@@ -312,7 +313,7 @@ export default function AppShell({
         !filterValue ||
         r.ratings.some((rating) => String(rating.definitionId) === filterDefinition && rating.value === filterValue);
       return textMatch && ratingMatch;
-    }).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    }).sort((a, b) => compareRestaurantNames(a.name, b.name));
   }, [activeState.restaurants, filterDefinition, filterValue, query]);
 
   const restaurantDistances = useMemo(() => {
