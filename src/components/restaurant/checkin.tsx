@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, Pencil, Trash2 } from "lucide-react";
+import { CalendarClock, CalendarPlus, Pencil, Trash2, UserRound } from "lucide-react";
 import { formatShortDateTime, localDateTimeInputValue } from "@/lib/datetime";
 import type { CheckIn } from "@/lib/types";
 import type { Restaurant } from "@/lib/types";
@@ -25,13 +25,16 @@ export function CheckInCard({ canWrite, checkIn }: { canWrite: boolean; checkIn:
       }}>
         <input type="hidden" name="__action" value="updateCheckIn" />
         <input type="hidden" name="checkInId" value={checkIn.id} />
-        <div className="checkin-meta">
+        <div className="checkin-edit-head">
+          <span className="checkin-avatar" aria-hidden="true"><UserRound size={15} /></span>
           <strong>{checkIn.authorName}</strong>
-          <DateTimeField value={visitedAt} onChange={setVisitedAt} />
         </div>
-        <div className="checkin-actions">
-          <button>Save</button>
-          <button type="button" className="ghost-button" onClick={() => { setVisitedAt(checkIn.visitedAt); setMode("preview"); }}>Cancel</button>
+        <div className="checkin-edit-fields">
+          <DateTimeField value={visitedAt} onChange={setVisitedAt} />
+          <div className="checkin-actions">
+            <button>Save</button>
+            <button type="button" className="ghost-button" onClick={() => { setVisitedAt(checkIn.visitedAt); setMode("preview"); }}>Cancel</button>
+          </div>
         </div>
       </form>
     );
@@ -39,9 +42,11 @@ export function CheckInCard({ canWrite, checkIn }: { canWrite: boolean; checkIn:
 
   return (
     <article className="checkin-card">
-      <div className="checkin-meta">
-        <strong>{checkIn.authorName}</strong>
-        <span className="checkin-date"><CalendarClock size={14} />{formatShortDateTime(checkIn.visitedAt)}</span>
+      <span className="checkin-timeline-dot" aria-hidden="true"><CalendarClock size={14} /></span>
+      <div className="checkin-card-content">
+        <time className="checkin-date" dateTime={checkIn.visitedAt}>{formatShortDateTime(checkIn.visitedAt)}</time>
+        <span className="checkin-author"><UserRound size={13} /> {checkIn.authorName}</span>
+      </div>
         {canWrite ? (
           <div className="checkin-actions">
             <button type="button" className="ghost-button icon-button" onClick={() => setMode("edit")} aria-label="Edit check-in"><Pencil size={16} /></button>
@@ -52,7 +57,6 @@ export function CheckInCard({ canWrite, checkIn }: { canWrite: boolean; checkIn:
             </form>
           </div>
         ) : null}
-      </div>
     </article>
   );
 }
@@ -63,11 +67,12 @@ export function CheckInForm({ entry }: { entry: Restaurant }) {
       <input type="hidden" name="__action" value="createCheckIn" />
       <input type="hidden" name="restaurantId" value={entry.id} />
       <div className="checkin-new-row">
+        <span className="checkin-new-icon" aria-hidden="true"><CalendarPlus size={17} /></span>
         <label className="datetime-field checkin-datetime">
-          <span><CalendarClock size={14} />When</span>
+          <span className="sr-only">Visit time</span>
           <input name="visitedAt" type="datetime-local" defaultValue={localDateTimeInputValue()} />
         </label>
-        <button className="checkin-log-btn">Log visit</button>
+        <button className="checkin-log-btn">Check in</button>
       </div>
     </form>
   );

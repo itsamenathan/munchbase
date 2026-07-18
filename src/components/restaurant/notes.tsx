@@ -10,11 +10,11 @@ export function NotePreview({ sections, values }: {
   const hasNotes = activeSections.some((s) => (values[s.id] ?? "").trim());
   if (!hasNotes) return <p className="muted">No notes yet.</p>;
   return (
-    <div className="markdown-sections">
+    <div className="detail-subsection-list">
       {activeSections.map((s) => {
         const value = values[s.id] ?? "";
         return value.trim() ? (
-          <section key={s.id} className="markdown-section">
+          <section key={s.id} className="detail-subsection markdown-content">
             <h5>{s.name}</h5>
             <ReactMarkdown>{value}</ReactMarkdown>
           </section>

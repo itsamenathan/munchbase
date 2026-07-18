@@ -1117,8 +1117,23 @@ code {
 
 @media (max-width: 759px) {
   .topbar {
+    padding: max(8px, var(--safe-inset-top)) max(12px, var(--safe-inset-right)) 6px max(12px, var(--safe-inset-left));
     background: var(--paper);
     box-shadow: 0 1px 0 color-mix(in srgb, var(--line) 72%, transparent);
+  }
+
+  .topbar-brand {
+    min-height: 36px;
+  }
+
+  .topbar-brand h2 {
+    font-size: var(--font-size-lg);
+  }
+
+  .user-menu-button {
+    width: 40px;
+    min-width: 40px;
+    min-height: 40px;
   }
 }
 

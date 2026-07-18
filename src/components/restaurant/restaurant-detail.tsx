@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Check, ChevronLeft, LocateFixed, Pencil, Plus, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CalendarClock, Check, ChevronLeft, LocateFixed, NotebookText, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { formatCityState } from "@/lib/address";
 import { NOTE_SECTION_PRESETS, parseNotes } from "@/lib/note-sections";
 import { NotePreview, NotesEditField } from "./notes";
@@ -90,6 +90,12 @@ export function RestaurantDetail({
   const latInputRef = useRef<HTMLInputElement>(null);
   const lonInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const nextMode = initialEdit && canWrite ? "edit" : "preview";
+    setEntryMode(nextMode);
+    if (nextMode === "preview") setNoteValues(parseNotes(entry.notes));
+  }, [canWrite, entry.notes, initialEdit]);
+
   const toggleListMembership = async (listId: number, inList: boolean) => {
     setMembershipIds((prev) => {
       const next = new Set(prev);
@@ -166,14 +172,16 @@ export function RestaurantDetail({
 
   return (
     <div className="detail-content">
-      <button type="button" className="mobile-back-button" onClick={onBack}>
-        <ChevronLeft size={18} /> Back to {initialEdit ? "Restaurant" : backLabel}
-      </button>
       <div className="detail-head">
-        <div className="detail-title-group">
-          <h3>{entry.name}</h3>
-          <span className="detail-location">{formatCityState(entry.address)}</span>
-          <RatingSummary entry={entry} definitions={globalSummaryDefinitions} />
+        <div className="detail-title-with-back">
+          <button type="button" className="mobile-title-back" onClick={onBack} aria-label={`Back to ${initialEdit ? "Restaurant" : backLabel}`}>
+            <ChevronLeft size={20} />
+          </button>
+          <div className="detail-title-group">
+            <h3>{entry.name}</h3>
+            <span className="detail-location">{formatCityState(entry.address)}</span>
+            <RatingSummary entry={entry} definitions={globalSummaryDefinitions} />
+          </div>
         </div>
         <div className="detail-actions">
           {canWrite && entryMode === "preview" ? (
@@ -293,12 +301,12 @@ export function RestaurantDetail({
         </>
       ) : (
         <>
-          <section className="notes-panel">
-            <div className="section-head"><h4>Notes</h4></div>
+          <section className="detail-section-card notes-panel">
+            <div className="section-head"><span className="detail-section-title"><NotebookText size={16} /><h4>Notes</h4></span></div>
             <NotePreview sections={noteSections} values={noteValues} />
           </section>
-          <section className="notes-panel">
-            <div className="section-head"><h4>Ratings</h4></div>
+          <section className="detail-section-card notes-panel">
+            <div className="section-head"><span className="detail-section-title"><Star size={16} /><h4>Ratings</h4></span></div>
             <AttributePreview entry={entry} groups={ratingGroups} />
           </section>
           <RestaurantPhotos
@@ -309,16 +317,19 @@ export function RestaurantDetail({
             onSelectPhoto={onSelectPhoto}
             onClosePhoto={onClosePhoto}
           />
-          <section className="checkin-box">
-            <div className="section-head"><h4>Check-ins</h4></div>
+          <section className="detail-section-card checkin-box">
+            <div className="section-head checkin-section-head">
+              <span className="detail-section-title"><CalendarClock size={16} /><h4>Check-ins</h4></span>
+              {entry.checkInCount > 0 ? <span className="checkin-section-count">{entry.checkInCount} {entry.checkInCount === 1 ? "visit" : "visits"}</span> : null}
+            </div>
+            {canWrite ? <CheckInForm entry={entry} /> : null}
             {entry.latestCheckIn ? (
               <div className="checkin-list">
                 {entry.checkIns.map((c) => (<CheckInCard key={c.id} canWrite={canWrite} checkIn={c} />))}
               </div>
             ) : (
-              <p className="muted">No check-ins yet.</p>
+              <p className="checkin-empty">No visits logged yet.</p>
             )}
-            {canWrite ? <CheckInForm entry={entry} /> : null}
           </section>
         </>
       )}

@@ -2,7 +2,7 @@
 
 import { startTransition, useEffect, useRef, useState, type TouchEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, ChevronLeft, ChevronRight, ImagePlus, Pencil, Trash2, X } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, ImagePlus, Images, Pencil, Trash2, X } from "lucide-react";
 import { appendCsrfToken } from "@/lib/csrf-client";
 import { formatShortDateTime } from "@/lib/datetime";
 import type { Restaurant, RestaurantPhoto } from "@/lib/types";
@@ -101,9 +101,9 @@ export function RestaurantPhotos({
     : count > 1 ? `Upload ${count} photos` : "Upload photo";
 
   return (
-    <section className="photo-section">
+    <section className="detail-section-card photo-section">
       <div className="section-head">
-        <h4>Photos</h4>
+        <span className="detail-section-title"><Images size={16} /><h4>Photos</h4></span>
         {entry.photos.length ? <span className="pill">{entry.photos.length}</span> : null}
       </div>
 

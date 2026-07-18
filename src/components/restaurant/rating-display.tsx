@@ -24,9 +24,9 @@ export function AttributePreview({ entry, groups }: { entry: Restaurant; groups:
     .filter((g) => g.definitions.length);
   if (!ratedGroups.length) return <p className="muted">Not rated yet.</p>;
   return (
-    <div className="markdown-sections">
+    <div className="detail-subsection-list">
       {ratedGroups.map((g) => (
-        <section key={g.list.id} className="markdown-section">
+        <section key={g.list.id} className="detail-subsection">
           <h5>{g.list.name}</h5>
           <div className="rating-summary">
             {g.definitions.map((d) => {
