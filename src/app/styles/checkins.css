@@ -161,15 +161,114 @@
 }
 
 @media (min-width: 760px) {
+  .checkin-content-grid {
+    height: calc(100svh - 32px);
+    max-height: calc(100svh - 32px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .checkin-content-grid:not(.has-selection) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .checkin-content-grid:not(.has-selection) > .detail {
+    display: none;
+  }
+
   .checkin-feed {
-    max-height: calc(100svh - 116px);
+    height: 100%;
+    max-height: calc(100svh - 32px);
     overflow-y: auto;
     margin-bottom: 0;
-    padding: var(--space-2);
+    padding: 0 0 var(--space-3);
+    gap: 0;
     overscroll-behavior: contain;
   }
 
+  .checkin-feed-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 20px 22px 18px;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--panel) 94%, transparent);
+    backdrop-filter: blur(12px);
+  }
+
+  .checkin-feed-header h3 {
+    font-size: 24px;
+    letter-spacing: -0.02em;
+  }
+
+  .checkin-feed-count {
+    padding: 5px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--field);
+    color: var(--ink);
+  }
+
+  .checkin-day-group {
+    gap: 8px;
+    padding: 18px 20px 2px;
+  }
+
+  .checkin-day-heading {
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .checkin-history-list {
+    padding-left: 19px;
+  }
+
   .checkin-history-item {
-    min-height: 60px;
+    min-height: 72px;
+    margin-right: 2px;
+    padding: 10px 10px 10px 27px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    transition: background-color 120ms ease;
+  }
+
+  .checkin-history-item:hover,
+  .checkin-history-item:focus-visible {
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+    outline: none;
+  }
+
+  .checkin-content-grid:not(.has-selection) .checkin-day-group {
+    grid-template-columns: minmax(92px, 0.18fr) minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .checkin-content-grid:not(.has-selection) .checkin-day-heading {
+    padding: 11px 0 0;
+    text-align: right;
+  }
+
+  .checkin-content-grid:not(.has-selection) .checkin-history-item {
+    min-height: 82px;
+    padding-right: var(--space-3);
+  }
+
+  .checkin-content-grid:not(.has-selection) .checkin-history-heading strong {
+    font-size: var(--font-size-lg);
+  }
+
+  .checkin-content-grid:not(.has-selection) .checkin-history-content {
+    gap: 3px;
+  }
+
+  .checkin-content-grid.has-selection .checkin-feed-header {
+    padding: var(--space-2);
+  }
+
+  .checkin-content-grid.has-selection .checkin-feed-header h3 {
+    font-size: var(--font-size-xl);
+  }
+
+  .checkin-content-grid.has-selection .checkin-day-group {
+    padding-inline: var(--space-2);
   }
 }

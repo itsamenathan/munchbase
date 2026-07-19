@@ -572,7 +572,6 @@ export default function AppShell({
           onOpenListSettings={openListSettings}
           onNavigateToExplore={(listId) => prepareRootNavigation("explore", listId)}
           showListSettings
-          showBrand={activeTab !== "lists"}
         />
       </aside>
 
@@ -588,6 +587,9 @@ export default function AppShell({
               <Utensils size={18} />
               <h2>Munchbase</h2>
             </Link>
+            <h2 className="desktop-page-title">
+              {activeTab === "explore" ? "Explore" : activeTab === "map" ? "Map" : activeTab === "checkins" ? "Check-ins" : "Lists"}
+            </h2>
             {selectedEntryId ? (
               <button type="button" className="topbar-brand topbar-restaurant-back" onClick={backFromRestaurant}>
                 <ChevronLeft size={18} />
@@ -598,7 +600,7 @@ export default function AppShell({
           <div className="top-actions">
             <div className="mode-toggle">
               <button className={activeTab === "explore" ? "active" : ""} onClick={() => navigateRoot("explore")}>
-                <ClipboardList size={16} /> List
+                <ClipboardList size={16} /> Explore
               </button>
               <button className={activeTab === "map" ? "active" : ""} onClick={() => navigateRoot("map")}>
                 <Map size={16} /> Map
@@ -675,6 +677,13 @@ export default function AppShell({
         <div className={settingsOpen || selectedEntry ? "mobile-hidden-when-detail" : undefined}>
           {activeTab === "lists" && !settingsOpen ? (
             <section className="mobile-lists-view">
+              <header className="lists-page-header">
+                <div>
+                  <p className="kicker">Your restaurant collections</p>
+                  <h2>Lists</h2>
+                  <p>Choose a list to explore it, or open its settings to customize attributes.</p>
+                </div>
+              </header>
               <SidebarContent
                 state={activeState}
                 canWrite={canWrite}
@@ -687,7 +696,7 @@ export default function AppShell({
               />
             </section>
           ) : activeTab === "checkins" ? (
-            <div className="content-grid checkin-content-grid">
+            <div className={`content-grid checkin-content-grid${selectedEntry ? " has-selection" : ""}`}>
               <CheckInFeed
                 restaurants={activeState.restaurants}
                 activeListId={activeState.activeListId}
@@ -834,7 +843,7 @@ export default function AppShell({
             onSelectRestaurant={openEntryFromMap}
           />
         ) : (
-          <div className="content-grid">
+          <div className={`content-grid restaurant-content-grid${selectedEntry || settingsOpen ? " has-detail" : ""}`}>
             <section className="results">
               <h3 className="results-heading">{activeListName}</h3>
               {restaurants.length === 0 ? (

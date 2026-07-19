@@ -722,6 +722,10 @@ code {
   min-width: 0;
 }
 
+.desktop-page-title {
+  display: none;
+}
+
 .topbar-brand {
   display: inline-flex;
   align-items: center;
@@ -1125,6 +1129,10 @@ code {
   margin: var(--space-2);
 }
 
+.lists-page-header {
+  display: none;
+}
+
 @media (max-width: 759px) {
   .topbar {
     padding: max(8px, var(--safe-inset-top)) max(12px, var(--safe-inset-right)) 6px max(12px, var(--safe-inset-left));
@@ -1157,8 +1165,9 @@ code {
 
 @media (min-width: 760px) {
   .topbar {
+    position: relative;
     margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0;
-    padding: var(--space-3) var(--space-3) var(--space-2);
+    padding: 12px var(--space-3) 10px;
   }
 
   .install-prompt {
@@ -1166,6 +1175,18 @@ code {
     right: 18px;
     bottom: 18px;
     width: min(440px, calc(100vw - 36px));
+  }
+}
+
+@media (min-width: 1080px) {
+  .topbar-default-brand {
+    display: none;
+  }
+
+  .desktop-page-title {
+    display: block;
+    font-size: var(--font-size-xl);
+    letter-spacing: -0.02em;
   }
 }
 
