@@ -1,4 +1,5 @@
 .restaurant-row {
+  display: flex;
   width: 100%;
   min-height: 74px;
   justify-content: space-between;
@@ -8,6 +9,7 @@
     linear-gradient(135deg, var(--panel-sheen), transparent 52%),
     var(--panel);
   color: var(--ink);
+  text-decoration: none;
   border: 1px solid var(--line);
   padding: 14px;
   font-weight: 400;

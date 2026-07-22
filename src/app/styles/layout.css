@@ -22,6 +22,81 @@
   gap: var(--space-2);
 }
 
+.route-workspace,
+.route-content {
+  flex: 1;
+  min-height: 0;
+}
+
+.route-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.route-panel {
+  min-height: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: var(--space-2);
+}
+
+.route-panel:empty {
+  display: none;
+}
+
+.standalone-tool-page {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-2);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.standalone-tool-page h2,
+.standalone-tool-page p {
+  margin: 0;
+}
+
+.add-panel-desktop {
+  display: none;
+}
+
+@media (min-width: 1080px) {
+  .add-panel-desktop {
+    display: grid;
+    align-content: start;
+    gap: var(--space-2);
+  }
+
+  .add-panel-desktop h2,
+  .add-panel-desktop p {
+    margin: 0;
+  }
+}
+
+@media (max-width: 759px) {
+  .route-workspace:has(> .route-panel:not(:empty)) > .route-content {
+    display: none;
+  }
+
+  .route-workspace:has(> .route-panel:not(:empty)) {
+    overflow: hidden;
+  }
+
+  .route-panel {
+    flex: 1;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+}
+
 @media (max-width: 759px) {
   .mobile-hidden-when-detail {
     display: none !important;
@@ -154,6 +229,10 @@
     overflow: hidden;
   }
 
+  .route-content {
+    overflow: auto;
+  }
+
   .results {
     height: 100%;
     max-height: none;
@@ -178,6 +257,17 @@
     grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.22fr);
     grid-template-rows: minmax(0, 1fr);
     gap: var(--space-2);
+  }
+
+  .route-workspace:has(> .route-panel:not(:empty)) {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.22fr);
+    gap: var(--space-2);
+    overflow: hidden;
+  }
+
+  .route-panel {
+    overflow: auto;
   }
 
   .detail {

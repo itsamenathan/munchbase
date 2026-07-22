@@ -7,7 +7,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import { Crosshair, Star, DollarSign } from "lucide-react";
 import { formatShortDateTime } from "@/lib/datetime";
 import { readCachedLocation, writeCachedLocation } from "@/lib/location-cache";
-import type { RatingDefinition, Restaurant } from "@/lib/types";
+import type { RatingDefinition, RestaurantSummary } from "@/lib/types";
 
 const ICON_OPTIONS = { iconSize: [28, 28] as [number, number], iconAnchor: [14, 28] as [number, number], popupAnchor: [0, -26] as [number, number] };
 const PIN_HTML = '<span aria-hidden="true"></span>';
@@ -20,7 +20,7 @@ const locationIcon = L.divIcon({ ...ICON_OPTIONS, className: "location-marker", 
 // Survives tab switches (unmount/remount) within the same session.
 let savedMapState: { center: [number, number]; zoom: number } | null = null;
 
-function markerIcon(goBackDefinitionId: number | null, ratings: Restaurant["ratings"]): L.DivIcon {
+function markerIcon(goBackDefinitionId: number | null, ratings: RestaurantSummary["ratings"]): L.DivIcon {
   if (goBackDefinitionId === null) return plainIcon;
   const value = ratings.find((r) => r.definitionId === goBackDefinitionId)?.value;
   return value === "true" ? goBackIcon : noGoIcon;
@@ -111,7 +111,7 @@ function RestaurantPopup({
   globalRatingDefinitions,
   onSelect,
 }: {
-  restaurant: Restaurant;
+  restaurant: RestaurantSummary;
   globalRatingDefinitions: RatingDefinition[];
   onSelect: () => void;
 }) {
@@ -168,10 +168,10 @@ export default function MapView({
   goBackDefinitionId,
   onSelectRestaurant,
 }: {
-  restaurants: Restaurant[];
+  restaurants: RestaurantSummary[];
   globalRatingDefinitions: RatingDefinition[];
   goBackDefinitionId: number | null;
-  onSelectRestaurant: (id: number) => void;
+  onSelectRestaurant?: (id: number) => void;
 }) {
   const withCoords = restaurants.filter((r) => r.lat !== null && r.lon !== null);
   const defaultCenter: [number, number] = withCoords[0] ? [withCoords[0].lat!, withCoords[0].lon!] : [39.5, -98.35];
@@ -200,7 +200,7 @@ export default function MapView({
             <RestaurantPopup
               restaurant={restaurant}
               globalRatingDefinitions={globalRatingDefinitions}
-              onSelect={() => onSelectRestaurant(restaurant.id)}
+            onSelect={() => onSelectRestaurant?.(restaurant.id)}
             />
           </Popup>
         </Marker>
@@ -210,7 +210,7 @@ export default function MapView({
   );
 }
 
-function googleMapsUrl(restaurant: Restaurant) {
+function googleMapsUrl(restaurant: RestaurantSummary) {
   const query = [restaurant.name, restaurant.address].filter(Boolean).join(" ");
   return restaurant.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }

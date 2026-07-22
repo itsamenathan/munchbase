@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  adminHref,
   addHref,
   addListHref,
   addListStep,
@@ -57,5 +58,11 @@ describe("Add route", () => {
   it("builds the Add route with and without an active List", () => {
     expect(addHref(null)).toBe("/add");
     expect(addHref(7)).toBe("/add?list=7");
+  });
+});
+
+describe("Admin route", () => {
+  it("preserves a return path", () => {
+    expect(adminHref("/map?list=7")).toBe("/admin?returnTo=%2Fmap%3Flist%3D7");
   });
 });

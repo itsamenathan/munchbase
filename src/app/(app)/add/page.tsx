@@ -1,3 +1,1 @@
-export default function AddPage() {
-  return null;
-}
+export { AddRoute as default } from "@/components/routes/route-panels";

@@ -1,3 +1,5 @@
+import { SettingsRoute } from "@/components/routes/route-panels";
+
 export default function GlobalListSettingsPage() {
-  return null;
+  return <SettingsRoute listId={null} />;
 }

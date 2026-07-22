@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { LogOut, Plus, Settings, Utensils } from "lucide-react";
 import { tabHref } from "@/lib/routes";
-import type { AppState } from "@/lib/types";
+import type { CountedList, User } from "@/lib/types";
 
 export function SidebarContent({
-  state,
+  user,
+  lists,
+  activeListId,
+  totalRestaurantCount,
   canWrite,
   onCloseDrawer,
   onOpenAddList,
@@ -14,7 +17,10 @@ export function SidebarContent({
   showBrand = true,
   onNavigateToExplore,
 }: {
-  state: AppState;
+  user: User;
+  lists: CountedList[];
+  activeListId: number | null;
+  totalRestaurantCount: number;
   canWrite: boolean;
   onCloseDrawer?: () => void;
   onOpenAddList: () => void;
@@ -24,9 +30,6 @@ export function SidebarContent({
   showBrand?: boolean;
   onNavigateToExplore?: (listId: number | null) => void;
 }) {
-  const restaurantCountForList = (listId: number) =>
-    state.allRestaurants.filter((r) => r.memberships.some((m) => m.id === listId)).length;
-
   return (
     <>
       {showBrand ? (
@@ -34,15 +37,15 @@ export function SidebarContent({
           <Utensils size={24} />
           <div>
             <h1>Munchbase</h1>
-            <p>{state.user.name}</p>
+            <p>{user.name}</p>
           </div>
         </div>
       ) : null}
       <nav className="list-nav">
-        <div className={`list-nav-row ${state.activeListId === null ? "active" : ""}`}>
+        <div className={`list-nav-row ${activeListId === null ? "active" : ""}`}>
           <Link href={tabHref("explore", null)} replace onClick={() => { onNavigateToExplore?.(null); onCloseDrawer?.(); }}>
             All restaurants
-            <span>{state.allRestaurants.length}</span>
+            <span>{totalRestaurantCount}</span>
           </Link>
           {showListSettings && onOpenListSettings ? (
             <button
@@ -55,10 +58,10 @@ export function SidebarContent({
             </button>
           ) : null}
         </div>
-        {state.lists.map((list) => (
+        {lists.map((list) => (
           <div
             key={list.id}
-            className={`list-nav-row ${list.id === state.activeListId ? "active" : ""}`}
+            className={`list-nav-row ${list.id === activeListId ? "active" : ""}`}
           >
             <Link
               href={tabHref("explore", list.id)}
@@ -66,7 +69,7 @@ export function SidebarContent({
               onClick={() => { onNavigateToExplore?.(list.id); onCloseDrawer?.(); }}
             >
               {list.name}
-              <span>{restaurantCountForList(list.id)}</span>
+              <span>{list.restaurantCount}</span>
             </Link>
             {showListSettings && onOpenListSettings ? (
               <button

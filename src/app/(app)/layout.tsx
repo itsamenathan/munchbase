@@ -1,12 +1,13 @@
 import { currentUser } from "@/lib/auth";
-import { getAppState, getDb, userCount } from "@/lib/db";
-import AppShell from "@/components/app-shell";
+import { getDb, userCount } from "@/lib/db";
+import { getShellData } from "@/lib/data/shell";
+import { AppFrame } from "@/components/app-frame";
 import { LoginForm } from "@/components/auth/login-form";
 import { MutationErrorMessage } from "@/components/auth/mutation-error";
 import { CsrfInput } from "@/components/shared/csrf-input";
 import { getCsrfTokenFromCookies } from "@/lib/csrf";
 
-export default async function AuthenticatedAppLayout({ children }: { children: React.ReactNode }) {
+export default async function AuthenticatedAppLayout({ children, panel }: LayoutProps<"/">) {
   const user = await currentUser();
   const csrfToken = await getCsrfTokenFromCookies();
   const hasUsers = userCount().count > 0;
@@ -53,7 +54,7 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
     );
   }
 
-  return <AppShell state={getAppState(user, null)}>{children}</AppShell>;
+  return <AppFrame data={getShellData(user)} panel={panel}>{children}</AppFrame>;
 }
 
 function AuthFrame({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {

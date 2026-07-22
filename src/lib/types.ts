@@ -90,17 +90,55 @@ export type Restaurant = {
   photos: RestaurantPhoto[];
 };
 
-export type AppState = {
+export type CountedList = List & { restaurantCount: number };
+
+export type ShellData = {
   user: User;
+  lists: CountedList[];
+  totalRestaurantCount: number;
+};
+
+export type RestaurantSummary = Pick<
+  Restaurant,
+  | "id"
+  | "placeId"
+  | "name"
+  | "address"
+  | "lat"
+  | "lon"
+  | "osmType"
+  | "osmId"
+  | "notes"
+  | "googleMapsUrl"
+  | "yelpUrl"
+  | "ratings"
+  | "memberships"
+  | "latestCheckIn"
+  | "checkInCount"
+>;
+
+export type RestaurantPickerItem = Pick<
+  RestaurantSummary,
+  "id" | "name" | "address" | "memberships"
+>;
+
+export type RestaurantDetailData = {
+  restaurant: Restaurant;
   lists: List[];
-  activeList: List | null;
-  activeListId: number | null;
-  restaurants: Restaurant[];
-  allRestaurants: Restaurant[];
   globalRatingDefinitions: RatingDefinition[];
-  ratingDefinitions: RatingDefinition[];
-  allRatingDefinitions: RatingDefinition[];
+  listRatingDefinitions: RatingDefinition[];
+  allListRatingDefinitions: RatingDefinition[];
   noteSections: NoteSectionDefinition[];
+};
+
+export type ListSettingsData = {
+  list: List | null;
+  definitions: RatingDefinition[];
+  noteSections: NoteSectionDefinition[];
+};
+
+export type AdminData = {
+  currentUser: User;
   users: User[];
   appSettings: { selfSignupEnabled: boolean };
 };

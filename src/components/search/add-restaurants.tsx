@@ -3,7 +3,7 @@
 import { type FormEvent, type ReactNode, type Ref } from "react";
 import { MapPin, Plus, Search } from "lucide-react";
 import { restaurantHref } from "@/lib/routes";
-import type { AppState } from "@/lib/types";
+import type { List, RestaurantPickerItem } from "@/lib/types";
 
 type PlaceResult = {
   osmType: string;
@@ -37,7 +37,8 @@ export function ManualRestaurantForm({ listId }: { listId: number | null }) {
 }
 
 export type AddRestaurantsPanelProps = {
-  state: AppState;
+  activeList: List | null;
+  restaurants: RestaurantPickerItem[];
   canWrite: boolean;
   placeQuery: string;
   setPlaceQuery: (v: string) => void;
@@ -53,7 +54,8 @@ export type AddRestaurantsPanelProps = {
 };
 
 export function AddRestaurantsPanel({
-  state,
+  activeList,
+  restaurants,
   canWrite,
   placeQuery,
   setPlaceQuery,
@@ -70,7 +72,7 @@ export function AddRestaurantsPanel({
   if (!canWrite) return null;
   const isSearching = placeQuery.trim().length >= 2;
   const existingMatches = isSearching
-    ? state.allRestaurants.filter((r) => {
+    ? restaurants.filter((r) => {
         const needle = placeQuery.trim().toLowerCase();
         return [r.name, r.address].filter(Boolean).join(" ").toLowerCase().includes(needle);
       }).slice(0, 6)
@@ -78,15 +80,16 @@ export function AddRestaurantsPanel({
 
   // Nearby results that aren't already in Munchbase
   const newNearbyResults = nearbyResults.filter(
-    (place) => !state.allRestaurants.some((r) => r.name.toLowerCase() === place.name.toLowerCase())
+    (place) => !restaurants.some((r) => r.name.toLowerCase() === place.name.toLowerCase())
   );
 
   const hasResults = existingMatches.length > 0 || placeResults.length > 0 || (!isSearching && newNearbyResults.length > 0);
-  const targetLabel = state.activeList ? state.activeList.name : "your restaurants";
+  const activeListId = activeList?.id ?? null;
+  const targetLabel = activeList ? activeList.name : "your restaurants";
 
   return (
     <section className="tool-panel add-restaurants-panel">
-      {showListContext && state.activeList ? <p className="kicker">{state.activeList.name}</p> : null}
+      {showListContext && activeList ? <p className="kicker">{activeList.name}</p> : null}
       <form className="place-search" onSubmit={searchPlaces}>
         <input
           ref={searchInputRef}
@@ -113,19 +116,19 @@ export function AddRestaurantsPanel({
           <h4 className="add-section-label">Already in Munchbase</h4>
           <div className="add-results-list">
             {existingMatches.map((r) => {
-              const alreadyInList = state.activeListId
-                ? r.memberships.some((m) => m.id === state.activeListId)
+              const alreadyInList = activeListId
+                ? r.memberships.some((m) => m.id === activeListId)
                 : true;
               return (
-                <form action={state.activeListId && !alreadyInList ? "/mutate" : undefined} method="post" className="place-result" key={r.id}>
+                <form action={activeListId && !alreadyInList ? "/mutate" : undefined} method="post" className="place-result" key={r.id}>
                   <input type="hidden" name="__action" value="attachRestaurantToList" />
                   <input type="hidden" name="restaurantId" value={r.id} />
                   <input type="hidden" name="openRestaurant" value="1" />
-                  {state.activeListId ? <input type="hidden" name="listId" value={state.activeListId} /> : null}
-                  <button type={state.activeListId && !alreadyInList ? "submit" : "button"} onClick={() => {
-                    if (!state.activeListId || alreadyInList) {
+                  {activeListId ? <input type="hidden" name="listId" value={activeListId} /> : null}
+                  <button type={activeListId && !alreadyInList ? "submit" : "button"} onClick={() => {
+                    if (!activeListId || alreadyInList) {
                       if (onOpenRestaurant) onOpenRestaurant(r.id);
-                      else window.location.href = restaurantHref(r.id, state.activeListId, { origin: "explore" });
+                      else window.location.href = restaurantHref(r.id, activeListId, { origin: "explore" });
                     }
                   }}>
                     <strong>{r.name}</strong>
@@ -145,7 +148,7 @@ export function AddRestaurantsPanel({
             {newNearbyResults.map((place) => (
               <form action="/mutate" method="post" className="place-result" key={`${place.osmType}-${place.osmId}`}>
                 <input type="hidden" name="__action" value="addRestaurant" />
-                {state.activeListId ? <input type="hidden" name="listId" value={state.activeListId} /> : null}
+                {activeListId ? <input type="hidden" name="listId" value={activeListId} /> : null}
                 {Object.entries(place).map(([k, v]) => (<input key={k} type="hidden" name={k} value={v} />))}
                 <button>
                   <strong>{place.name}</strong>
@@ -164,7 +167,7 @@ export function AddRestaurantsPanel({
             {placeResults.map((place) => (
               <form action="/mutate" method="post" className="place-result" key={`${place.osmType}-${place.osmId}`}>
                 <input type="hidden" name="__action" value="addRestaurant" />
-                {state.activeListId ? <input type="hidden" name="listId" value={state.activeListId} /> : null}
+                {activeListId ? <input type="hidden" name="listId" value={activeListId} /> : null}
                 {Object.entries(place).map(([k, v]) => (<input key={k} type="hidden" name={k} value={v} />))}
                 <button>
                   <strong>{place.name}</strong>
@@ -177,10 +180,10 @@ export function AddRestaurantsPanel({
       ) : null}
 
       {!hasResults && placeSearchStatus && !placeSearchStatus.includes("Searching") ? (
-        <ManualRestaurantForm listId={state.activeListId} />
+        <ManualRestaurantForm listId={activeListId} />
       ) : null}
       {!placeSearchStatus ? (
-        <ManualRestaurantForm listId={state.activeListId} />
+        <ManualRestaurantForm listId={activeListId} />
       ) : null}
     </section>
   );

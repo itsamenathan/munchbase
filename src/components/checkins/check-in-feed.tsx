@@ -2,22 +2,20 @@ import Link from "next/link";
 import { CalendarClock, UserRound } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatCityState } from "@/lib/address";
-import { buildCheckInFeed, formatCheckInTime, groupCheckInFeed } from "@/lib/check-ins";
+import { formatCheckInTime, groupCheckInFeed, type CheckInFeedItem } from "@/lib/check-ins";
 import { checkInRestaurantHref, tabHref } from "@/lib/routes";
-import type { Restaurant } from "@/lib/types";
 
 export function CheckInFeed({
-  restaurants,
+  checkIns,
   activeListId,
   activeListName,
   onOpenRestaurant,
 }: {
-  restaurants: Restaurant[];
+  checkIns: CheckInFeedItem[];
   activeListId: number | null;
   activeListName: string;
   onOpenRestaurant?: () => void;
 }) {
-  const checkIns = buildCheckInFeed(restaurants);
   const groups = groupCheckInFeed(checkIns);
   const visitLabel = `${checkIns.length} ${checkIns.length === 1 ? "visit" : "visits"}`;
 

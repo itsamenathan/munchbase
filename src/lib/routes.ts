@@ -15,6 +15,11 @@ export function addHref(listId: number | null) {
   return `/add${listQuery(listId)}`;
 }
 
+export function adminHref(returnTo = "/explore") {
+  const params = new URLSearchParams({ returnTo });
+  return `/admin?${params.toString()}`;
+}
+
 export function checkInRestaurantHref(id: number, listId: number | null) {
   return restaurantHref(id, listId, { origin: "checkins" });
 }

@@ -22,7 +22,7 @@ import { RATING_PRESETS } from "@/lib/ratings";
 import { RATING_ICON_MAP, RATING_ICON_CHOICES } from "@/components/restaurant/rating-common";
 import { PanelTitle } from "@/components/shared/panel-title";
 import { appendCsrfToken } from "@/lib/csrf-client";
-import type { AppState, NoteSectionDefinition, RatingDefinition } from "@/lib/types";
+import type { ListSettingsData, NoteSectionDefinition, RatingDefinition } from "@/lib/types";
 
 function useReorderSensors() {
   return useSensors(
@@ -120,9 +120,9 @@ function groupIcons(query: string) {
   );
 }
 
-export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose: () => void }) {
-  const isGlobal = !state.activeList;
-  const definitions = isGlobal ? state.globalRatingDefinitions : state.ratingDefinitions;
+export function ListSettingsPanel({ data, onClose }: { data: ListSettingsData; onClose: () => void }) {
+  const isGlobal = !data.list;
+  const definitions = data.definitions;
 
   return (
     <div className="detail-content">
@@ -132,7 +132,7 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
       <div className="detail-head">
         <div className="detail-title-group">
           <span className="kicker">{isGlobal ? "Global ratings" : "List settings"}</span>
-          <h3>{state.activeList?.name ?? "All restaurants"}</h3>
+          <h3>{data.list?.name ?? "All restaurants"}</h3>
         </div>
         <div className="detail-actions">
           <button className="ghost-button desktop-close-button" onClick={onClose}>Close</button>
@@ -145,7 +145,7 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
             <PanelTitle icon={<Star size={17} />} title="Built-ins" detail="Common ratings shown for every restaurant." />
             <div className="preset-grid">
               {RATING_PRESETS.map((preset) => {
-                const d = state.globalRatingDefinitions.find((item) => item.presetKey === preset.key);
+                const d = data.definitions.find((item) => item.presetKey === preset.key);
                 const enabled = d?.active ?? false;
                 return (
                   <form action="/mutate" method="post" className={`preset-card ${enabled ? "enabled" : ""}`} key={preset.key}>
@@ -166,37 +166,37 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
           </section>
           <section className="settings-section">
             <PanelTitle icon={<StickyNote size={17} />} title="Note headings" detail="Sections shown in every restaurant's notes." />
-            <NoteSectionCards sections={state.noteSections} />
+            <NoteSectionCards sections={data.noteSections} />
             <AddNoteSectionForm />
           </section>
         </>
       ) : null}
 
-      {!isGlobal && state.activeList ? (
+      {!isGlobal && data.list ? (
         <>
           <section className="settings-section">
             <PanelTitle icon={<Star size={17} />} title="List details" detail="Rename this list." />
             <form action="/mutate" method="post" className="stack-form">
               <input type="hidden" name="__action" value="updateListDetails" />
-              <input type="hidden" name="listId" value={state.activeList.id} />
-              <input name="name" defaultValue={state.activeList.name} required />
+              <input type="hidden" name="listId" value={data.list.id} />
+              <input name="name" defaultValue={data.list.name} required />
               <button>Save list details</button>
             </form>
           </section>
           <section className="settings-section">
             <PanelTitle icon={<Star size={17} />} title="Custom fields" detail="Add list-specific ratings for restaurants in this list." />
             <AttributeCards definitions={definitions} />
-            <AddCustomFieldForm scope="list" listId={state.activeList.id} />
+            <AddCustomFieldForm scope="list" listId={data.list.id} />
           </section>
           <details className="danger-zone">
             <summary>Danger zone</summary>
             <form
               action="/mutate"
               method="post"
-              onSubmit={(e) => { if (!confirm(`Permanently delete "${state.activeList!.name}"? Restaurants stay, but this list's custom fields and membership will be removed.`)) e.preventDefault(); }}
+              onSubmit={(e) => { if (!confirm(`Permanently delete "${data.list!.name}"? Restaurants stay, but this list's custom fields and membership will be removed.`)) e.preventDefault(); }}
             >
               <input type="hidden" name="__action" value="deleteList" />
-              <input type="hidden" name="listId" value={state.activeList.id} />
+              <input type="hidden" name="listId" value={data.list.id} />
               <button className="danger-button" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Trash2 size={14} /> Delete list
               </button>

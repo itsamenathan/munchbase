@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus, Search, X } from "lucide-react";
 import { CustomFieldControls } from "@/components/lists/list-settings";
-import type { AppState, RatingDefinition } from "@/lib/types";
+import type { RatingDefinition, RestaurantPickerItem } from "@/lib/types";
 import type { AddListStep } from "@/lib/routes";
 
 type CustomFieldDraft = {
@@ -27,13 +27,13 @@ function emptyCustomFieldDraft(): CustomFieldDraft {
 }
 
 export function AddListModal({
-  state,
+  restaurants,
   step,
   onStepChange,
   onBackStep,
   onClose,
 }: {
-  state: AppState;
+  restaurants: RestaurantPickerItem[];
   step: AddListStep;
   onStepChange: (step: AddListStep) => void;
   onBackStep: () => void;
@@ -49,7 +49,7 @@ export function AddListModal({
   );
   const serializedRestaurantIds = JSON.stringify(selectedRestaurantIds);
 
-  const filteredRestaurants = state.allRestaurants.filter((r) => {
+  const filteredRestaurants = restaurants.filter((r) => {
     const needle = restaurantQuery.trim().toLowerCase();
     if (!needle) return true;
     return [r.name, r.address].filter(Boolean).join(" ").toLowerCase().includes(needle);

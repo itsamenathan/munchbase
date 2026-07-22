@@ -9,7 +9,7 @@ import { CheckInCard, CheckInForm } from "./checkin";
 import { RestaurantPhotos } from "./restaurant-photos";
 import { RATING_ICON_MAP, RATING_PRESETS, type RatingDefinition, repeatedIcon } from "./rating-common";
 import { appendCsrfToken } from "@/lib/csrf-client";
-import type { AppState, NoteSectionDefinition, Restaurant } from "@/lib/types";
+import type { List, NoteSectionDefinition, Restaurant } from "@/lib/types";
 
 const NOTE_PRESET_PLACEHOLDERS: Record<string, string> = Object.fromEntries(
   NOTE_SECTION_PRESETS.map((preset) => [preset.key, preset.placeholder]),
@@ -66,7 +66,7 @@ export function RestaurantDetail({
   canWrite: boolean;
   entry: Restaurant;
   activeListId: number | null;
-  lists: AppState["lists"];
+  lists: List[];
   globalRatingDefinitions: RatingDefinition[];
   ratingDefinitions: RatingDefinition[];
   allRatingDefinitions: RatingDefinition[];
