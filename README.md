@@ -66,6 +66,7 @@ Copy `.env.example` to `.env` and fill in:
 ## Data and backups
 
 All data lives in the Docker volume `munchbase-data` (the SQLite database and an `uploads/` folder for photos). Back this volume up regularly.
+Treat the entire volume as one backup unit so database records and restaurant photos stay consistent.
 
 To back up the database while the server is running (safe with WAL mode):
 
@@ -73,7 +74,11 @@ To back up the database while the server is running (safe with WAL mode):
 docker exec <container> sqlite3 /data/munchbase.db ".backup /data/munchbase.backup.db"
 ```
 
-To restore: stop the container, replace the `.db` file, restart.
+Verify a live database without changing it with `mise run db:integrity` (or `npm run db:integrity`).
+
+To restore, stop Munchbase, restore both the database and `uploads/` directory from the same backup, ensure the files are owned by the container's `nextjs` user, then restart. Pending migrations run before the restored instance becomes ready. If migration fails, the process exits and the structured container logs identify the failing stage; restore the original volume before attempting repairs.
+
+Munchbase applies pending migrations automatically during Node startup, including after Docker image upgrades. Migration files are bundled into the image while `/data` remains persistent. Generate and commit migrations with `npm run db:generate`; validate their history with `npm run db:check`.
 
 ## Photo upload size
 
