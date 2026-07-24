@@ -1,6 +1,24 @@
 import { initializeDatabase } from "./database/startup";
 import { openDatabase } from "./database/connection";
-import type { User } from "./types";
+import { getPhotoMediaUrl } from "./restaurant-photos";
+import type {
+  AppState,
+  CheckIn,
+  List,
+  NoteSectionDefinition,
+  RatingDefinition,
+  RatingValue,
+  Restaurant,
+  RestaurantListMembership,
+  RestaurantPhoto,
+  User,
+} from "./types";
+
+type RatingDefinitionRow = Omit<RatingDefinition, "options"> & { optionsJson: string };
+
+function parseRatingDefinition(row: RatingDefinitionRow): RatingDefinition {
+  return { ...row, options: JSON.parse(row.optionsJson) as string[] };
+}
 
 export function getDb() {
   initializeDatabase();
@@ -36,4 +54,94 @@ export function getUserBySession(sessionId: string) {
        WHERE sessions.id = ? AND sessions.expires_at > CURRENT_TIMESTAMP AND users.active = 1`,
     )
     .get(sessionId) as User | undefined;
+}
+
+export function getAppState(user: User, listId?: number | null): AppState {
+  const database = getDb();
+  const lists = database
+    .prepare(`SELECT id, name, description FROM lists ORDER BY lists.created_at DESC`)
+    .all() as List[];
+  const activeList = listId ? (lists.find((list) => list.id === listId) ?? null) : null;
+  const activeListId = activeList?.id ?? null;
+  const readDefinitions = (where: string, ...params: unknown[]) =>
+    (database
+      .prepare(`SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon,
+                options_json AS optionsJson, min, max, active, sort_order AS sortOrder
+                FROM rating_definitions ${where} ORDER BY sort_order, id`)
+      .all(...params) as RatingDefinitionRow[]).map(parseRatingDefinition);
+
+  const globalRatingDefinitions = readDefinitions("WHERE scope = 'global'");
+  const ratingDefinitions = activeList ? readDefinitions("WHERE scope = 'list' AND list_id = ?", activeList.id) : [];
+  const allRatingDefinitions = readDefinitions("WHERE scope = 'list'");
+  const noteSections = database
+    .prepare(`SELECT id, preset_key AS presetKey, name, active, sort_order AS sortOrder
+              FROM note_sections ORDER BY sort_order, id`)
+    .all() as NoteSectionDefinition[];
+  const restaurants = getRestaurants(activeListId);
+  const allRestaurants = activeListId ? getRestaurants(null) : restaurants;
+  const users = user.role === "admin"
+    ? (database.prepare("SELECT id, name, email, role, active FROM users ORDER BY active DESC, name").all() as User[])
+    : [];
+  const appSettings = (database
+    .prepare("SELECT self_signup_enabled AS selfSignupEnabled FROM app_settings WHERE id = 1")
+    .get() as AppState["appSettings"] | undefined) ?? { selfSignupEnabled: false };
+
+  return { user, lists, activeList, activeListId, restaurants, allRestaurants, globalRatingDefinitions, ratingDefinitions, allRatingDefinitions, noteSections, users, appSettings };
+}
+
+export function getRestaurants(listId: number | null = null): Restaurant[] {
+  const database = getDb();
+  const whereClause = listId
+    ? "WHERE restaurants.id IN (SELECT restaurant_id FROM list_restaurants WHERE list_id = ?)"
+    : "";
+  const rows = database
+    .prepare(`SELECT restaurants.id, places.id AS placeId, places.name, places.address, places.lat, places.lon,
+              places.osm_type AS osmType, places.osm_id AS osmId, restaurants.notes AS notes,
+              restaurants.google_maps_url AS googleMapsUrl, restaurants.yelp_url AS yelpUrl
+              FROM restaurants JOIN places ON places.id = restaurants.place_id ${whereClause}
+              ORDER BY places.name COLLATE NOCASE`)
+    .all(...(listId ? [listId] : [])) as Omit<Restaurant, "ratings" | "memberships" | "ratingGroups" | "latestCheckIn" | "checkIns" | "checkInCount" | "photos">[];
+
+  return rows.map((restaurant) => ({
+    ...restaurant,
+    ratings: database.prepare("SELECT definition_id AS definitionId, value FROM rating_values WHERE restaurant_id = ?").all(restaurant.id) as RatingValue[],
+    memberships: database.prepare(`SELECT lists.id, lists.name FROM list_restaurants
+      JOIN lists ON lists.id = list_restaurants.list_id WHERE list_restaurants.restaurant_id = ?
+      ORDER BY lists.name COLLATE NOCASE`).all(restaurant.id) as RestaurantListMembership[],
+    ratingGroups: getRestaurantRatingGroups(restaurant.id),
+    checkIns: getCheckIns(restaurant.id),
+    latestCheckIn: (database.prepare(`SELECT checkins.id, users.name AS authorName, checkins.visited_at AS visitedAt, checkins.notes
+      FROM checkins JOIN users ON users.id = checkins.author_id WHERE checkins.restaurant_id = ?
+      ORDER BY checkins.visited_at DESC LIMIT 1`).get(restaurant.id) as CheckIn | undefined) ?? null,
+    checkInCount: (database.prepare("SELECT COUNT(*) AS count FROM checkins WHERE restaurant_id = ?").get(restaurant.id) as { count: number }).count,
+    photos: (database.prepare(`SELECT restaurant_photos.id, restaurant_photos.description, users.name AS uploadedByName,
+      restaurant_photos.storage_key AS storageKey, restaurant_photos.thumbnail_storage_key AS thumbnailStorageKey,
+      restaurant_photos.created_at AS createdAt FROM restaurant_photos
+      JOIN users ON users.id = restaurant_photos.uploaded_by WHERE restaurant_photos.restaurant_id = ?
+      ORDER BY restaurant_photos.created_at DESC, restaurant_photos.id DESC`).all(restaurant.id) as Array<{
+        id: number; description: string | null; uploadedByName: string; storageKey: string; thumbnailStorageKey: string; createdAt: string;
+      }>).map((photo): RestaurantPhoto => ({
+        id: photo.id, description: photo.description, uploadedByName: photo.uploadedByName,
+        imageUrl: getPhotoMediaUrl(photo.storageKey), thumbnailUrl: getPhotoMediaUrl(photo.thumbnailStorageKey), createdAt: photo.createdAt,
+      })),
+  }));
+}
+
+export function getRestaurantRatingGroups(restaurantId: number) {
+  const database = getDb();
+  const memberships = database.prepare(`SELECT lists.id, lists.name FROM list_restaurants
+    JOIN lists ON lists.id = list_restaurants.list_id WHERE list_restaurants.restaurant_id = ?
+    ORDER BY lists.name COLLATE NOCASE`).all(restaurantId) as RestaurantListMembership[];
+  return memberships.map((list) => ({
+    list,
+    definitions: (database.prepare(`SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon,
+      options_json AS optionsJson, min, max, active, sort_order AS sortOrder FROM rating_definitions
+      WHERE scope = 'list' AND list_id = ? ORDER BY sort_order, id`).all(list.id) as RatingDefinitionRow[]).map(parseRatingDefinition),
+  }));
+}
+
+export function getCheckIns(restaurantId: number) {
+  return getDb().prepare(`SELECT checkins.id, users.name AS authorName, checkins.visited_at AS visitedAt, checkins.notes
+    FROM checkins JOIN users ON users.id = checkins.author_id WHERE checkins.restaurant_id = ?
+    ORDER BY checkins.visited_at DESC`).all(restaurantId) as CheckIn[];
 }
