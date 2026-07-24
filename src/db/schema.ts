@@ -102,6 +102,7 @@ export const ratingDefinitions = sqliteTable(
     min: integer("min"),
     max: integer("max"),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => [

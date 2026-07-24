@@ -7,10 +7,13 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0",
     "db:generate": "node -e \"require('node:fs').mkdirSync('data',{recursive:true})\" && drizzle-kit generate",
-    "db:migrate": "node -e \"require('node:fs').mkdirSync('data',{recursive:true})\" && drizzle-kit migrate",
+    "db:migrate": "tsx scripts/database-cli.ts migrate",
+    "db:check": "drizzle-kit check",
+    "db:integrity": "tsx scripts/database-cli.ts integrity",
     "db:seed:test": "node scripts/seed-test-data.mjs",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:migrations": "vitest run src/lib/database/database.test.ts",
     "test:watch": "vitest"
   },
   "keywords": [
