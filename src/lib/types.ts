@@ -90,6 +90,16 @@ export type Restaurant = {
   photos: RestaurantPhoto[];
 };
 
+export type RestaurantSummary = Omit<Restaurant, "ratingGroups" | "checkIns" | "photos">;
+
+export type RestaurantPickerItem = Pick<Restaurant, "id" | "name" | "address"> & {
+  memberships: RestaurantListMembership[];
+};
+
+export type CountedList = List & {
+  restaurantCount: number;
+};
+
 export type AppState = {
   user: User;
   lists: List[];
@@ -103,4 +113,31 @@ export type AppState = {
   noteSections: NoteSectionDefinition[];
   users: User[];
   appSettings: { selfSignupEnabled: boolean };
+};
+
+export type ShellData = {
+  user: User;
+  lists: CountedList[];
+  totalRestaurantCount: number;
+};
+
+export type AdminData = {
+  currentUser: User;
+  users: User[];
+  appSettings: AppState["appSettings"];
+};
+
+export type RestaurantDetailData = {
+  restaurant: Restaurant;
+  lists: List[];
+  globalRatingDefinitions: RatingDefinition[];
+  listRatingDefinitions: RatingDefinition[];
+  allListRatingDefinitions: RatingDefinition[];
+  noteSections: NoteSectionDefinition[];
+};
+
+export type ListSettingsData = {
+  list: List | null;
+  definitions: RatingDefinition[];
+  noteSections: NoteSectionDefinition[];
 };
