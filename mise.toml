@@ -33,5 +33,11 @@ run = "npm run start"
 description = "Run the required local verification suite"
 run = [
   "npx tsc --noEmit",
+  "npm run db:check",
+  "npm run test:migrations",
   "npm test",
 ]
+
+[tasks."db:integrity"]
+description = "Check SQLite integrity and foreign keys without changing the database"
+run = "npm run db:integrity"
