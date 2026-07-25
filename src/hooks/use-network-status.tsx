@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { enqueueAction, getQueuedActions, removeQueuedAction } from "@/lib/offline-db";
+import { enqueueAction, getQueuedActions, removeQueuedAction, reportCacheFailure } from "@/lib/offline-db";
 import { CSRF_FIELD } from "@/lib/csrf-constants";
 import { readCsrfToken } from "@/lib/csrf-client";
 
@@ -43,8 +43,14 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const draining = useRef(false);
 
   const refreshQueueCount = async () => {
-    const actions = await getQueuedActions();
-    setQueuedCount(actions.length);
+    try {
+      const actions = await getQueuedActions();
+      setQueuedCount(actions.length);
+    } catch (error) {
+      // An unreadable queue is reported where it matters — when queueing or
+      // draining. Keep the last known count rather than throwing from an effect.
+      reportCacheFailure(error);
+    }
   };
 
   useEffect(() => {
@@ -93,7 +99,13 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       formData.forEach((value, key) => {
         entries[key] = String(value);
       });
-      void enqueueAction("mutate", entries).then(refreshQueueCount);
+      void enqueueAction("mutate", entries).then(refreshQueueCount).catch((error) => {
+        // The submit was already cancelled, so a failed queue write means the
+        // change is gone. Say so instead of implying it was saved for later.
+        reportCacheFailure(error);
+        setBlockedMessage("You're offline and that change couldn't be saved for later.");
+        window.setTimeout(() => setBlockedMessage(null), 4000);
+      });
     }
 
     document.addEventListener("submit", handleSubmit);
@@ -105,23 +117,30 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     if (!online || draining.current) return;
     draining.current = true;
     (async () => {
-      const actions = await getQueuedActions();
       let succeeded = 0;
-      for (const action of actions) {
-        const formData = new FormData();
-        Object.entries(action.payload as Record<string, string>).forEach(([key, value]) => {
-          formData.set(key, value);
-        });
-        formData.set(CSRF_FIELD, readCsrfToken());
-        try {
-          await fetch(MUTATE_PATH, { method: "POST", body: formData, redirect: "manual" });
-          await removeQueuedAction(action.id);
-          succeeded++;
-        } catch {
-          break; // still offline, or a real error — leave the rest queued for next time
+      try {
+        const actions = await getQueuedActions();
+        for (const action of actions) {
+          const formData = new FormData();
+          Object.entries(action.payload as Record<string, string>).forEach(([key, value]) => {
+            formData.set(key, value);
+          });
+          formData.set(CSRF_FIELD, readCsrfToken());
+          try {
+            await fetch(MUTATE_PATH, { method: "POST", body: formData, redirect: "manual" });
+            await removeQueuedAction(action.id);
+            succeeded++;
+          } catch {
+            break; // still offline, or a real error — leave the rest queued for next time
+          }
         }
+      } catch (error) {
+        reportCacheFailure(error); // queue unreadable; try again on the next reconnect
+      } finally {
+        // Always release the guard: leaving it set would block every later
+        // drain attempt for the lifetime of the page.
+        draining.current = false;
       }
-      draining.current = false;
       await refreshQueueCount();
       if (succeeded) {
         setSyncedMessage(`Synced ${succeeded} change${succeeded === 1 ? "" : "s"}.`);

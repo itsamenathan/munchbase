@@ -1,32 +1,64 @@
-import { openDB, type IDBPDatabase } from "idb";
+import { deleteDB, openDB, type IDBPDatabase } from "idb";
 import type { List, Restaurant } from "@/lib/types";
 
 const DB_NAME = "munchbase-offline";
-const DB_VERSION = 1;
+// IndexedDB versions only ever go up, and an unreleased build once opened this
+// database at version 2 (dropping every store except sync-queue). Browsers that
+// ran it are stuck at 2, so opening at 1 throws "The requested version (1) is
+// less than the existing version (2)". Stay ahead of every version ever opened.
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
+// Creates whatever is missing, so it works as a fresh install and as an upgrade
+// from any earlier version, including the one that deleted stores.
+function upgradeDb(db: IDBPDatabase) {
+  if (!db.objectStoreNames.contains("restaurants")) {
+    db.createObjectStore("restaurants", { keyPath: "id" });
+  }
+  if (!db.objectStoreNames.contains("lists")) {
+    db.createObjectStore("lists", { keyPath: "id" });
+  }
+  if (!db.objectStoreNames.contains("sync-queue")) {
+    const store = db.createObjectStore("sync-queue", { keyPath: "id", autoIncrement: true });
+    store.createIndex("timestamp", "timestamp");
+  }
+  if (!db.objectStoreNames.contains("app-state")) {
+    db.createObjectStore("app-state");
+  }
+}
+
+async function openOfflineDb() {
+  try {
+    return await openDB(DB_NAME, DB_VERSION, { upgrade: upgradeDb });
+  } catch (error) {
+    if (!(error instanceof DOMException) || error.name !== "VersionError") throw error;
+    // The stored database is newer than this build knows about, so it can't be
+    // opened or read at all. Recreating it loses the cache, which beats leaving
+    // offline support permanently broken with no way out but devtools.
+    await deleteDB(DB_NAME);
+    return openDB(DB_NAME, DB_VERSION, { upgrade: upgradeDb });
+  }
+}
+
 function getDb() {
   if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains("restaurants")) {
-          db.createObjectStore("restaurants", { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains("lists")) {
-          db.createObjectStore("lists", { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains("sync-queue")) {
-          const store = db.createObjectStore("sync-queue", { keyPath: "id", autoIncrement: true });
-          store.createIndex("timestamp", "timestamp");
-        }
-        if (!db.objectStoreNames.contains("app-state")) {
-          db.createObjectStore("app-state");
-        }
-      },
+    dbPromise = openOfflineDb().catch((error) => {
+      // Don't leave a rejected promise cached: every later call would reuse it,
+      // so the offline cache and sync queue would stay dead for the rest of the
+      // session even once the cause is gone.
+      dbPromise = null;
+      throw error;
     });
   }
   return dbPromise;
+}
+
+// The write-through cache is best effort — losing it degrades the next offline
+// session but must not break the current one or surface as an unhandled
+// rejection.
+export function reportCacheFailure(error: unknown) {
+  console.warn("Munchbase offline cache unavailable", error);
 }
 
 export async function cacheRestaurants(restaurants: Restaurant[]) {
