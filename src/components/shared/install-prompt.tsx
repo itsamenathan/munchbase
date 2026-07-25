@@ -32,6 +32,10 @@ export function InstallPrompt() {
 
   useEffect(() => {
     if (hiddenOnThisScreen) {
+      // Deliberately latched rather than derived: once hidden by navigation the
+      // prompt stays dismissed until beforeinstallprompt fires again, instead of
+      // popping back up every time the user returns to a non-hidden screen.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShow(false);
       return;
     }

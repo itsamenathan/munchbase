@@ -123,15 +123,6 @@
   padding: 0 0 calc(var(--nav-height) + var(--nav-float-gap) + 18px);
 }
 
-.mobile-page-header {
-  padding: var(--space-2) var(--space-2) 0;
-}
-
-.mobile-page-header h3 {
-  margin: 0;
-  font-size: var(--font-size-xl);
-}
-
 @media (min-width: 760px) {
   html,
   body {

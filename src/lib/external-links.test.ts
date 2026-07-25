@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeExternalUrl } from "../lib/external-links";
+import { normalizeExternalUrl } from "./external-links";
 
 describe("external link validation", () => {
   it("accepts google maps urls and clears blanks", () => {

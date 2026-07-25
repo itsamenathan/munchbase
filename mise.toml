@@ -33,6 +33,7 @@ run = "npm run start"
 description = "Run the required local verification suite"
 run = [
   "npx tsc --noEmit",
+  "npm run lint",
   "npm run db:check",
   "npm run test:migrations",
   "npm test",

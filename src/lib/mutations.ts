@@ -3,7 +3,6 @@ import { createSession, currentUser, hashPassword } from "@/lib/auth";
 import { localDateTimeInputValue } from "@/lib/datetime";
 import { getDb, userCount } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { normalizeExternalUrl } from "@/lib/external-links";
 import { googleMapsPlaceId, parseGoogleMapsUrlWithRedirects } from "@/lib/google-maps-url";
 import { reverseGeocodeAddress } from "@/lib/photon";
 import { deletePhotoFiles, saveRestaurantPhotoFiles } from "@/lib/restaurant-photos";
@@ -392,21 +391,6 @@ export async function updateRestaurantMetadata(formData: FormData) {
      WHERE id = ?`,
   ).run(name, text(formData, "address") || null, lat, lon, existing.placeId);
   db.prepare("UPDATE restaurants SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(restaurantId);
-  revalidateApp();
-}
-
-export async function updateExternalLinks(formData: FormData) {
-  await requireUser();
-  const restaurantId = Number(text(formData, "restaurantId"));
-  const googleMapsUrl = normalizeExternalUrl(text(formData, "googleMapsUrl"), "google");
-  const yelpUrl = normalizeExternalUrl(text(formData, "yelpUrl"), "yelp");
-  getDb()
-    .prepare(
-      `UPDATE restaurants
-       SET google_maps_url = ?, yelp_url = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-    )
-    .run(googleMapsUrl, yelpUrl, restaurantId);
   revalidateApp();
 }
 

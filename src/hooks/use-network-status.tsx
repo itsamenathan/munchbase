@@ -54,6 +54,9 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Seeds the badge from IndexedDB, which is unavailable during SSR and only
+    // resolves asynchronously — there is no render-time equivalent.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshQueueCount();
   }, []);
 

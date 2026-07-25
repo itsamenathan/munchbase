@@ -147,7 +147,8 @@ mise exec -- npm run db:migrate  # Apply migrations
 mise exec -- npm run db:seed:test # Refresh repeatable local test data
 mise run test                 # Run Vitest unit tests
 mise exec -- npx tsc --noEmit # TypeScript check (run before declaring done)
-mise run check                # Run TypeScript and unit tests together
+mise run check                # Run TypeScript, ESLint, and unit tests together
+mise exec -- npm run lint     # ESLint only
 ```
 
 Run project commands through `mise` so every agent and developer uses the
@@ -175,10 +176,15 @@ Always run the following checks after making code changes, before reporting done
 1. **TypeScript** — `mise exec -- npx tsc --noEmit`
    Catches type errors that would fail the Docker build. This is the most important check — the build pipeline runs TypeScript and will reject the image if it fails.
 
-2. **Check for multiple usages** — when adding a required prop to a component, grep for all usages before finishing:
+2. **ESLint** — `mise exec -- npm run lint`
+   Must stay at zero errors. The `react-hooks/*` rules catch real defects (a missing dependency array once caused a `keydown` listener to be re-registered on every render). Where a rule is a false positive — an effect genuinely synchronizing with an external system such as `localStorage`, `document.cookie`, or IndexedDB — use a targeted `eslint-disable-next-line` with a one-line justification rather than restructuring working code.
+
+   Both of the above are covered by `mise run check`.
+
+3. **Check for multiple usages** — when adding a required prop to a component, grep for all usages before finishing:
    `rg -n "ComponentName" src -g "*.tsx"`
    Missing a second usage site is a common build failure cause.
 
-3. **Check imports** — if creating a new file that is imported elsewhere, confirm the file is actually saved and the import path is correct.
+4. **Check imports** — if creating a new file that is imported elsewhere, confirm the file is actually saved and the import path is correct.
 
 These are run locally and are fast. The goal is to catch issues before they surface as Docker build failures in CI.
