@@ -348,6 +348,9 @@ export default function AppShell({
 
   const selectedEntry =
     activeState.allRestaurants.find((r) => r.id === selectedEntryId) ?? null;
+  // While the edit form is open the floating bottom nav would sit on top of the
+  // rating controls, so taps meant for a rating land on a nav tab instead.
+  const restaurantEditOpen = Boolean(selectedEntry) && initialEntryEdit && canWrite;
   const selectedFilterDefinition = activeDefinitions.find((d) => String(d.id) === filterDefinition);
 
   useEffect(() => {
@@ -562,7 +565,7 @@ export default function AppShell({
   };
 
   return (
-    <main className="app" onSubmit={handleMutationSubmit}>
+    <main className={`app${restaurantEditOpen ? " restaurant-edit-open" : ""}`} onSubmit={handleMutationSubmit}>
       <NetworkStatus />
       <aside className="sidebar">
         <SidebarContent
@@ -975,11 +978,13 @@ export default function AppShell({
         </aside>
       ) : null}
 
-      <BottomNav
-        activeTab={activeTab}
-        activeListId={activeState.activeListId}
-        onNavigate={(tab) => prepareRootNavigation(tab)}
-      />
+      {restaurantEditOpen ? null : (
+        <BottomNav
+          activeTab={activeTab}
+          activeListId={activeState.activeListId}
+          onNavigate={(tab) => prepareRootNavigation(tab)}
+        />
+      )}
 
       {addOpen ? (
         <AddRestaurantSheet

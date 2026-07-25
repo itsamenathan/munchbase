@@ -26,6 +26,16 @@
   .mobile-hidden-when-detail {
     display: none !important;
   }
+
+  /* The bottom nav is hidden while editing a restaurant, so only the sticky
+     Save/Cancel bar needs clearance. */
+  .app.restaurant-edit-open {
+    padding-bottom: calc(var(--safe-inset-bottom) + 24px);
+  }
+
+  .app.restaurant-edit-open .mobile-detail-view .detail-content {
+    padding-bottom: 18px;
+  }
 }
 
 .sidebar {

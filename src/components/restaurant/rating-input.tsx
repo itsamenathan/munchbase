@@ -19,12 +19,13 @@ function ratingOptions(definition: RatingDefinition) {
 export function RatingInput({ definition, value, disabled }: { definition: RatingDefinition; value: string; disabled: boolean }) {
   const fieldName = `rating:${definition.id}`;
   if (definition.presetKey === "go_back") {
-    return <GoBackInput name={fieldName} value={value} disabled={disabled} />;
+    return <GoBackInput name={fieldName} label={definition.name} value={value} disabled={disabled} />;
   }
   if (definition.presetKey === "price") {
     return (
       <RatingScaleInput
         name={fieldName}
+        label={definition.name}
         value={value}
         disabled={disabled}
         options={definition.options.map((o) => ({ value: o, ariaLabel: `Price: ${o.length} dollar signs` }))}
@@ -38,6 +39,7 @@ export function RatingInput({ definition, value, disabled }: { definition: Ratin
     return (
       <RatingScaleInput
         name={fieldName}
+        label={definition.name}
         value={value}
         disabled={disabled}
         options={Array.from({ length: max - min + 1 }, (_, i) => {
@@ -57,7 +59,7 @@ export function RatingInput({ definition, value, disabled }: { definition: Ratin
 
   if (definition.type === "boolean") {
     return (
-      <select name={fieldName} defaultValue={value} disabled={disabled}>
+      <select name={fieldName} aria-label={definition.name} defaultValue={value} disabled={disabled}>
         <option value="">Unset</option>
         <option value="true">Yes</option>
         <option value="false">No</option>
@@ -66,7 +68,7 @@ export function RatingInput({ definition, value, disabled }: { definition: Ratin
   }
   if (definition.type === "choice") {
     return (
-      <select name={fieldName} defaultValue={value} disabled={disabled}>
+      <select name={fieldName} aria-label={definition.name} defaultValue={value} disabled={disabled}>
         <option value=""></option>
         {definition.options.map((o) => (
           <option key={o} value={o}>{o}</option>
@@ -74,11 +76,12 @@ export function RatingInput({ definition, value, disabled }: { definition: Ratin
       </select>
     );
   }
-  return <input name={fieldName} type="number" min={definition.min ?? undefined} max={definition.max ?? undefined} defaultValue={value} disabled={disabled} />;
+  return <input name={fieldName} aria-label={definition.name} type="number" min={definition.min ?? undefined} max={definition.max ?? undefined} defaultValue={value} disabled={disabled} />;
 }
 
-function RatingScaleInput({ name, value, disabled, options, Icon, filled = false }: {
+function RatingScaleInput({ name, label, value, disabled, options, Icon, filled = false }: {
   name: string;
+  label: string;
   value: string;
   disabled: boolean;
   options: { value: string; ariaLabel: string }[];
@@ -88,7 +91,7 @@ function RatingScaleInput({ name, value, disabled, options, Icon, filled = false
   const [selected, setSelected] = useState(value);
   const selectedIndex = options.findIndex((o) => o.value === selected);
   return (
-    <div className={`rating-scale ${disabled ? "disabled" : ""}`} role="radiogroup" aria-label={name}>
+    <div className={`rating-scale ${disabled ? "disabled" : ""}`} role="radiogroup" aria-label={label}>
       <input type="hidden" name={name} value="" disabled={disabled || selected !== ""} />
       <div className="rating-scale-icons">
         {options.map((o, i) => {
@@ -114,10 +117,10 @@ function RatingScaleInput({ name, value, disabled, options, Icon, filled = false
   );
 }
 
-function GoBackInput({ name, value, disabled }: { name: string; value: string; disabled: boolean }) {
+function GoBackInput({ name, label, value, disabled }: { name: string; label: string; value: string; disabled: boolean }) {
   const [checked, setChecked] = useState(value === "true");
   return (
-    <div className={`rating-choice-group ${disabled ? "disabled" : ""}`} role="group" aria-label="Go Back">
+    <div className={`rating-choice-group ${disabled ? "disabled" : ""}`} role="group" aria-label={label}>
       <input type="hidden" name={name} value="" disabled={disabled || checked} />
       <label className="rating-choice" title="Go back">
         <input
