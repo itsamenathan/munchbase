@@ -8,6 +8,9 @@ export function CsrfInput({ token = "" }: { token?: string }) {
   const [value, setValue] = useState(token);
 
   useEffect(() => {
+    // Reads the token from document.cookie, which does not exist during SSR, so a
+    // lazy useState initializer would mismatch on hydration. Effect-shaped by design.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setValue(readCsrfToken());
   }, []);
 

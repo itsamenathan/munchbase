@@ -13,7 +13,9 @@ coverage/
 trace-*.json
 
 # Database
-data/
+# Anchored to the repo root — an unanchored `data/` also matches nested source
+# directories such as src/lib/data/.
+/data/
 *.db
 *.sqlite
 *.sqlite3

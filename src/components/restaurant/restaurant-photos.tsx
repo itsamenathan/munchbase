@@ -1,5 +1,10 @@
 "use client";
 
+// Photos are user uploads served from /media/[...key] and already resized on upload
+// (see src/lib/restaurant-photos.ts), so next/image's loader adds nothing here — and
+// self-hosted deployments have no image optimization backend to route through.
+/* eslint-disable @next/next/no-img-element */
+
 import { startTransition, useEffect, useRef, useState, type TouchEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, ChevronLeft, ChevronRight, ImagePlus, Images, Pencil, Trash2, X } from "lucide-react";

@@ -359,14 +359,12 @@
   background: var(--field);
 }
 
-.rating-scale-icon,
-.rating-scale-clear {
+.rating-scale-icon {
   position: relative;
   display: inline-flex;
 }
 
-.rating-scale-icon input,
-.rating-scale-clear input {
+.rating-scale-icon input {
   position: absolute;
   opacity: 0;
   pointer-events: none;
@@ -394,20 +392,6 @@
 .rating-scale-icon input:focus-visible + span {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
-}
-
-.rating-scale-clear span {
-  min-height: var(--touch-target-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel);
-  color: var(--muted);
-  padding: 0 8px;
-  font-size: var(--font-size-xs);
-  font-weight: 800;
 }
 
 .detail-section-card {
@@ -1222,39 +1206,9 @@
   gap: 8px;
 }
 
-.external-links-panel {
-  margin: 10px 0;
-  border: 1px dashed var(--line);
-  border-radius: var(--radius);
-  background: var(--panel-wash);
-  padding: 8px;
-}
-
-.external-links-panel summary {
-  cursor: pointer;
-  font-weight: 800;
-  min-height: var(--touch-target);
-  display: inline-flex;
-  align-items: center;
-}
-
-.external-links-panel label {
-  display: grid;
-  gap: 6px;
-  font-weight: 700;
-}
-
-.list-membership-row {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
 .list-toggle-grid {
   display: grid;
   gap: 5px;
-}
-
-.list-toggle-form {
-  margin: 0;
 }
 
 .list-toggle-btn {

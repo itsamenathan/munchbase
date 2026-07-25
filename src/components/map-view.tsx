@@ -76,10 +76,13 @@ function LocationMarker() {
   const [position, setPosition] = useState<[number, number] | null>(null);
 
   useEffect(() => {
-    // Show cached position immediately — no GPS wait on repeat visits.
+    // Show cached position immediately — no GPS wait on repeat visits. This has to
+    // run in an effect rather than a lazy useState initializer: localStorage is
+    // unavailable during SSR, so seeding at render would mismatch on hydration.
     const cached = readCachedLocation();
     if (cached) {
       const pos: [number, number] = [cached.lat, cached.lon];
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPosition(pos);
       if (!savedMapState) map.setView(pos, 14);
     }

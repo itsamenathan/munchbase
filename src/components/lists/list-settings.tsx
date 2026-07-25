@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, GripVertical, ListChecks, Pencil, Search, SlidersHorizontal, Star, StickyNote, Tag, ToggleRight, Trash2 } from "lucide-react";
 import {
@@ -264,11 +264,12 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
   const [order, setOrder] = useState(() => definitions.map((d) => d.id));
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  // Keep order in sync when definitions change (e.g. after server refresh)
-  const prevIds = useRef(definitions.map((d) => d.id).join(","));
+  // Keep order in sync when definitions change (e.g. after server refresh). Tracked
+  // in state rather than a ref so the comparison is legal during render.
   const nextIds = definitions.map((d) => d.id).join(",");
-  if (prevIds.current !== nextIds) {
-    prevIds.current = nextIds;
+  const [syncedIds, setSyncedIds] = useState(nextIds);
+  if (syncedIds !== nextIds) {
+    setSyncedIds(nextIds);
     setOrder(definitions.map((d) => d.id));
   }
 

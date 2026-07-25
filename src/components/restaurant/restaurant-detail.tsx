@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { CalendarClock, Check, LocateFixed, NotebookText, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { formatCityState } from "@/lib/address";
 import { NOTE_SECTION_PRESETS, parseNotes } from "@/lib/note-sections";
@@ -86,11 +86,17 @@ export function RestaurantDetail({
   const latInputRef = useRef<HTMLInputElement>(null);
   const lonInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  // Re-sync edit mode when the route flag or the server's copy of the notes changes.
+  // Adjusting state during render (rather than in an effect) avoids rendering the
+  // stale mode for a frame. On mount the keys match, so this is a no-op.
+  const modeKey = `${initialEdit && canWrite}|${entry.notes ?? ""}`;
+  const [syncedModeKey, setSyncedModeKey] = useState(modeKey);
+  if (syncedModeKey !== modeKey) {
+    setSyncedModeKey(modeKey);
     const nextMode = initialEdit && canWrite ? "edit" : "preview";
     setEntryMode(nextMode);
     if (nextMode === "preview") setNoteValues(parseNotes(entry.notes));
-  }, [canWrite, entry.notes, initialEdit]);
+  }
 
   const toggleListMembership = async (listId: number, inList: boolean) => {
     setMembershipIds((prev) => {

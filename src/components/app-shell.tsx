@@ -148,9 +148,13 @@ export default function AppShell({
         ? "lists"
         : "explore";
 
-  useEffect(() => {
+  // Collapse the filter panel when the tab changes. Adjusting state during render
+  // (rather than in an effect) avoids rendering the stale open panel for a frame.
+  const [filtersTab, setFiltersTab] = useState(activeTab);
+  if (filtersTab !== activeTab) {
+    setFiltersTab(activeTab);
     setFiltersOpen(false);
-  }, [activeTab]);
+  }
 
   useEffect(() => {
     const previousId = previousSelectedEntryRef.current;
@@ -191,7 +195,10 @@ export default function AppShell({
 
   useEffect(() => {
     // Seed from cache immediately so location is available before GPS resolves.
+    // This has to run in an effect, not a lazy useState initializer: localStorage
+    // is unavailable during SSR, so seeding at render would mismatch on hydration.
     const cached = readCachedLocation();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (cached) setLocationCoords(cached);
     // Then refresh in the background on every app load — standard "find nearby" pattern.
     if (!("geolocation" in navigator)) return;
@@ -263,9 +270,9 @@ export default function AppShell({
     [activeState.globalRatingDefinitions, activeState.ratingDefinitions],
   );
 
-  const rememberRootScroll = (origin: RestaurantOrigin) => {
+  const rememberRootScroll = useCallback((origin: RestaurantOrigin) => {
     scrollPositionsRef.current.set(tabHref(origin, activeState.activeListId), window.scrollY);
-  };
+  }, [activeState.activeListId]);
 
   const prepareRootNavigation = (tab: BottomTab, listId = activeState.activeListId) => {
     if (!selectedEntryId) {
@@ -279,20 +286,20 @@ export default function AppShell({
     router.replace(tabHref(tab, activeState.activeListId), { scroll: false });
   };
 
-  const openRestaurant = (id: number, origin: RestaurantOrigin, replace = false) => {
+  const openRestaurant = useCallback((id: number, origin: RestaurantOrigin, replace = false) => {
     rememberRootScroll(origin);
     restaurantOpenedInAppRef.current = true;
     const href = restaurantHref(id, activeState.activeListId, { origin });
     if (replace) router.replace(href, { scroll: false });
     else router.push(href, { scroll: false });
-  };
+  }, [activeState.activeListId, rememberRootScroll, router]);
 
-  const selectEntry = (id: number | null) => {
+  const selectEntry = useCallback((id: number | null) => {
     haptics.light();
     if (id !== null) {
       openRestaurant(id, "explore", selectedEntryId !== null);
     }
-  };
+  }, [haptics, openRestaurant, selectedEntryId]);
 
   const openEntryFromMap = (id: number) => {
     openRestaurant(id, "map", selectedEntryId !== null);
@@ -384,18 +391,6 @@ export default function AppShell({
     previousAddOpenRef.current = addOpen;
   }, [addOpen]);
 
-  useEffect(() => {
-    if (!adminOpen && !addListOpen && !activePhotoId) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      if (activePhotoId) closePhoto();
-      else if (adminOpen) closeAdmin();
-      else closeAddList();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  });
-
   async function searchPlaces(e?: FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (document.activeElement instanceof HTMLElement) {
@@ -462,18 +457,18 @@ export default function AppShell({
     setUserMenuOpen(false);
   };
 
-  const closeAdmin = () => {
+  const closeAdmin = useCallback(() => {
     if (!adminOpen) return;
     if (adminOpenedInAppRef.current) router.back();
     else router.replace(hrefWithParams({ overlay: null }), { scroll: false });
-  };
+  }, [adminOpen, hrefWithParams, router]);
 
   const openAddList = () => {
     addListOpenedInAppRef.current = true;
     router.push(addListHref(activeState.activeListId, "details"), { scroll: false });
   };
 
-  const closeAddList = () => {
+  const closeAddList = useCallback(() => {
     if (!addListOpen) return;
     if (addListOpenedInAppRef.current) {
       const depth = activeAddListStep === "restaurants" ? 3 : activeAddListStep === "fields" ? 2 : 1;
@@ -481,7 +476,7 @@ export default function AppShell({
     } else {
       router.replace(tabHref("lists", activeState.activeListId), { scroll: false });
     }
-  };
+  }, [activeAddListStep, activeState.activeListId, addListOpen, router]);
 
   const setAddListStep = (step: typeof activeAddListStep) => {
     router.push(addListHref(activeState.activeListId, step), { scroll: false });
@@ -516,11 +511,25 @@ export default function AppShell({
     router.replace(hrefWithParams({ photo: String(photoId) }), { scroll: false });
   };
 
-  const closePhoto = () => {
+  const closePhoto = useCallback(() => {
     if (!activePhotoId) return;
     if (photoOpenedInAppRef.current) router.back();
     else router.replace(hrefWithParams({ photo: null }), { scroll: false });
-  };
+  }, [activePhotoId, hrefWithParams, router]);
+
+  // Declared after the close handlers so they are initialized when this effect's
+  // dependency array is evaluated during render.
+  useEffect(() => {
+    if (!adminOpen && !addListOpen && !activePhotoId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (activePhotoId) closePhoto();
+      else if (adminOpen) closeAdmin();
+      else closeAddList();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [activePhotoId, addListOpen, adminOpen, closeAddList, closeAdmin, closePhoto]);
 
   const handleMutationSubmit = async (event: FormEvent<HTMLElement>) => {
     if (event.defaultPrevented) return;
@@ -892,6 +901,9 @@ export default function AppShell({
                     <button
                       key={rst.id}
                       className={`restaurant-row ${selectedEntry?.id === rst.id ? "active" : ""}`}
+                      // selectEntry writes restaurantOpenedInAppRef so the back button knows the
+                      // detail view was opened in-app. That runs on click, never during render.
+                      // eslint-disable-next-line react-hooks/refs
                       onClick={() => selectEntry(rst.id)}
                     >
                       <span>
