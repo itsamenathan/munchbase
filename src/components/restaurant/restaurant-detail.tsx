@@ -352,10 +352,10 @@ function RatingFields({ entry, groups }: { entry: Restaurant; groups: Restaurant
             {g.definitions.map((d) => {
               const value = entry.ratings.find((r) => r.definitionId === d.id)?.value ?? "";
               return (
-                <label className="rating-field-row" key={d.id}>
+                <div className="rating-field-row" key={d.id}>
                   <small>{d.name}</small>
                   <RatingInput definition={d} value={value} disabled={false} />
-                </label>
+                </div>
               );
             })}
           </div>
