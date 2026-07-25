@@ -35,16 +35,15 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { useHaptics } from "@/hooks/use-haptics";
 import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
 import { formatCityState } from "@/lib/address";
+import { deriveAppRouteState } from "@/lib/app-route-state";
 import { readCachedLocation, writeCachedLocation } from "@/lib/location-cache";
 import { cacheAppState, cacheLists, cacheRestaurants, reportCacheFailure } from "@/lib/offline-db";
 import type { PlaceSearchResult } from "@/lib/photon";
 import {
   addHref,
   addListHref,
-  addListStep,
   listSettingsHref,
   restaurantHref,
-  restaurantOrigin,
   restaurantOriginHref,
   tabHref,
   type BottomTab,
@@ -115,29 +114,20 @@ export default function AppShell({
   const previousSelectedEntryRef = useRef<number | null>(null);
   const canWrite = true;
 
-  const routeListId = Number(searchParams.get("list"));
-  const settingsListMatch = pathname.match(/^\/lists\/(\d+)\/settings$/);
-  const settingsListId = settingsListMatch ? Number(settingsListMatch[1]) : null;
-  const activeListId = settingsListId ?? (Number.isInteger(routeListId) && routeListId > 0 ? routeListId : null);
+  const {
+    activeListId,
+    selectedRestaurantId: selectedEntryId,
+    restaurantOrigin: selectedEntryOrigin,
+    restaurantEditing: initialEntryEdit,
+    activeTab,
+    settingsOpen,
+    addOpen,
+    addListOpen,
+    addListStep: activeAddListStep,
+    adminOpen,
+    activePhotoId,
+  } = deriveAppRouteState(pathname, searchParams, state.user.role);
   const activeList = activeListId ? (state.lists.find((list) => list.id === activeListId) ?? null) : null;
-  const selectedEntryId = Number(pathname.match(/^\/restaurants\/(\d+)$/)?.[1] ?? "") || null;
-  const initialEntryEdit = searchParams.get("edit") === "1";
-  const settingsOpen = pathname === "/lists/settings" || /^\/lists\/\d+\/settings$/.test(pathname);
-  const addOpen = pathname.startsWith("/add");
-  const selectedEntryOrigin = restaurantOrigin(searchParams.get("from"));
-  const adminOpen = state.user.role === "admin" && searchParams.get("overlay") === "admin";
-  const addListOpen = pathname === "/lists" && searchParams.get("overlay") === "add-list";
-  const activeAddListStep = addListStep(searchParams.get("step"));
-  const activePhotoId = Number(searchParams.get("photo")) || null;
-  const activeTab: BottomTab = selectedEntryId
-    ? selectedEntryOrigin
-    : pathname.startsWith("/check-ins")
-      ? "checkins"
-    : pathname.startsWith("/map")
-      ? "map"
-      : pathname.startsWith("/lists")
-        ? "lists"
-        : "explore";
 
   // Collapse the filter panel when the tab changes. Adjusting state during render
   // (rather than in an effect) avoids rendering the stale open panel for a frame.
