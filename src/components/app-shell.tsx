@@ -36,7 +36,7 @@ import { useHaptics } from "@/hooks/use-haptics";
 import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
 import { formatCityState } from "@/lib/address";
 import { readCachedLocation, writeCachedLocation } from "@/lib/location-cache";
-import { cacheAppState, cacheLists, cacheRestaurants } from "@/lib/offline-db";
+import { cacheAppState, cacheLists, cacheRestaurants, reportCacheFailure } from "@/lib/offline-db";
 import {
   addHref,
   addListHref,
@@ -184,9 +184,9 @@ export default function AppShell({
   useEffect(() => {
     // Write-through cache: keep the last successfully-loaded server state in
     // IndexedDB so a future offline session has something to fall back to.
-    void cacheAppState("latest", state);
-    void cacheRestaurants(state.allRestaurants);
-    void cacheLists(state.lists);
+    void cacheAppState("latest", state).catch(reportCacheFailure);
+    void cacheRestaurants(state.allRestaurants).catch(reportCacheFailure);
+    void cacheLists(state.lists).catch(reportCacheFailure);
   }, [state]);
 
   useEffect(() => {
