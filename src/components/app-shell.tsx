@@ -34,14 +34,13 @@ import { InstallPrompt } from "@/components/shared/install-prompt";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useHaptics } from "@/hooks/use-haptics";
 import { useOverlayRoute } from "@/hooks/use-overlay-route";
+import { usePlaceSearch } from "@/hooks/use-place-search";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
 import { formatCityState } from "@/lib/address";
 import { deriveAppRouteState } from "@/lib/app-route-state";
 import { distanceMiles, formatDistance, NEARBY_RADIUS_MILES } from "@/lib/distance";
-import { readCachedLocation, writeCachedLocation } from "@/lib/location-cache";
 import { cacheAppState, cacheLists, cacheRestaurants, reportCacheFailure } from "@/lib/offline-db";
-import type { PlaceSearchResult } from "@/lib/photon";
 import {
   addHref,
   addListHistoryDepth,
@@ -75,12 +74,6 @@ export default function AppShell({
   const [filterDefinition, setFilterDefinition] = useState("");
   const [filterValue, setFilterValue] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [placeQuery, setPlaceQuery] = useState("");
-  const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
-  const [placeSearchStatus, setPlaceSearchStatus] = useState("");
-  const [searchGlobal, setSearchGlobal] = useState(false);
-  const [nearbyResults, setNearbyResults] = useState<PlaceSearchResult[]>([]);
-  const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const restaurantOpenedInAppRef = useRef(false);
@@ -104,6 +97,8 @@ export default function AppShell({
     activePhotoId,
   } = deriveAppRouteState(pathname, searchParams, state.user.role);
   const activeList = activeListId ? (state.lists.find((list) => list.id === activeListId) ?? null) : null;
+
+  const { locationCoords, panelProps: placeSearchProps } = usePlaceSearch({ nearbyEnabled: addOpen });
 
   // Collapse the filter panel when the tab changes. Adjusting state during render
   // (rather than in an effect) avoids rendering the stale open panel for a frame.
@@ -135,35 +130,6 @@ export default function AppShell({
     void cacheRestaurants(state.allRestaurants).catch(reportCacheFailure);
     void cacheLists(state.lists).catch(reportCacheFailure);
   }, [state]);
-
-  useEffect(() => {
-    // Seed from cache immediately so location is available before GPS resolves.
-    // This has to run in an effect, not a lazy useState initializer: localStorage
-    // is unavailable during SSR, so seeding at render would mismatch on hydration.
-    const cached = readCachedLocation();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (cached) setLocationCoords(cached);
-    // Then refresh in the background on every app load — standard "find nearby" pattern.
-    if (!("geolocation" in navigator)) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-        writeCachedLocation(coords.lat, coords.lon);
-        setLocationCoords(coords);
-      },
-      () => {},
-      { maximumAge: 5 * 60 * 1000, timeout: 15000 },
-    );
-  }, []);
-
-  useEffect(() => {
-    if (!addOpen || !locationCoords) return;
-    const { lat, lon } = locationCoords;
-    fetch(`/api/search?nearby=1&lat=${lat}&lon=${lon}`)
-      .then((r) => r.json())
-      .then((data: { results?: PlaceSearchResult[] }) => setNearbyResults(data.results ?? []))
-      .catch(() => {});
-  }, [addOpen, locationCoords]);
 
   useEffect(() => {
     if (!userMenuOpen) return;
@@ -311,46 +277,6 @@ export default function AppShell({
     }
   }, [initialEntryEdit, router]);
 
-  const previousAddOpenRef = useRef(addOpen);
-  useEffect(() => {
-    if (previousAddOpenRef.current && !addOpen) {
-      setPlaceQuery("");
-      setPlaceResults([]);
-      setPlaceSearchStatus("");
-      setSearchGlobal(false);
-    }
-    previousAddOpenRef.current = addOpen;
-  }, [addOpen]);
-
-  async function searchPlaces(e?: FormEvent<HTMLFormElement>) {
-    e?.preventDefault();
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    if (placeQuery.trim().length < 3) {
-      setPlaceSearchStatus("Type at least 3 characters.");
-      return;
-    }
-    setPlaceSearchStatus("Searching...");
-    const params = new URLSearchParams({ q: placeQuery });
-    if (locationCoords) {
-      params.set("lat", String(locationCoords.lat));
-      params.set("lon", String(locationCoords.lon));
-    }
-    if (searchGlobal) {
-      params.set("global", "1");
-    }
-    const response = await fetch(`/api/search?${params.toString()}`);
-    const data = (await response.json()) as { results?: PlaceSearchResult[]; error?: string };
-    if (data.error) {
-      setPlaceSearchStatus(data.error);
-      setPlaceResults([]);
-      return;
-    }
-    setPlaceResults(data.results ?? []);
-    setPlaceSearchStatus(data.results?.length ? `${data.results.length} places found.` : "No places found.");
-  }
-
   const activeListName = activeState.activeList?.name ?? "All restaurants";
   const mutationMessage = searchParams.get("message");
 
@@ -470,7 +396,7 @@ export default function AppShell({
         pendingEditRefreshRef.current = true;
         router.back();
       } else if (action === "createList" && addListOpenedInAppRef.current) {
-        const depth = activeAddListStep === "restaurants" ? 3 : activeAddListStep === "fields" ? 2 : 1;
+        const depth = addListHistoryDepth(activeAddListStep);
         window.addEventListener("popstate", () => router.replace(result.redirectTo, { scroll: false }), { once: true });
         window.history.go(-depth);
       } else if (["addRestaurant", "addRestaurantFromGoogleMapsUrl", "attachRestaurantToList"].includes(action)) {
@@ -891,14 +817,7 @@ export default function AppShell({
           <AddRestaurantsPanel
             state={activeState}
             canWrite={canWrite}
-            placeQuery={placeQuery}
-            setPlaceQuery={setPlaceQuery}
-            placeResults={placeResults}
-            nearbyResults={nearbyResults}
-            placeSearchStatus={placeSearchStatus}
-            searchPlaces={searchPlaces}
-            searchGlobal={searchGlobal}
-            setSearchGlobal={setSearchGlobal}
+            {...placeSearchProps}
             onOpenRestaurant={(id) => openRestaurant(id, "explore")}
           />
         </aside>
@@ -916,14 +835,7 @@ export default function AppShell({
           onClose={closeAdd}
           state={activeState}
           canWrite={canWrite}
-          placeQuery={placeQuery}
-          setPlaceQuery={setPlaceQuery}
-          placeResults={placeResults}
-          nearbyResults={nearbyResults}
-          placeSearchStatus={placeSearchStatus}
-          searchPlaces={searchPlaces}
-          searchGlobal={searchGlobal}
-          setSearchGlobal={setSearchGlobal}
+          {...placeSearchProps}
           onOpenRestaurant={(id) => router.replace(restaurantHref(id, activeState.activeListId, { origin: "explore" }), { scroll: false })}
         />
       ) : null}
