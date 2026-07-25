@@ -1,22 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   CalendarClock,
-  ChevronLeft,
-  ClipboardList,
-  Map,
-  LogOut,
-  Monitor,
   Search,
-  Shield,
-  User,
-  Utensils,
 } from "lucide-react";
 import { SidebarContent } from "@/components/layout/sidebar";
-import { ThemePicker } from "@/components/layout/theme-picker";
+import { Topbar } from "@/components/layout/topbar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { AddRestaurantsPanel } from "@/components/search/add-restaurants";
 import { AddRestaurantSheet } from "@/components/search/add-restaurant-sheet";
@@ -31,6 +22,7 @@ import { InstallPrompt } from "@/components/shared/install-prompt";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useHaptics } from "@/hooks/use-haptics";
 import { useOverlayRoute } from "@/hooks/use-overlay-route";
+import { useMutationSubmit } from "@/hooks/use-mutation-submit";
 import { usePlaceSearch } from "@/hooks/use-place-search";
 import { useRestaurantFilter } from "@/hooks/use-restaurant-filter";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
@@ -49,7 +41,6 @@ import {
   type RestaurantOrigin,
 } from "@/lib/routes";
 import { compareRestaurantNames } from "@/lib/restaurant-sort";
-import { submitMutation } from "@/lib/mutation-client";
 import type { AppState, RatingDefinition } from "@/lib/types";
 
 export default function AppShell({
@@ -64,8 +55,6 @@ export default function AppShell({
   const searchParams = useSearchParams();
   const haptics = useHaptics();
   const theme = useTheme();
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement>(null);
   const restaurantOpenedInAppRef = useRef(false);
   const addListOpenedInAppRef = useRef(false);
   const editHasPreviewRef = useRef(false);
@@ -112,24 +101,6 @@ export default function AppShell({
     void cacheRestaurants(state.allRestaurants).catch(reportCacheFailure);
     void cacheLists(state.lists).catch(reportCacheFailure);
   }, [state]);
-
-  useEffect(() => {
-    if (!userMenuOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
-        setUserMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setUserMenuOpen(false);
-    };
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [userMenuOpen]);
 
   const activeState = useMemo(() => {
     const activeListRestaurants = activeListId
@@ -237,10 +208,7 @@ export default function AppShell({
   const adminRoute = useOverlayRoute(adminOpen, {
     fallbackHref: hrefWithParams({ overlay: null }),
   });
-  const openAdmin = () => {
-    adminRoute.open(hrefWithParams({ overlay: "admin" }));
-    setUserMenuOpen(false);
-  };
+  const openAdmin = () => adminRoute.open(hrefWithParams({ overlay: "admin" }));
   const closeAdmin = adminRoute.close;
 
   const photoRoute = useOverlayRoute(activePhotoId !== null, {
@@ -308,44 +276,18 @@ export default function AppShell({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [activePhotoId, addListOpen, adminOpen, closeAddList, closeAdmin, closePhoto]);
 
-  const handleMutationSubmit = async (event: FormEvent<HTMLElement>) => {
-    if (event.defaultPrevented) return;
-    const form = event.target;
-    if (!(form instanceof HTMLFormElement) || new URL(form.action, window.location.href).pathname !== "/mutate") return;
-    event.preventDefault();
-    const action = String(new FormData(form).get("__action") ?? "");
-    const fromAddSheet = form.closest(".add-restaurant-sheet") !== null;
-    const submitter = (event.nativeEvent as SubmitEvent).submitter;
-    if (submitter instanceof HTMLButtonElement) submitter.disabled = true;
-    try {
-      const result = await submitMutation(form);
-      if (!result.ok) {
-        router.replace(result.redirectTo, { scroll: false });
-        return;
-      }
-      if (action === "updateEntryAndRatings") {
-        pendingEditRefreshRef.current = true;
-        router.back();
-      } else if (action === "createList" && addListOpenedInAppRef.current) {
-        const depth = addListHistoryDepth(activeAddListStep);
-        window.addEventListener("popstate", () => router.replace(result.redirectTo, { scroll: false }), { once: true });
-        window.history.go(-depth);
-      } else if (["addRestaurant", "addRestaurantFromGoogleMapsUrl", "attachRestaurantToList"].includes(action)) {
-        if (fromAddSheet) router.replace(result.redirectTo, { scroll: false });
-        else router.push(result.redirectTo, { scroll: false });
-      } else if (action === "deleteRestaurant") {
-        router.replace(restaurantOriginHref(selectedEntryOrigin, activeState.activeListId), { scroll: false });
-      } else if (["createList", "deleteList"].includes(action)) {
-        router.replace(result.redirectTo, { scroll: false });
-      } else if (result.redirectTo !== `${window.location.pathname}${window.location.search}`) {
-        router.replace(result.redirectTo, { scroll: false });
-      } else {
-        router.refresh();
-      }
-    } finally {
-      if (submitter instanceof HTMLButtonElement) submitter.disabled = false;
-    }
-  };
+  const addListOpenedInApp = useCallback(() => addListOpenedInAppRef.current, []);
+  const markPendingEditRefresh = useCallback(() => {
+    pendingEditRefreshRef.current = true;
+  }, []);
+
+  const handleMutationSubmit = useMutationSubmit({
+    activeListId: activeState.activeListId,
+    restaurantOrigin: selectedEntryOrigin,
+    addListStep: activeAddListStep,
+    addListOpenedInApp,
+    markPendingEditRefresh,
+  });
 
   return (
     <main className="app" onSubmit={handleMutationSubmit}>
@@ -367,72 +309,19 @@ export default function AppShell({
             {mutationMessage}
           </p>
         ) : null}
-        <header className={`topbar${selectedEntryId ? " restaurant-open" : ""}`}>
-          <div className="topbar-title">
-            <Link href={tabHref("explore", activeState.activeListId)} replace onClick={() => prepareRootNavigation("explore")} className="topbar-brand topbar-default-brand" aria-label="Munchbase home">
-              <Utensils size={18} />
-              <h2>Munchbase</h2>
-            </Link>
-            <h2 className="desktop-page-title">
-              {activeTab === "explore" ? "Explore" : activeTab === "map" ? "Map" : activeTab === "checkins" ? "Check-ins" : "Lists"}
-            </h2>
-            {selectedEntryId ? (
-              <button type="button" className="topbar-brand topbar-restaurant-back" onClick={backFromRestaurant}>
-                <ChevronLeft size={18} />
-                <h2>{initialEntryEdit ? "Restaurant" : selectedEntryOrigin === "map" ? "Map" : selectedEntryOrigin === "checkins" ? "Check-ins" : "Explore"}</h2>
-              </button>
-            ) : null}
-          </div>
-          <div className="top-actions">
-            <div className="mode-toggle">
-              <button className={activeTab === "explore" ? "active" : ""} onClick={() => navigateRoot("explore")}>
-                <ClipboardList size={16} /> Explore
-              </button>
-              <button className={activeTab === "map" ? "active" : ""} onClick={() => navigateRoot("map")}>
-                <Map size={16} /> Map
-              </button>
-              <button className={activeTab === "checkins" ? "active" : ""} onClick={() => navigateRoot("checkins")}>
-                <CalendarClock size={16} /> Check-ins
-              </button>
-            </div>
-            <div className="user-menu-wrap" ref={userMenuRef}>
-              <button
-                type="button"
-                className="ghost-button icon-button user-menu-button"
-                onClick={() => setUserMenuOpen((open) => !open)}
-                aria-label="User menu"
-                aria-expanded={userMenuOpen}
-              >
-                <User size={18} />
-              </button>
-              {userMenuOpen ? (
-                <div className="user-menu" role="menu">
-                  <div className="user-menu-head">
-                    <strong>{activeState.user.name}</strong>
-                    <span>{activeState.user.role}</span>
-                  </div>
-                  <ThemePicker choice={theme.choice} onChange={theme.setChoice} />
-                  {activeState.user.role === "admin" ? (
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      onClick={() => {
-                        openAdmin();
-                      }}
-                    >
-                      <Shield size={16} /> Admin
-                    </button>
-                  ) : null}
-                  <form action="/logout" method="post">
-                    <button className="ghost-button">
-                      <LogOut size={16} /> Sign out
-                    </button>
-                  </form>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </header>
+        <Topbar
+          user={activeState.user}
+          activeTab={activeTab}
+          activeListId={activeState.activeListId}
+          restaurantOpen={selectedEntryId !== null}
+          restaurantOrigin={selectedEntryOrigin}
+          restaurantEditing={initialEntryEdit}
+          theme={theme}
+          onNavigateToExplore={() => prepareRootNavigation("explore")}
+          onNavigateRoot={navigateRoot}
+          onBackFromRestaurant={backFromRestaurant}
+          onOpenAdmin={openAdmin}
+        />
 
         {settingsOpen ? (
           <section className="mobile-detail-view">
