@@ -36,6 +36,7 @@ import { useHaptics } from "@/hooks/use-haptics";
 import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
 import { formatCityState } from "@/lib/address";
 import { deriveAppRouteState } from "@/lib/app-route-state";
+import { distanceMiles, formatDistance, NEARBY_RADIUS_MILES } from "@/lib/distance";
 import { readCachedLocation, writeCachedLocation } from "@/lib/location-cache";
 import { cacheAppState, cacheLists, cacheRestaurants, reportCacheFailure } from "@/lib/offline-db";
 import type { PlaceSearchResult } from "@/lib/photon";
@@ -54,27 +55,6 @@ import { submitMutation } from "@/lib/mutation-client";
 import type { AppState, RatingDefinition } from "@/lib/types";
 
 const MapView = dynamic(() => import("@/components/map-view"), { ssr: false });
-
-const NEARBY_RADIUS_MILES = 5;
-
-function distanceMiles(
-  from: { lat: number; lon: number },
-  to: { lat: number; lon: number },
-) {
-  const toRadians = (degrees: number) => degrees * (Math.PI / 180);
-  const latitudeDelta = toRadians(to.lat - from.lat);
-  const longitudeDelta = toRadians(to.lon - from.lon);
-  const fromLatitude = toRadians(from.lat);
-  const toLatitude = toRadians(to.lat);
-  const haversine =
-    Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(longitudeDelta / 2) ** 2;
-  return 3958.8 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
-}
-
-function formatDistance(miles: number) {
-  return miles < 0.1 ? "< 0.1 mi" : `${miles.toFixed(miles < 10 ? 1 : 0)} mi`;
-}
 
 export default function AppShell({
   state,
