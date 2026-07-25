@@ -27,7 +27,7 @@ import { ListSettingsPanel } from "@/components/lists/list-settings";
 import { AddListModal } from "@/components/lists/add-list-modal";
 import { AdminDrawer } from "@/components/admin/admin-panel";
 import { CheckInFeed } from "@/components/checkins/check-in-feed";
-import { RestaurantDetail } from "@/components/restaurant/restaurant-detail";
+import { RestaurantDetailPane } from "@/components/restaurant/restaurant-detail-pane";
 import { RatingBadge } from "@/components/restaurant/rating-badge";
 import { NetworkStatus } from "@/components/shared/network-status";
 import { InstallPrompt } from "@/components/shared/install-prompt";
@@ -509,17 +509,11 @@ export default function AppShell({
           </section>
         ) : selectedEntry ? (
           <section className="mobile-detail-view">
-            <RestaurantDetail
-              key={`${selectedEntry.id}:${initialEntryEdit ? "edit" : "view"}`}
+            <RestaurantDetailPane
+              restaurant={selectedEntry}
+              state={activeState}
               canWrite={canWrite}
-              entry={selectedEntry}
-              activeListId={activeState.activeListId}
-              lists={activeState.lists}
-              globalRatingDefinitions={activeState.globalRatingDefinitions}
-              ratingDefinitions={activeState.ratingDefinitions}
-              allRatingDefinitions={activeState.allRatingDefinitions}
-              noteSections={activeState.noteSections}
-              initialEdit={initialEntryEdit}
+              editing={initialEntryEdit}
               onEditChange={setRestaurantEdit}
               activePhotoId={activePhotoId}
               onOpenPhoto={openPhoto}
@@ -563,17 +557,11 @@ export default function AppShell({
               />
               <section className="detail">
                 {selectedEntry ? (
-                  <RestaurantDetail
-                    key={`${selectedEntry.id}:${initialEntryEdit ? "edit" : "view"}`}
+                  <RestaurantDetailPane
+                    restaurant={selectedEntry}
+                    state={activeState}
                     canWrite={canWrite}
-                    entry={selectedEntry}
-                    activeListId={activeState.activeListId}
-                    lists={activeState.lists}
-                    globalRatingDefinitions={activeState.globalRatingDefinitions}
-                    ratingDefinitions={activeState.ratingDefinitions}
-                    allRatingDefinitions={activeState.allRatingDefinitions}
-                    noteSections={activeState.noteSections}
-                    initialEdit={initialEntryEdit}
+                    editing={initialEntryEdit}
                     onEditChange={setRestaurantEdit}
                     activePhotoId={activePhotoId}
                     onOpenPhoto={openPhoto}
@@ -776,17 +764,11 @@ export default function AppShell({
               {settingsOpen ? (
                 <ListSettingsPanel state={activeState} onClose={closeSettings} />
               ) : selectedEntry ? (
-                <RestaurantDetail
-                  key={`${selectedEntry.id}:${initialEntryEdit ? "edit" : "view"}`}
+                <RestaurantDetailPane
+                  restaurant={selectedEntry}
+                  state={activeState}
                   canWrite={canWrite}
-                  entry={selectedEntry}
-                  activeListId={activeState.activeListId}
-                  lists={activeState.lists}
-                  globalRatingDefinitions={activeState.globalRatingDefinitions}
-                  ratingDefinitions={activeState.ratingDefinitions}
-                  allRatingDefinitions={activeState.allRatingDefinitions}
-                  noteSections={activeState.noteSections}
-                  initialEdit={initialEntryEdit}
+                  editing={initialEntryEdit}
                   onEditChange={setRestaurantEdit}
                   activePhotoId={activePhotoId}
                   onOpenPhoto={openPhoto}
