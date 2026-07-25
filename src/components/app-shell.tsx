@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -8,18 +7,16 @@ import {
   CalendarClock,
   ChevronLeft,
   ClipboardList,
-  Filter,
   Map,
   LogOut,
   Monitor,
-  Plus,
   Search,
   Shield,
   User,
   Utensils,
-  X,
 } from "lucide-react";
 import { SidebarContent } from "@/components/layout/sidebar";
+import { ThemePicker } from "@/components/layout/theme-picker";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { AddRestaurantsPanel } from "@/components/search/add-restaurants";
 import { AddRestaurantSheet } from "@/components/search/add-restaurant-sheet";
@@ -27,19 +24,18 @@ import { ListSettingsPanel } from "@/components/lists/list-settings";
 import { AddListModal } from "@/components/lists/add-list-modal";
 import { AdminDrawer } from "@/components/admin/admin-panel";
 import { CheckInFeed } from "@/components/checkins/check-in-feed";
+import { ExploreView } from "@/components/explore/explore-view";
 import { RestaurantDetailPane } from "@/components/restaurant/restaurant-detail-pane";
-import { RatingBadge } from "@/components/restaurant/rating-badge";
 import { NetworkStatus } from "@/components/shared/network-status";
 import { InstallPrompt } from "@/components/shared/install-prompt";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useHaptics } from "@/hooks/use-haptics";
 import { useOverlayRoute } from "@/hooks/use-overlay-route";
 import { usePlaceSearch } from "@/hooks/use-place-search";
+import { useRestaurantFilter } from "@/hooks/use-restaurant-filter";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
-import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
-import { formatCityState } from "@/lib/address";
+import { useTheme } from "@/hooks/use-theme";
 import { deriveAppRouteState } from "@/lib/app-route-state";
-import { distanceMiles, formatDistance, NEARBY_RADIUS_MILES } from "@/lib/distance";
 import { cacheAppState, cacheLists, cacheRestaurants, reportCacheFailure } from "@/lib/offline-db";
 import {
   addHref,
@@ -56,8 +52,6 @@ import { compareRestaurantNames } from "@/lib/restaurant-sort";
 import { submitMutation } from "@/lib/mutation-client";
 import type { AppState, RatingDefinition } from "@/lib/types";
 
-const MapView = dynamic(() => import("@/components/map-view"), { ssr: false });
-
 export default function AppShell({
   state,
   children,
@@ -70,10 +64,6 @@ export default function AppShell({
   const searchParams = useSearchParams();
   const haptics = useHaptics();
   const theme = useTheme();
-  const [query, setQuery] = useState("");
-  const [filterDefinition, setFilterDefinition] = useState("");
-  const [filterValue, setFilterValue] = useState("");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const restaurantOpenedInAppRef = useRef(false);
@@ -99,14 +89,6 @@ export default function AppShell({
   const activeList = activeListId ? (state.lists.find((list) => list.id === activeListId) ?? null) : null;
 
   const { locationCoords, panelProps: placeSearchProps } = usePlaceSearch({ nearbyEnabled: addOpen });
-
-  // Collapse the filter panel when the tab changes. Adjusting state during render
-  // (rather than in an effect) avoids rendering the stale open panel for a frame.
-  const [filtersTab, setFiltersTab] = useState(activeTab);
-  if (filtersTab !== activeTab) {
-    setFiltersTab(activeTab);
-    setFiltersOpen(false);
-  }
 
   const { rememberRoot: rememberRootScroll, prepareNavigation: prepareRootNavigation } =
     useScrollRestoration({
@@ -148,15 +130,6 @@ export default function AppShell({
       document.removeEventListener("keydown", handleEscape);
     };
   }, [userMenuOpen]);
-
-  useEffect(() => {
-    if (!filtersOpen) return;
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setFiltersOpen(false);
-    };
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [filtersOpen]);
 
   const activeState = useMemo(() => {
     const activeListRestaurants = activeListId
@@ -203,57 +176,15 @@ export default function AppShell({
     openRestaurant(id, "map", selectedEntryId !== null);
   };
 
-  const restaurants = useMemo(() => {
-    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const needle = normalize(query);
-    const needleTokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean).map(normalize).filter(Boolean);
-    return activeState.restaurants.filter((r) => {
-      const raw = [r.name, r.address, r.notes].filter(Boolean).join(" ");
-      const haystack = normalize(raw);
-      const haystackTokens = raw.toLowerCase().split(/\s+/).filter(Boolean).map(normalize).filter(Boolean);
-      const textMatch = !needle ||
-        haystack.includes(needle) ||
-        needleTokens.every((nw) => haystackTokens.some((hw) => hw.includes(nw)));
-      const ratingMatch =
-        !filterDefinition ||
-        !filterValue ||
-        r.ratings.some((rating) => String(rating.definitionId) === filterDefinition && rating.value === filterValue);
-      return textMatch && ratingMatch;
-    }).sort((a, b) => compareRestaurantNames(a.name, b.name));
-  }, [activeState.restaurants, filterDefinition, filterValue, query]);
-
-  const restaurantDistances = useMemo(() => {
-    const distances = new globalThis.Map<number, number>();
-    if (!locationCoords) return distances;
-    restaurants.forEach((restaurant) => {
-      if (restaurant.lat !== null && restaurant.lon !== null) {
-        distances.set(
-          restaurant.id,
-          distanceMiles(locationCoords, { lat: restaurant.lat, lon: restaurant.lon }),
-        );
-      }
-    });
-    return distances;
-  }, [locationCoords, restaurants]);
-
-  const nearbyRestaurants = useMemo(
-    () => restaurants
-      .filter((restaurant) => (restaurantDistances.get(restaurant.id) ?? Number.POSITIVE_INFINITY) <= NEARBY_RADIUS_MILES)
-      .sort((a, b) =>
-        (restaurantDistances.get(a.id) ?? 0) - (restaurantDistances.get(b.id) ?? 0) ||
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-      ),
-    [restaurantDistances, restaurants],
-  );
-
-  const otherRestaurants = useMemo(() => {
-    const nearbyIds = new Set(nearbyRestaurants.map((restaurant) => restaurant.id));
-    return restaurants.filter((restaurant) => !nearbyIds.has(restaurant.id));
-  }, [nearbyRestaurants, restaurants]);
+  const filter = useRestaurantFilter({
+    restaurants: activeState.restaurants,
+    definitions: activeDefinitions,
+    locationCoords,
+    activeTab,
+  });
 
   const selectedEntry =
     activeState.allRestaurants.find((r) => r.id === selectedEntryId) ?? null;
-  const selectedFilterDefinition = activeDefinitions.find((d) => String(d.id) === filterDefinition);
 
   useEffect(() => {
     if (!selectedEntryId || !initialEntryEdit) return;
@@ -578,214 +509,43 @@ export default function AppShell({
               </section>
             </div>
           ) : (
-            <>
-            <div className="toolbar">
-              <label className="search-box">
-                <span className="sr-only">Search restaurants</span>
-                <Search size={17} />
-                <input
-                  type="search"
-                  aria-label="Search restaurants"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search restaurants, notes, tips"
-                />
-              </label>
-              <button
-                type="button"
-                className={`filter-toggle ${filterDefinition ? "active" : ""}`}
-                onClick={() => setFiltersOpen((open) => !open)}
-                aria-label={filterDefinition ? "Open active Explore filters" : "Open Explore filters"}
-                aria-expanded={filtersOpen}
-                aria-controls="explore-filters"
-              >
-                <Filter size={16} />
-                <span>{filterDefinition ? "Filtered" : "Filter"}</span>
-              </button>
-              <button
-                type="button"
-                className="add-restaurant-trigger"
-                onClick={openAdd}
-                aria-label="Add restaurant"
-                aria-expanded={addOpen}
-                aria-controls="add-restaurant-sheet"
-              >
-                <Plus size={17} />
-                <span>Add</span>
-              </button>
-            </div>
-            {filtersOpen ? (
-              <section className="filter-panel" id="explore-filters" aria-label="Explore filters">
-                <div className="filter-panel-head">
-                  <h3>Filter by ratings</h3>
-                  <div className="filter-panel-actions">
-                    {filterDefinition ? (
-                      <button
-                        type="button"
-                        className="ghost-button compact-button"
-                        onClick={() => { setFilterDefinition(""); setFilterValue(""); }}
-                      >
-                        Clear
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="ghost-button icon-button"
-                      onClick={() => setFiltersOpen(false)}
-                      aria-label="Close filters"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                </div>
-                <label>
-                  <span>Attribute</span>
-                  <select
-                    value={filterDefinition}
-                    onChange={(e) => {
-                      setFilterDefinition(e.target.value);
-                      setFilterValue("");
-                    }}
-                  >
-                    <option value="">Any rating</option>
-                    {activeDefinitions.filter((d) => d.active).map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
-                </label>
-                {selectedFilterDefinition ? (
-                  <label>
-                    <span>Value</span>
-                    <select value={filterValue} onChange={(e) => setFilterValue(e.target.value)}>
-                      <option value="">Choose value</option>
-                      <RatingFilterOptions definition={selectedFilterDefinition} />
-                    </select>
-                  </label>
-                ) : null}
-              </section>
-            ) : filterDefinition && selectedFilterDefinition ? (
-              <button
-                type="button"
-                className="active-filter-chip"
-                onClick={() => setFiltersOpen(true)}
-              >
-                <Filter size={13} />
-                {selectedFilterDefinition.name}
-                {filterValue ? `: ${filterValue}` : ""}
-              </button>
-            ) : null}
-
-            {activeTab === "map" ? (
-          <MapView
-            restaurants={restaurants}
-            globalRatingDefinitions={activeState.globalRatingDefinitions}
-            goBackDefinitionId={activeState.globalRatingDefinitions.find((d) => d.presetKey === "go_back" && d.active)?.id ?? null}
-            onSelectRestaurant={openEntryFromMap}
-          />
-        ) : (
-          <div className={`content-grid restaurant-content-grid${selectedEntry || settingsOpen ? " has-detail" : ""}`}>
-            <section className="results">
-              <h3 className="results-heading">{activeListName}</h3>
-              {restaurants.length === 0 ? (
-                <EmptyState
-                  icon={<ClipboardList size={32} />}
-                  title={query || filterDefinition ? "No restaurants match your search." : "No restaurants yet."}
-                  description={query || filterDefinition ? "Try adjusting your search or filters." : "Add your first restaurant to get started."}
-                  action={query || filterDefinition ? (
-                    <button className="ghost-button" style={{ width: "auto" }} onClick={() => { setQuery(""); setFilterDefinition(""); setFilterValue(""); }}>
-                      Clear filters
-                    </button>
-                  ) : undefined}
-                />
-              ) : (
-                (locationCoords && nearbyRestaurants.length > 0
-                  ? [
-                      { label: "Nearby", detail: `Within ${NEARBY_RADIUS_MILES} miles`, restaurants: nearbyRestaurants, showDistance: true },
-                      ...(otherRestaurants.length > 0
-                        ? [{ label: "More restaurants", detail: "A–Z", restaurants: otherRestaurants, showDistance: false }]
-                        : []),
-                    ]
-                  : [{
-                      label: "All restaurants",
-                      detail: locationCoords ? `None within ${NEARBY_RADIUS_MILES} miles · A–Z` : "A–Z",
-                      restaurants,
-                      showDistance: false,
-                    }]
-                ).map((section) => (
-                  <div className="restaurant-section" key={section.label}>
-                    <div className="restaurant-section-heading">
-                      <strong>{section.label}</strong>
-                      <span>{section.detail}</span>
-                    </div>
-                    {section.restaurants.map((rst) => {
-                const globalRatingIcons = activeState.globalRatingDefinitions.filter((d) => d.active).map((d) => {
-                  const rating = rst.ratings.find((r) => r.definitionId === d.id);
-                  if (!rating?.value && d.presetKey !== "go_back") return null;
-                  return <RatingBadge key={d.id} definition={d} value={rating?.value ?? ""} />;
-                });
-                const listRatingIcons = activeState.ratingDefinitions.filter((d) => d.active).map((d) => {
-                  const rating = rst.ratings.find((r) => r.definitionId === d.id);
-                  if (!rating?.value) return null;
-                  return <RatingBadge key={d.id} definition={d} value={rating?.value ?? ""} />;
-                });
-                return (
-                    <button
-                      key={rst.id}
-                      className={`restaurant-row ${selectedEntry?.id === rst.id ? "active" : ""}`}
-                      // selectEntry writes restaurantOpenedInAppRef so the back button knows the
-                      // detail view was opened in-app. That runs on click, never during render.
-                      // eslint-disable-next-line react-hooks/refs
-                      onClick={() => selectEntry(rst.id)}
-                    >
-                      <span>
-                        <span className="restaurant-row-top">
-                          <strong>{rst.name}</strong>
-                        </span>
-                        <small>{formatCityState(rst.address) || rst.address}</small>
-                        {globalRatingIcons.some((i) => i) ? <span className="rating-icons">{globalRatingIcons}</span> : null}
-                        {listRatingIcons.some((i) => i) ? <span className="rating-icons">{listRatingIcons}</span> : null}
-                      </span>
-                      <span className="restaurant-row-meta">
-                        {section.showDistance ? (
-                          <strong>{formatDistance(restaurantDistances.get(rst.id) ?? 0)}</strong>
-                        ) : null}
-                        {rst.checkInCount ? (
-                          <span>{`${rst.checkInCount} visit${rst.checkInCount === 1 ? "" : "s"}`}</span>
-                        ) : null}
-                      </span>
-                    </button>
-                );
-                    })}
-                  </div>
-                ))
-              )}
-            </section>
-            <section className="detail">
-              {settingsOpen ? (
-                <ListSettingsPanel state={activeState} onClose={closeSettings} />
-              ) : selectedEntry ? (
-                <RestaurantDetailPane
-                  restaurant={selectedEntry}
-                  state={activeState}
-                  canWrite={canWrite}
-                  editing={initialEntryEdit}
-                  onEditChange={setRestaurantEdit}
-                  activePhotoId={activePhotoId}
-                  onOpenPhoto={openPhoto}
-                  onSelectPhoto={selectPhoto}
-                  onClosePhoto={closePhoto}
-                />
-              ) : (
-                <EmptyState
-                  icon={<Search size={28} />}
-                  title="Select a restaurant"
-                  description="Pick one from the list to see details, notes, and ratings."
-                />
-              )}
-            </section>
-          </div>
-        )}
-            </>
+            <ExploreView
+              state={activeState}
+              filter={filter}
+              definitions={activeDefinitions}
+              locationCoords={locationCoords}
+              showMap={activeTab === "map"}
+              activeListName={activeListName}
+              selectedRestaurantId={selectedEntry?.id ?? null}
+              hasDetail={Boolean(selectedEntry || settingsOpen)}
+              addOpen={addOpen}
+              onOpenAdd={openAdd}
+              onSelectRestaurant={selectEntry}
+              onSelectFromMap={openEntryFromMap}
+              detail={
+                settingsOpen ? (
+                  <ListSettingsPanel state={activeState} onClose={closeSettings} />
+                ) : selectedEntry ? (
+                  <RestaurantDetailPane
+                    restaurant={selectedEntry}
+                    state={activeState}
+                    canWrite={canWrite}
+                    editing={initialEntryEdit}
+                    onEditChange={setRestaurantEdit}
+                    activePhotoId={activePhotoId}
+                    onOpenPhoto={openPhoto}
+                    onSelectPhoto={selectPhoto}
+                    onClosePhoto={closePhoto}
+                  />
+                ) : (
+                  <EmptyState
+                    icon={<Search size={28} />}
+                    title="Select a restaurant"
+                    description="Pick one from the list to see details, notes, and ratings."
+                  />
+                )
+              }
+            />
           )}
         </div>
       </section>
@@ -837,66 +597,3 @@ export default function AppShell({
     </main>
   );
 }
-
-function ThemePicker({
-  choice,
-  onChange,
-}: {
-  choice: ThemeChoice;
-  onChange: (choice: ThemeChoice) => void;
-}) {
-  const options: Array<{ value: ThemeChoice; label: string; swatches: string[] }> = [
-    { value: "system", label: "Auto", swatches: ["#f8f8f2", "#bd93f9", "#282a36", "#ff79c6"] },
-    { value: "light", label: "Light", swatches: ["#f8f8f2", "#e6e6dc", "#bd93f9"] },
-    { value: "dark", label: "Dark", swatches: ["#1e2029", "#282a36", "#ff79c6"] },
-    { value: "lavender", label: "Lavender", swatches: ["#f5f5ff", "#ededff", "#9fa1ff"] },
-    { value: "lavender-dark", label: "Lavender Dark", swatches: ["#0d0b1e", "#151232", "#b5baff"] },
-    { value: "rose", label: "Rose", swatches: ["#ffe5ec", "#ffc2d1", "#fb6f92"] },
-    { value: "rose-dark", label: "Rose Dark", swatches: ["#190812", "#3a1020", "#fb6f92"] },
-  ];
-
-  return (
-    <div className="theme-picker" role="group" aria-label="Theme">
-      <span>Theme</span>
-      <div className="theme-picker-options">
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            className={choice === option.value ? "active" : ""}
-            aria-pressed={choice === option.value}
-            onClick={() => onChange(option.value)}
-          >
-            <span className="theme-swatch" aria-hidden="true">
-              {option.swatches.map((color, i) => (
-                <span key={i} style={{ background: color }} />
-              ))}
-            </span>
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RatingFilterOptions({ definition }: { definition?: RatingDefinition }) {
-  if (!definition) return null;
-  if (definition.type === "boolean") {
-    return (
-      <>
-        <option value="true">Yes</option>
-        <option value="false">No</option>
-      </>
-    );
-  }
-  if (definition.type === "choice") {
-    return definition.options.map((o) => (<option key={o} value={o}>{o}</option>));
-  }
-  const options = [];
-  for (let v = definition.min ?? 1; v <= (definition.max ?? 5); v += 1) {
-    options.push(<option key={v} value={v}>{v}</option>);
-  }
-  return options;
-}
-
