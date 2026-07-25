@@ -53,6 +53,15 @@ export function addListStep(value: string | null): AddListStep {
   return value === "fields" || value === "restaurants" ? value : "details";
 }
 
+/**
+ * How many history entries the Add list wizard has pushed at `step`. Closing the
+ * wizard rewinds by this much so one action returns to `/lists`, rather than
+ * walking back through each step the user visited.
+ */
+export function addListHistoryDepth(step: AddListStep): number {
+  return step === "restaurants" ? 3 : step === "fields" ? 2 : 1;
+}
+
 export function listSettingsHref(listId: number | null) {
   return listId ? `/lists/${listId}/settings` : "/lists/settings";
 }

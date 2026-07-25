@@ -33,6 +33,7 @@ import { NetworkStatus } from "@/components/shared/network-status";
 import { InstallPrompt } from "@/components/shared/install-prompt";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useHaptics } from "@/hooks/use-haptics";
+import { useOverlayRoute } from "@/hooks/use-overlay-route";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
 import { formatCityState } from "@/lib/address";
@@ -43,6 +44,7 @@ import { cacheAppState, cacheLists, cacheRestaurants, reportCacheFailure } from 
 import type { PlaceSearchResult } from "@/lib/photon";
 import {
   addHref,
+  addListHistoryDepth,
   addListHref,
   listSettingsHref,
   restaurantHref,
@@ -82,11 +84,7 @@ export default function AppShell({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const restaurantOpenedInAppRef = useRef(false);
-  const settingsOpenedInAppRef = useRef(false);
-  const addOpenedInAppRef = useRef(false);
   const addListOpenedInAppRef = useRef(false);
-  const adminOpenedInAppRef = useRef(false);
-  const photoOpenedInAppRef = useRef(false);
   const editHasPreviewRef = useRef(false);
   const editOpenedFromPreviewRef = useRef(false);
   const pendingEditRefreshRef = useRef(false);
@@ -123,15 +121,12 @@ export default function AppShell({
       onLeaveRestaurant: () => {
         restaurantOpenedInAppRef.current = false;
         editHasPreviewRef.current = false;
-        photoOpenedInAppRef.current = false;
       },
     });
 
   useEffect(() => {
-    if (!settingsOpen) settingsOpenedInAppRef.current = false;
-    if (!adminOpen) adminOpenedInAppRef.current = false;
     if (!addListOpen) addListOpenedInAppRef.current = false;
-  }, [addListOpen, adminOpen, settingsOpen]);
+  }, [addListOpen]);
 
   useEffect(() => {
     // Write-through cache: keep the last successfully-loaded server state in
@@ -323,7 +318,6 @@ export default function AppShell({
       setPlaceResults([]);
       setPlaceSearchStatus("");
       setSearchGlobal(false);
-      addOpenedInAppRef.current = false;
     }
     previousAddOpenRef.current = addOpen;
   }, [addOpen]);
@@ -369,37 +363,38 @@ export default function AppShell({
     return `${pathname}${queryString ? `?${queryString}` : ""}`;
   }, [pathname, searchParams]);
 
-  const openListSettings = (listId: number | null) => {
-    settingsOpenedInAppRef.current = true;
-    router.push(listSettingsHref(listId), { scroll: false });
-  };
+  const settingsRoute = useOverlayRoute(settingsOpen, {
+    fallbackHref: tabHref("lists", activeState.activeListId),
+  });
+  const openListSettings = (listId: number | null) => settingsRoute.open(listSettingsHref(listId));
+  const closeSettings = settingsRoute.close;
 
-  const closeSettings = () => {
-    if (settingsOpenedInAppRef.current) router.back();
-    else router.replace(tabHref("lists", activeState.activeListId), { scroll: false });
-  };
+  // Place-search state is reset by the addOpen transition effect below, which also
+  // covers closing via the back button.
+  const addRoute = useOverlayRoute(addOpen, {
+    fallbackHref: tabHref("explore", activeState.activeListId),
+  });
+  const openAdd = () => addRoute.open(addHref(activeState.activeListId));
+  const closeAdd = addRoute.close;
 
-  const closeAdd = useCallback(() => {
-    setPlaceQuery("");
-    setPlaceResults([]);
-    setPlaceSearchStatus("");
-    setSearchGlobal(false);
-    if (addOpenedInAppRef.current) router.back();
-    else router.replace(tabHref("explore", activeState.activeListId), { scroll: false });
-  }, [activeState.activeListId, router]);
-
+  const adminRoute = useOverlayRoute(adminOpen, {
+    fallbackHref: hrefWithParams({ overlay: null }),
+  });
   const openAdmin = () => {
-    adminOpenedInAppRef.current = true;
-    router.push(hrefWithParams({ overlay: "admin" }), { scroll: false });
+    adminRoute.open(hrefWithParams({ overlay: "admin" }));
     setUserMenuOpen(false);
   };
+  const closeAdmin = adminRoute.close;
 
-  const closeAdmin = useCallback(() => {
-    if (!adminOpen) return;
-    if (adminOpenedInAppRef.current) router.back();
-    else router.replace(hrefWithParams({ overlay: null }), { scroll: false });
-  }, [adminOpen, hrefWithParams, router]);
+  const photoRoute = useOverlayRoute(activePhotoId !== null, {
+    fallbackHref: hrefWithParams({ photo: null }),
+  });
+  const openPhoto = (photoId: number) => photoRoute.open(hrefWithParams({ photo: String(photoId) }));
+  const closePhoto = photoRoute.close;
 
+  // The Add list wizard pushes one history entry per step, so closing rewinds by
+  // the step depth rather than popping a single entry — not the single pop that
+  // useOverlayRoute performs.
   const openAddList = () => {
     addListOpenedInAppRef.current = true;
     router.push(addListHref(activeState.activeListId, "details"), { scroll: false });
@@ -408,8 +403,7 @@ export default function AppShell({
   const closeAddList = useCallback(() => {
     if (!addListOpen) return;
     if (addListOpenedInAppRef.current) {
-      const depth = activeAddListStep === "restaurants" ? 3 : activeAddListStep === "fields" ? 2 : 1;
-      window.history.go(-depth);
+      window.history.go(-addListHistoryDepth(activeAddListStep));
     } else {
       router.replace(tabHref("lists", activeState.activeListId), { scroll: false });
     }
@@ -439,20 +433,9 @@ export default function AppShell({
     }
   };
 
-  const openPhoto = (photoId: number) => {
-    photoOpenedInAppRef.current = true;
-    router.push(hrefWithParams({ photo: String(photoId) }), { scroll: false });
-  };
-
   const selectPhoto = (photoId: number) => {
     router.replace(hrefWithParams({ photo: String(photoId) }), { scroll: false });
   };
-
-  const closePhoto = useCallback(() => {
-    if (!activePhotoId) return;
-    if (photoOpenedInAppRef.current) router.back();
-    else router.replace(hrefWithParams({ photo: null }), { scroll: false });
-  }, [activePhotoId, hrefWithParams, router]);
 
   // Declared after the close handlers so they are initialized when this effect's
   // dependency array is evaluated during render.
@@ -708,10 +691,7 @@ export default function AppShell({
               <button
                 type="button"
                 className="add-restaurant-trigger"
-                onClick={() => {
-                  addOpenedInAppRef.current = true;
-                  router.push(addHref(activeState.activeListId), { scroll: false });
-                }}
+                onClick={openAdd}
                 aria-label="Add restaurant"
                 aria-expanded={addOpen}
                 aria-controls="add-restaurant-sheet"
