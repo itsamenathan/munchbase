@@ -33,6 +33,7 @@ import { NetworkStatus } from "@/components/shared/network-status";
 import { InstallPrompt } from "@/components/shared/install-prompt";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useHaptics } from "@/hooks/use-haptics";
+import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
 import { formatCityState } from "@/lib/address";
 import { deriveAppRouteState } from "@/lib/app-route-state";
@@ -80,8 +81,6 @@ export default function AppShell({
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const scrollPositionsRef = useRef(new globalThis.Map<string, number>());
-  const pendingRootRestoreRef = useRef<string | null>(null);
   const restaurantOpenedInAppRef = useRef(false);
   const settingsOpenedInAppRef = useRef(false);
   const addOpenedInAppRef = useRef(false);
@@ -91,7 +90,6 @@ export default function AppShell({
   const editHasPreviewRef = useRef(false);
   const editOpenedFromPreviewRef = useRef(false);
   const pendingEditRefreshRef = useRef(false);
-  const previousSelectedEntryRef = useRef<number | null>(null);
   const canWrite = true;
 
   const {
@@ -117,34 +115,23 @@ export default function AppShell({
     setFiltersOpen(false);
   }
 
-  useEffect(() => {
-    const previousId = previousSelectedEntryRef.current;
-    if (selectedEntryId && previousId !== selectedEntryId) {
-      window.scrollTo({ top: 0, left: 0 });
-    } else if (!selectedEntryId && previousId) {
-      const rootHref = tabHref(activeTab, activeListId);
-      const top = scrollPositionsRef.current.get(rootHref);
-      if (top !== undefined) window.requestAnimationFrame(() => window.scrollTo({ top, left: 0 }));
-      restaurantOpenedInAppRef.current = false;
-      editHasPreviewRef.current = false;
-      photoOpenedInAppRef.current = false;
-    }
-    previousSelectedEntryRef.current = selectedEntryId;
-  }, [activeListId, activeTab, selectedEntryId]);
+  const { rememberRoot: rememberRootScroll, prepareNavigation: prepareRootNavigation } =
+    useScrollRestoration({
+      activeTab,
+      activeListId,
+      selectedRestaurantId: selectedEntryId,
+      onLeaveRestaurant: () => {
+        restaurantOpenedInAppRef.current = false;
+        editHasPreviewRef.current = false;
+        photoOpenedInAppRef.current = false;
+      },
+    });
 
   useEffect(() => {
     if (!settingsOpen) settingsOpenedInAppRef.current = false;
     if (!adminOpen) adminOpenedInAppRef.current = false;
     if (!addListOpen) addListOpenedInAppRef.current = false;
   }, [addListOpen, adminOpen, settingsOpen]);
-
-  useEffect(() => {
-    if (selectedEntryId || !pendingRootRestoreRef.current) return;
-    const href = pendingRootRestoreRef.current;
-    pendingRootRestoreRef.current = null;
-    const top = scrollPositionsRef.current.get(href) ?? 0;
-    window.requestAnimationFrame(() => window.scrollTo({ top, left: 0 }));
-  }, [activeListId, activeTab, selectedEntryId]);
 
   useEffect(() => {
     // Write-through cache: keep the last successfully-loaded server state in
@@ -230,17 +217,6 @@ export default function AppShell({
     () => [...activeState.globalRatingDefinitions, ...activeState.ratingDefinitions],
     [activeState.globalRatingDefinitions, activeState.ratingDefinitions],
   );
-
-  const rememberRootScroll = useCallback((origin: RestaurantOrigin) => {
-    scrollPositionsRef.current.set(tabHref(origin, activeState.activeListId), window.scrollY);
-  }, [activeState.activeListId]);
-
-  const prepareRootNavigation = (tab: BottomTab, listId = activeState.activeListId) => {
-    if (!selectedEntryId) {
-      scrollPositionsRef.current.set(tabHref(activeTab, activeState.activeListId), window.scrollY);
-    }
-    pendingRootRestoreRef.current = tabHref(tab, listId);
-  };
 
   const navigateRoot = (tab: BottomTab) => {
     prepareRootNavigation(tab);
