@@ -84,7 +84,20 @@ After every mutation, call `revalidatePath("/", "layout")`.
 `getAppState(user, listId)` in `src/lib/db.ts` loads all app data in one server-side call. It returns an `AppState` object (typed in `src/lib/types.ts`) that is passed into the `AppShell` client component. The client re-derives filtered state (active list, visible restaurants, rating definitions) from this object without further fetches.
 
 ### AppShell
-`src/components/app-shell.tsx` is the main `"use client"` component. It holds nearly all UI state: search query, filter, selected restaurant, panel open/close flags, user location. The active list is driven by the `?list=<id>` URL search param. Restaurant detail and settings panels render inline inside AppShell — `/restaurants/[id]` and `/lists/[id]/settings` are Next.js routes but their content is rendered by AppShell, not a separate page component.
+`src/components/app-shell.tsx` is the main `"use client"` component. It is composition and wiring — the state itself lives in dedicated modules:
+
+| Concern | Module |
+|---|---|
+| URL → UI state (active tab, open overlays, selected Restaurant) | `src/lib/app-route-state.ts` (pure, unit-tested) |
+| Overlay open/close via history | `src/hooks/use-overlay-route.ts` |
+| Explore search, rating filter, Nearby/More split | `src/hooks/use-restaurant-filter.ts` |
+| Place search, geolocation, nearby lookup | `src/hooks/use-place-search.ts` |
+| Per-tab scroll positions | `src/hooks/use-scroll-restoration.ts` |
+| `/mutate` response routing | `src/hooks/use-mutation-submit.ts` |
+
+Restaurant detail and settings panels render inline inside AppShell — `/restaurants/[id]` and `/lists/[id]/settings` are Next.js routes but their content is rendered by AppShell, not a separate page component. `RestaurantDetailPane` wraps that binding because it appears in three layouts (mobile, Check-ins split, Explore split).
+
+**Overlay close is two-pathed.** Every overlay must handle both "opened from inside the app" (pop history with `router.back()`) and "deep-linked into" (`router.replace()` to a fallback, because `back()` would leave Munchbase). `useOverlayRoute` encapsulates this. The Add list wizard is deliberately *not* using it: it pushes one entry per step and rewinds with `history.go(-addListHistoryDepth(step))`.
 
 ### Offline / IndexedDB
 `src/lib/offline-db.ts` manages an IndexedDB store (`munchbase-offline`) with object stores for restaurants, lists, app-state, and a sync-queue for deferred mutations.
@@ -119,7 +132,10 @@ Cookie-based sessions. `currentUser()` in `src/lib/auth.ts` reads the session co
 | `src/lib/db.ts` | DB connection, `getAppState()`, `getRestaurants()`, migration hooks |
 | `src/db/schema.ts` | Drizzle schema (source of truth for table structure) |
 | `src/lib/routes.ts` | URL helpers: `tabHref`, `restaurantHref`, `listSettingsHref` |
-| `src/components/app-shell.tsx` | Main client component; all UI state lives here |
+| `src/components/app-shell.tsx` | Main client component; layout and wiring |
+| `src/lib/app-route-state.ts` | Derives UI state from pathname + search params |
+| `src/components/explore/explore-view.tsx` | Explore toolbar, filters, results list, Map branch |
+| `src/hooks/use-overlay-route.ts` | Shared overlay open/close history handling |
 | `src/lib/ratings.ts` | Rating logic, preset definitions, value validation |
 | `src/lib/auth.ts` | Session creation/reading, password hashing |
 | `src/app/styles/tokens.css` | CSS custom properties (colors, spacing, etc.) |
@@ -158,7 +174,7 @@ preferred one-command local setup.
 ## Testing with agent-browser
 
 - Skip the login screen: `GET /api/dev-login` (dev-only, 404s in production) mints a real session — auto-provisions a `dev@localhost` admin if the DB has no users yet, otherwise logs in as the first existing user.
-- Headless Chrome denies the geolocation permission by default, so `navigator.geolocation.getCurrentPosition` silently fails and `locationCoords` in `app-shell.tsx` stays `null` — this breaks any test of location-dependent behavior (e.g. the search `bbox` in `src/app/api/search/route.ts`). Mock it with an init script instead of relying on `agent-browser set geo`, which only overrides coordinates and does not grant permission:
+- Headless Chrome denies the geolocation permission by default, so `navigator.geolocation.getCurrentPosition` silently fails and `locationCoords` in `src/hooks/use-place-search.ts` stays `null` — this breaks any test of location-dependent behavior (e.g. the search `bbox` in `src/app/api/search/route.ts`). Mock it with an init script instead of relying on `agent-browser set geo`, which only overrides coordinates and does not grant permission:
   ```js
   // geo-init.js
   navigator.geolocation.getCurrentPosition = (success) => {
