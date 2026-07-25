@@ -37,6 +37,7 @@ import { useTheme, type ThemeChoice } from "@/hooks/use-theme";
 import { formatCityState } from "@/lib/address";
 import { readCachedLocation, writeCachedLocation } from "@/lib/location-cache";
 import { cacheAppState, cacheLists, cacheRestaurants, reportCacheFailure } from "@/lib/offline-db";
+import type { PlaceSearchResult } from "@/lib/photon";
 import {
   addHref,
   addListHref,
@@ -54,16 +55,6 @@ import { submitMutation } from "@/lib/mutation-client";
 import type { AppState, RatingDefinition } from "@/lib/types";
 
 const MapView = dynamic(() => import("@/components/map-view"), { ssr: false });
-
-type PlaceResult = {
-  osmType: string;
-  osmId: string;
-  name: string;
-  address: string;
-  lat: string;
-  lon: string;
-  rawJson: string;
-};
 
 const NEARBY_RADIUS_MILES = 5;
 
@@ -103,10 +94,10 @@ export default function AppShell({
   const [filterValue, setFilterValue] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [placeQuery, setPlaceQuery] = useState("");
-  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
+  const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [placeSearchStatus, setPlaceSearchStatus] = useState("");
   const [searchGlobal, setSearchGlobal] = useState(false);
-  const [nearbyResults, setNearbyResults] = useState<PlaceResult[]>([]);
+  const [nearbyResults, setNearbyResults] = useState<PlaceSearchResult[]>([]);
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -218,7 +209,7 @@ export default function AppShell({
     const { lat, lon } = locationCoords;
     fetch(`/api/search?nearby=1&lat=${lat}&lon=${lon}`)
       .then((r) => r.json())
-      .then((data: { results?: PlaceResult[] }) => setNearbyResults(data.results ?? []))
+      .then((data: { results?: PlaceSearchResult[] }) => setNearbyResults(data.results ?? []))
       .catch(() => {});
   }, [addOpen, locationCoords]);
 
@@ -410,7 +401,7 @@ export default function AppShell({
       params.set("global", "1");
     }
     const response = await fetch(`/api/search?${params.toString()}`);
-    const data = (await response.json()) as { results?: PlaceResult[]; error?: string };
+    const data = (await response.json()) as { results?: PlaceSearchResult[]; error?: string };
     if (data.error) {
       setPlaceSearchStatus(data.error);
       setPlaceResults([]);
