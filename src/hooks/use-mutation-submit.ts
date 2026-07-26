@@ -16,6 +16,23 @@ type Options = {
 };
 
 /**
+ * Refetches the layout segment that supplies AppState after a navigation.
+ *
+ * `/mutate` is a Route Handler, not a Server Action, so the `revalidatePath()`
+ * it calls only clears the server cache — nothing invalidates the browser's
+ * Router Cache. Every route shares the layout that loads AppState, so a
+ * client-side navigation reuses that cached segment and renders pre-mutation
+ * data: a just-created Restaurant is missing from `allRestaurants` and its
+ * detail pane falls back to "Select a restaurant".
+ *
+ * The refresh has to run *after* the navigation. Called before, it refetches
+ * the old URL and the subsequent navigation still serves the stale segment.
+ */
+function refreshAfterNavigation(router: { refresh: () => void }) {
+  router.refresh();
+}
+
+/**
  * Intercepts every `/mutate` form submission bubbling up through AppShell and
  * routes the response, instead of letting the browser do a full page POST.
  *
@@ -51,21 +68,29 @@ export function useMutationSubmit({
           return;
         }
         if (action === "updateEntryAndRatings") {
+          // Leaving edit mode triggers the refresh; see markPendingEditRefresh.
           markPendingEditRefresh();
           router.back();
         } else if (action === "createList" && addListOpenedInApp()) {
           // Rewind past every wizard step, then redirect once the pop lands.
-          window.addEventListener("popstate", () => router.replace(result.redirectTo, { scroll: false }), { once: true });
+          window.addEventListener("popstate", () => {
+            router.replace(result.redirectTo, { scroll: false });
+            router.refresh();
+          }, { once: true });
           window.history.go(-addListHistoryDepth(addListStep));
         } else if (["addRestaurant", "addRestaurantFromGoogleMapsUrl", "attachRestaurantToList"].includes(action)) {
           if (fromAddSheet) router.replace(result.redirectTo, { scroll: false });
           else router.push(result.redirectTo, { scroll: false });
+          refreshAfterNavigation(router);
         } else if (action === "deleteRestaurant") {
           router.replace(restaurantOriginHref(restaurantOrigin, activeListId), { scroll: false });
+          refreshAfterNavigation(router);
         } else if (["createList", "deleteList"].includes(action)) {
           router.replace(result.redirectTo, { scroll: false });
+          refreshAfterNavigation(router);
         } else if (result.redirectTo !== `${window.location.pathname}${window.location.search}`) {
           router.replace(result.redirectTo, { scroll: false });
+          refreshAfterNavigation(router);
         } else {
           router.refresh();
         }
