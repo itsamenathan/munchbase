@@ -2,18 +2,9 @@
 
 import { type FormEvent, type ReactNode, type Ref } from "react";
 import { MapPin, Plus, Search } from "lucide-react";
+import type { PlaceSearchResult } from "@/lib/photon";
 import { restaurantHref } from "@/lib/routes";
 import type { AppState } from "@/lib/types";
-
-type PlaceResult = {
-  osmType: string;
-  osmId: string;
-  name: string;
-  address: string;
-  lat: string;
-  lon: string;
-  rawJson: string;
-};
 
 export function ManualRestaurantForm({ listId }: { listId: number | null }) {
   return (
@@ -41,8 +32,8 @@ export type AddRestaurantsPanelProps = {
   canWrite: boolean;
   placeQuery: string;
   setPlaceQuery: (v: string) => void;
-  placeResults: PlaceResult[];
-  nearbyResults: PlaceResult[];
+  placeResults: PlaceSearchResult[];
+  nearbyResults: PlaceSearchResult[];
   placeSearchStatus: string;
   searchPlaces: (e?: FormEvent<HTMLFormElement>) => Promise<void>;
   searchGlobal: boolean;

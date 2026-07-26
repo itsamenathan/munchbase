@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addHref,
   addListHref,
+  addListHistoryDepth,
   addListStep,
   checkInRestaurantHref,
   restaurantHref,
@@ -57,5 +58,13 @@ describe("Add route", () => {
   it("builds the Add route with and without an active List", () => {
     expect(addHref(null)).toBe("/add");
     expect(addHref(7)).toBe("/add?list=7");
+  });
+});
+
+describe("Add list history depth", () => {
+  it("counts one entry per step the wizard has pushed", () => {
+    expect(addListHistoryDepth("details")).toBe(1);
+    expect(addListHistoryDepth("fields")).toBe(2);
+    expect(addListHistoryDepth("restaurants")).toBe(3);
   });
 });
