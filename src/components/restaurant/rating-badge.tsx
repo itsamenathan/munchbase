@@ -1,4 +1,5 @@
 import { RATING_ICON_MAP, RATING_PRESETS, repeatedIcon, type RatingDefinition } from "./rating-common";
+import { parseRatingValues } from "@/lib/ratings";
 import { DollarSign, Star, Undo2, Tag } from "lucide-react";
 
 export function RatingBadge({ definition, value }: { definition: RatingDefinition; value: string }) {
@@ -29,7 +30,10 @@ export function RatingBadge({ definition, value }: { definition: RatingDefinitio
 
   const presetIcon = definition.presetKey ? RATING_PRESETS.find((p) => p.key === definition.presetKey)?.icon : null;
   const icon = (presetIcon ?? definition.icon) || "tag";
-  const displayValue = value === "true" ? "Yes" : value === "false" ? "No" : value;
+  const displayValue = definition.type === "multi"
+    ? parseRatingValues(definition, value).join(", ")
+    : value === "true" ? "Yes" : value === "false" ? "No" : value;
+  if (definition.type === "multi" && !displayValue) return null;
   return (
     <span className="entry-rating-badge">
       {RATING_ICON_MAP[icon] ?? <Tag size={14} />}

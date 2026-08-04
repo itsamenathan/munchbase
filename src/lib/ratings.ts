@@ -48,9 +48,42 @@ export function presetByKey(key: string) {
   return RATING_PRESETS.find((preset) => preset.key === key);
 }
 
+/** True for the types whose definition carries a fixed option list. */
+export function hasOptions(type: RatingType) {
+  return type === "choice" || type === "multi";
+}
+
+/**
+ * Selected labels for a stored value. `multi` keeps a JSON array in the single
+ * `rating_values.value` column; every other type holds one bare label.
+ */
+export function parseRatingValues(definition: Pick<RatingDefinition, "type">, value: string): string[] {
+  if (!value) return [];
+  if (definition.type !== "multi") return [value];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Inverse of `parseRatingValues` — an empty selection stores nothing. */
+export function serializeRatingValues(values: string[]) {
+  return values.length ? JSON.stringify(values) : "";
+}
+
 export const ratingDefinitionSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("choice"),
+    name: z.string().trim().min(1),
+    icon: z.string().default("tag"),
+    options: z.array(z.string().trim().min(1)).min(2),
+    min: z.null().optional(),
+    max: z.null().optional(),
+  }),
+  z.object({
+    type: z.literal("multi"),
     name: z.string().trim().min(1),
     icon: z.string().default("tag"),
     options: z.array(z.string().trim().min(1)).min(2),
@@ -83,13 +116,12 @@ export function normalizeRatingDefinition(input: {
   min?: string | number | null;
   max?: string | number | null;
 }) {
-  const options =
-    input.type === "choice"
-      ? (input.options ?? "")
-          .split(",")
-          .map((option) => option.trim())
-          .filter(Boolean)
-      : [];
+  const options = hasOptions(input.type)
+    ? (input.options ?? "")
+        .split(",")
+        .map((option) => option.trim())
+        .filter(Boolean)
+    : [];
   const parsed = ratingDefinitionSchema.parse({
     name: input.name,
     type: input.type,
@@ -113,6 +145,15 @@ export function validateRatingValue(definition: RatingDefinition, value: string)
   if (definition.type === "choice") {
     if (!definition.options.includes(value)) throw new Error(`Invalid value for ${definition.name}`);
     return value;
+  }
+  if (definition.type === "multi") {
+    const selected = new Set(parseRatingValues(definition, value));
+    for (const entry of selected) {
+      if (!definition.options.includes(entry)) throw new Error(`Invalid value for ${definition.name}`);
+    }
+    // Store in definition order so display and comparison stay stable when the
+    // form submits checkboxes in whatever order the user ticked them.
+    return serializeRatingValues(definition.options.filter((option) => selected.has(option)));
   }
   const numeric = Number(value);
   if (!Number.isInteger(numeric)) throw new Error(`${definition.name} must be a whole number.`);

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { distanceMiles, NEARBY_RADIUS_MILES, type Coords } from "@/lib/distance";
+import { parseRatingValues } from "@/lib/ratings";
 import { compareRestaurantNames } from "@/lib/restaurant-sort";
 import type { BottomTab } from "@/lib/routes";
 import type { RatingDefinition, Restaurant } from "@/lib/types";
@@ -44,6 +45,8 @@ export function useRestaurantFilter({ restaurants: source, definitions, location
     return () => document.removeEventListener("keydown", handleEscape);
   }, [filtersOpen]);
 
+  const selectedFilterDefinition = definitions.find((d) => String(d.id) === filterDefinition);
+
   const restaurants = useMemo(() => {
     const needle = normalize(query);
     const needleTokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean).map(normalize).filter(Boolean);
@@ -57,10 +60,17 @@ export function useRestaurantFilter({ restaurants: source, definitions, location
       const ratingMatch =
         !filterDefinition ||
         !filterValue ||
-        r.ratings.some((rating) => String(rating.definitionId) === filterDefinition && rating.value === filterValue);
+        r.ratings.some(
+          (rating) =>
+            String(rating.definitionId) === filterDefinition &&
+            // A `multi` value holds several labels, so match on containment.
+            (selectedFilterDefinition
+              ? parseRatingValues(selectedFilterDefinition, rating.value).includes(filterValue)
+              : rating.value === filterValue),
+        );
       return textMatch && ratingMatch;
     }).sort((a, b) => compareRestaurantNames(a.name, b.name));
-  }, [source, filterDefinition, filterValue, query]);
+  }, [source, filterDefinition, filterValue, query, selectedFilterDefinition]);
 
   const distances = useMemo(() => {
     const byId = new globalThis.Map<number, number>();
@@ -87,8 +97,6 @@ export function useRestaurantFilter({ restaurants: source, definitions, location
     const nearbyIds = new Set(nearbyRestaurants.map((restaurant) => restaurant.id));
     return restaurants.filter((restaurant) => !nearbyIds.has(restaurant.id));
   }, [nearbyRestaurants, restaurants]);
-
-  const selectedFilterDefinition = definitions.find((d) => String(d.id) === filterDefinition);
 
   const clearRatingFilter = useCallback(() => {
     setFilterDefinition("");

@@ -96,7 +96,7 @@ export const ratingDefinitions = sqliteTable(
     scope: text("scope", { enum: ["global", "list"] }).notNull().default("list"),
     presetKey: text("preset_key"),
     name: text("name").notNull(),
-    type: text("type", { enum: ["choice", "scale", "boolean"] }).notNull(),
+    type: text("type", { enum: ["choice", "multi", "scale", "boolean"] }).notNull(),
     icon: text("icon").notNull().default("tag"),
     optionsJson: text("options_json").notNull().default("[]"),
     min: integer("min"),

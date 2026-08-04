@@ -1,3 +1,4 @@
+import { hasOptions } from "@/lib/ratings";
 import type { RatingDefinition } from "@/lib/types";
 
 /** <option> set for the Explore rating filter, shaped by the definition type. */
@@ -11,7 +12,7 @@ export function RatingFilterOptions({ definition }: { definition?: RatingDefinit
       </>
     );
   }
-  if (definition.type === "choice") {
+  if (hasOptions(definition.type)) {
     return definition.options.map((o) => (<option key={o} value={o}>{o}</option>));
   }
   const options = [];

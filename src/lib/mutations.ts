@@ -6,7 +6,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { googleMapsPlaceId, parseGoogleMapsUrlWithRedirects } from "@/lib/google-maps-url";
 import { reverseGeocodeAddress } from "@/lib/photon";
 import { deletePhotoFiles, saveRestaurantPhotoFiles } from "@/lib/restaurant-photos";
-import { normalizeRatingDefinition, presetByKey, validateRatingValue } from "@/lib/ratings";
+import { normalizeRatingDefinition, presetByKey, serializeRatingValues, validateRatingValue } from "@/lib/ratings";
 import { buildNotes } from "@/lib/note-sections";
 import { restaurantHref, tabHref } from "@/lib/routes";
 import type { RatingDefinition, RatingPresetKey, RatingType } from "@/lib/types";
@@ -585,8 +585,10 @@ export async function saveRatings(formData: FormData) {
       { ...definition, options: JSON.parse(definition.optionsJson) as string[] },
     ]),
   );
-  for (const [key, formValue] of formData.entries()) {
-    if (!key.startsWith("rating:") || typeof formValue !== "string") continue;
+  const ratingKeys = new Set(
+    [...formData.keys()].filter((key) => key.startsWith("rating:")),
+  );
+  for (const key of ratingKeys) {
     const definitionId = Number(key.split(":")[1]);
     const definition = definitions.get(definitionId);
     if (!definition) continue;
@@ -596,7 +598,13 @@ export async function saveRatings(formData: FormData) {
         .get(restaurantId, definition.listId);
       if (!membership) continue;
     }
-    const value = validateRatingValue(definition, formValue);
+    // A `multi` field posts one entry per ticked checkbox; every other type
+    // posts a single entry (an empty one when the input is cleared).
+    const submitted = formData.getAll(key).filter((entry): entry is string => typeof entry === "string");
+    const raw = definition.type === "multi"
+      ? serializeRatingValues(submitted.filter(Boolean))
+      : submitted[submitted.length - 1] ?? "";
+    const value = validateRatingValue(definition, raw);
     if (!value) {
       db.prepare("DELETE FROM rating_values WHERE restaurant_id = ? AND definition_id = ?").run(restaurantId, definitionId);
     } else {
