@@ -1,27 +1,39 @@
-import { type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 export function BottomSheet({
   open,
   onClose,
   children,
   title,
+  className = "",
 }: {
   open: boolean;
   onClose: () => void;
   children: ReactNode;
   title?: string;
+  /** Extra class on the sheet itself, e.g. `sheet-form-layout` for a sticky footer. */
+  className?: string;
 }) {
+  useEffect(() => {
+    if (!open) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [open, onClose]);
+
   if (!open) return null;
   return (
     <div className="bottom-sheet-backdrop" onClick={onClose}>
-      <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+      <div className={`bottom-sheet ${className}`.trim()} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="bottom-sheet-handle" />
         {title ? (
           <header className="drawer-head">
             <div>
               <h2>{title}</h2>
             </div>
-            <button className="ghost-button icon-button" onClick={onClose} aria-label="Close">
+            <button type="button" className="ghost-button icon-button" onClick={onClose} aria-label="Close">
               <CloseIcon />
             </button>
           </header>

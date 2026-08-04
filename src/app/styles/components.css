@@ -180,13 +180,15 @@
   min-width: 0;
 }
 
-.field-intro {
-  display: grid;
-  gap: 6px;
-}
-
-.field-intro input {
-  min-height: var(--touch-target);
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .field-type-picker {
@@ -205,16 +207,17 @@
 
 .field-type-grid {
   display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 6px;
 }
 
+/* A single column keeps each type's description on one or two lines on a phone. */
 .field-type-card {
   display: grid;
-  gap: 6px;
-  align-content: start;
-  min-height: 84px;
-  padding: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: var(--touch-target);
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--field);
@@ -254,37 +257,10 @@
   font-size: 11px;
 }
 
-.field-type-check {
-  min-height: 16px;
-  font-size: var(--font-size-xs);
-  font-weight: 800;
-  color: var(--accent);
-}
-
-.inline-field-editor {
-  display: grid;
-  gap: 14px;
-  margin-top: 10px;
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line));
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--accent) 5%, var(--panel));
-}
-
-.field-editor-head {
-  display: grid;
-  gap: 2px;
-}
-
-.field-editor-head small,
 .field-editor-kicker {
   color: var(--muted);
   font-size: var(--font-size-sm);
-}
-
-.field-editor-kicker {
   font-weight: 700;
-  text-transform: capitalize;
 }
 
 .field-extras {
@@ -455,26 +431,21 @@
   min-width: 0;
 }
 
+/* One line each, so a card's height does not grow with its option list. */
+.attribute-card-copy strong,
+.attribute-card-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .attribute-card-copy small {
   color: var(--muted);
   line-height: 1.25;
 }
 
-.attribute-card-rename {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-  margin: 0;
-}
-
 .attribute-card-name-input {
   min-width: 0;
-}
-
-.rename-actions {
-  display: flex;
-  gap: 8px;
 }
 
 .rename-save {
@@ -495,32 +466,126 @@
   padding: 8px 14px;
 }
 
+/* Stays on the name's row at every width — a switch plus one menu button. */
 .attribute-card-actions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 2px;
   justify-content: flex-end;
 }
 
 .attribute-card-actions form {
   margin: 0;
+  display: flex;
 }
 
-.attribute-card-actions .compact-button {
+.switch {
   width: auto;
+  min-width: var(--touch-target-sm);
+  min-height: var(--touch-target-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-@media (max-width: 540px) {
-  .attribute-card {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-rows: auto auto;
-  }
+.switch-track {
+  width: 40px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: var(--line);
+  transition: background 0.15s ease;
+}
 
-  .attribute-card-actions {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-  }
+.switch-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--panel);
+  box-shadow: 0 1px 3px rgba(40, 42, 54, 0.28);
+  transition: transform 0.15s ease;
+}
+
+.switch[aria-checked="true"] .switch-track {
+  background: var(--selected-surface-strong);
+}
+
+.switch[aria-checked="true"] .switch-thumb {
+  transform: translateX(16px);
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.row-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.row-menu > .compact-icon-button {
+  color: var(--muted);
+}
+
+.row-menu-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  /* Same reason as the sheet: it has to clear the floating bottom nav. */
+  z-index: var(--z-modal);
+  min-width: 168px;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.row-menu-popover form {
+  margin: 0;
+}
+
+.row-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--touch-gap);
+  min-height: var(--touch-target-sm);
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+  font-size: var(--font-size-sm);
+}
+
+.row-menu-item.danger {
+  color: var(--warn);
+}
+
+.add-item-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--touch-target);
+  border: 1px dashed color-mix(in srgb, var(--accent) 52%, var(--line));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  color: var(--ink);
+  box-shadow: none;
 }
 
 .settings-section {
@@ -1199,11 +1264,23 @@ code {
   gap: 10px;
 }
 
+.icon-picker-browser {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+}
+
 .icon-picker-search {
   display: grid;
   gap: 4px;
   font-size: var(--font-size-sm);
   font-weight: 700;
+  /* Pinned inside the sheet body so searching never means scrolling back up. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-bottom: 6px;
+  background: var(--panel);
 }
 
 .icon-picker-search-box {
@@ -1270,20 +1347,22 @@ code {
   color: var(--muted);
 }
 
+/* Icon-only tiles: the labels cost a row each and the name is in the tooltip
+   and aria-label, so dropping them turns a page-long list into a few screens. */
 .icon-picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--touch-target), 1fr));
+  gap: 6px;
 }
 
 .icon-choice {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  min-height: 88px;
-  padding: 10px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: 0;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   background: var(--field);
   color: var(--ink);
   text-align: center;
@@ -1296,19 +1375,12 @@ code {
 }
 
 .icon-choice-icon {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--accent);
-}
-
-.icon-choice-label {
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  line-height: 1.1;
-  word-break: break-word;
 }
