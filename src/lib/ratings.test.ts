@@ -1,11 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { RATING_PRESETS, normalizeRatingDefinition, validateRatingValue } from "./ratings";
+import { RATING_PRESETS, normalizeRatingDefinition, parseRatingValues, validateRatingValue } from "./ratings";
+import type { RatingDefinition } from "./types";
+
+const multiDefinition: RatingDefinition = {
+  id: 3,
+  listId: null,
+  scope: "global",
+  presetKey: null,
+  name: "Cuisine",
+  type: "multi",
+  icon: "tag",
+  options: ["Pizza", "Tacos", "Noodles"],
+  min: null,
+  max: null,
+  active: true,
+  sortOrder: 0,
+};
 
 describe("ratings", () => {
   it("normalizes choice definitions", () => {
     expect(
       normalizeRatingDefinition({ name: "Return?", type: "choice", options: "Yes, Maybe, No" }),
     ).toMatchObject({ options: ["Yes", "Maybe", "No"] });
+  });
+
+  it("normalizes multiple choice definitions", () => {
+    expect(
+      normalizeRatingDefinition({ name: "Cuisine", type: "multi", options: "Pizza, Tacos, Noodles" }),
+    ).toMatchObject({ type: "multi", options: ["Pizza", "Tacos", "Noodles"] });
+  });
+
+  it("requires at least two multiple choice options", () => {
+    expect(() => normalizeRatingDefinition({ name: "Cuisine", type: "multi", options: "Pizza" })).toThrow();
   });
 
   it("rejects inverted scales", () => {
@@ -19,6 +45,27 @@ describe("ratings", () => {
   it("validates boolean values", () => {
     expect(validateRatingValue({ id: 1, listId: null, scope: "global", presetKey: "go_back", name: "Go back", type: "boolean", icon: "heart", options: [], min: null, max: null, active: true, sortOrder: 0 }, "true")).toBe("true");
     expect(() => validateRatingValue({ id: 1, listId: null, scope: "global", presetKey: "go_back", name: "Go back", type: "boolean", icon: "heart", options: [], min: null, max: null, active: true, sortOrder: 0 }, "yes")).toThrow();
+  });
+
+  it("stores multiple choice values in definition order", () => {
+    expect(validateRatingValue(multiDefinition, JSON.stringify(["Noodles", "Pizza"]))).toBe(
+      JSON.stringify(["Pizza", "Noodles"]),
+    );
+  });
+
+  it("drops duplicate multiple choice values and clears an empty selection", () => {
+    expect(validateRatingValue(multiDefinition, JSON.stringify(["Tacos", "Tacos"]))).toBe(JSON.stringify(["Tacos"]));
+    expect(validateRatingValue(multiDefinition, JSON.stringify([]))).toBe("");
+  });
+
+  it("rejects multiple choice values outside the option list", () => {
+    expect(() => validateRatingValue(multiDefinition, JSON.stringify(["Sushi"]))).toThrow();
+  });
+
+  it("reads multiple choice values back as a list", () => {
+    expect(parseRatingValues(multiDefinition, JSON.stringify(["Pizza", "Tacos"]))).toEqual(["Pizza", "Tacos"]);
+    expect(parseRatingValues(multiDefinition, "")).toEqual([]);
+    expect(parseRatingValues(multiDefinition, "not json")).toEqual([]);
   });
 
   it("defines the minimal presets", () => {

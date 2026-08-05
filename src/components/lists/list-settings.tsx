@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, GripVertical, ListChecks, Pencil, Search, SlidersHorizontal, Star, StickyNote, Tag, ToggleRight, Trash2 } from "lucide-react";
+import { ChevronLeft, CopyCheck, GripVertical, ListChecks, Pencil, Search, SlidersHorizontal, Star, StickyNote, Tag, ToggleRight, Trash2 } from "lucide-react";
 import {
   DndContext,
   KeyboardSensor,
@@ -18,7 +18,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { RATING_PRESETS } from "@/lib/ratings";
+import { RATING_PRESETS, hasOptions } from "@/lib/ratings";
 import { RATING_ICON_MAP, RATING_ICON_CHOICES } from "@/components/restaurant/rating-common";
 import { PanelTitle } from "@/components/shared/panel-title";
 import { appendCsrfToken } from "@/lib/csrf-client";
@@ -64,6 +64,7 @@ function presetDescription(key: string) {
 
 function fieldDescription(d: RatingDefinition) {
   if (d.type === "choice") return `choice: ${d.options.join(", ")}`;
+  if (d.type === "multi") return `multiple choice: ${d.options.join(", ")}`;
   if (d.type === "scale") return `scale (${d.min}-${d.max})`;
   return "yes / no";
 }
@@ -88,9 +89,14 @@ const FIELD_TYPE_OPTIONS: Array<{
   icon: typeof ListChecks;
 }> = [
   { value: "choice", title: "Choice", detail: "Pick one label from a fixed set.", icon: ListChecks },
+  { value: "multi", title: "Multiple choice", detail: "Pick any number of labels from a fixed set.", icon: CopyCheck },
   { value: "scale", title: "Scale", detail: "Rate on a numeric range.", icon: SlidersHorizontal },
   { value: "boolean", title: "Yes / no", detail: "Simple on/off or true/false.", icon: ToggleRight },
 ];
+
+function fieldTypeLabel(type: FieldType) {
+  return (FIELD_TYPE_OPTIONS.find((option) => option.value === type)?.title ?? type).toLowerCase();
+}
 
 function emptyCustomFieldDraft(): CustomFieldDraft {
   return {
@@ -217,12 +223,12 @@ function EditDefinitionForm({ definition, onSave, onCancel }: { definition: Rati
 
   return (
     <form className="attribute-card-rename inline-field-editor" onSubmit={(e) => { e.preventDefault(); onSave({ name, options, min, max, icon }); }}>
-      <span className="field-editor-kicker">Editing {definition.type} field</span>
+      <span className="field-editor-kicker">Editing {fieldTypeLabel(definition.type)} field</span>
       <input autoFocus value={name} onChange={(e) => setName(e.target.value)} className="attribute-card-name-input" aria-label="Attribute name" />
       <IconPicker field={{ icon }} onChange={(values) => setIcon(values.icon ?? icon)} />
-      {definition.type === "choice" ? (
+      {hasOptions(definition.type) ? (
         <label className="field-extra-block">
-          <span>Choice options</span>
+          <span>{definition.type === "multi" ? "Multiple choice options" : "Choice options"}</span>
           <textarea value={options} onChange={(e) => setOptions(e.target.value)} placeholder="Pizza, tacos, noodles" />
           <small>Separate options with commas. Their order controls how they appear.</small>
         </label>
@@ -572,18 +578,21 @@ function FieldExtras({
   onChange: (p: Partial<CustomFieldDraft>) => void;
   includeNames?: boolean;
 }) {
-  if (field.type === "choice") {
+  if (hasOptions(field.type)) {
     return (
       <div className="field-extras">
         <label className="field-extra-block">
-          <span>Choice options</span>
+          <span>{field.type === "multi" ? "Multiple choice options" : "Choice options"}</span>
           <textarea
             name={includeNames ? "options" : undefined}
             placeholder="Pizza, tacos, noodles"
             value={field.options}
             onChange={(e) => onChange({ options: e.target.value })}
           />
-          <small>Separate options with commas. Keep them short.</small>
+          <small>
+            Separate options with commas. Keep them short.
+            {field.type === "multi" ? " Any number of them can be picked per restaurant." : ""}
+          </small>
         </label>
       </div>
     );

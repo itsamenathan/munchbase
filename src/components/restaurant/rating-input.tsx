@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { CheckCircle, type LucideIcon } from "lucide-react";
 import { RATING_ICON_MAP, RATING_PRESETS, type RatingDefinition } from "./rating-common";
+import { parseRatingValues } from "@/lib/ratings";
 import { DollarSign, Star, Tag } from "lucide-react";
 
 function ratingOptions(definition: RatingDefinition) {
@@ -48,6 +49,10 @@ export function RatingInput({ definition, value, disabled }: { definition: Ratin
         filled
       />
     );
+  }
+
+  if (definition.type === "multi") {
+    return <RatingMultiInput name={fieldName} value={value} disabled={disabled} definition={definition} />;
   }
 
   const labelledOptions = ratingOptions(definition);
@@ -158,6 +163,41 @@ function RatingChoiceInput({ name, value, disabled, options, label }: {
           title={o.ariaLabel}
           onSelect={(v) => setSelected(selected === v ? "" : v)}
         />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Checkbox pills for a `multi` field. The hidden empty entry is always
+ * submitted so clearing every pill still reaches the server as "no selection".
+ */
+function RatingMultiInput({ name, value, disabled, definition }: {
+  name: string;
+  value: string;
+  disabled: boolean;
+  definition: RatingDefinition;
+}) {
+  const [selected, setSelected] = useState(() => parseRatingValues(definition, value));
+  const toggle = (option: string, checked: boolean) => {
+    setSelected((current) => (checked ? [...current, option] : current.filter((entry) => entry !== option)));
+  };
+  return (
+    <div className={`rating-choice-group ${disabled ? "disabled" : ""}`} role="group" aria-label={definition.name}>
+      <input type="hidden" name={name} value="" disabled={disabled} />
+      {definition.options.map((option) => (
+        <label className="rating-choice" key={option} title={`${definition.name}: ${option}`}>
+          <input
+            type="checkbox"
+            name={name}
+            value={option}
+            checked={selected.includes(option)}
+            disabled={disabled}
+            aria-label={`${definition.name}: ${option}`}
+            onChange={(e) => toggle(option, e.target.checked)}
+          />
+          <span>{option}</span>
+        </label>
       ))}
     </div>
   );

@@ -1,4 +1,4 @@
-export type RatingType = "choice" | "scale" | "boolean";
+export type RatingType = "choice" | "multi" | "scale" | "boolean";
 export type RatingPresetKey = "go_back" | "price" | "stars";
 
 export type User = {

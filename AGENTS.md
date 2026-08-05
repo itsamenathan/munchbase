@@ -115,8 +115,8 @@ Cookie-based sessions. `currentUser()` in `src/lib/auth.ts` reads the session co
 | `places` | OSM geocoding results (`osm_type`, `osm_id`, lat/lon) |
 | `restaurants` | App-specific data per place (notes, links). 1:1 with `places`. |
 | `list_restaurants` | M:N join between lists and restaurants |
-| `rating_definitions` | Rating schema: type (`choice`/`scale`/`boolean`), scope (`global`/`list`) |
-| `rating_values` | Stored rating per (restaurant, definition) |
+| `rating_definitions` | Rating schema: type (`choice`/`multi`/`scale`/`boolean`), scope (`global`/`list`) |
+| `rating_values` | Stored rating per (restaurant, definition). One label per row, except `multi`, which stores a JSON array of labels. |
 | `checkins` | Visit records with `visited_at` and optional notes |
 | `restaurant_photos` | Photos stored on filesystem; served at `/media/[...key]` |
 
