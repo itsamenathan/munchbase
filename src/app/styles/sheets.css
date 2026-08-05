@@ -230,15 +230,18 @@
 .bottom-sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: var(--z-sheet);
+  /* Above --z-drawer, or the floating bottom nav covers the sheet's actions. */
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
+  justify-content: center;
   background: var(--overlay-bg);
   animation: fadeIn 0.2s ease;
 }
 
 .bottom-sheet {
-  width: 100%;
+  /* Full width on a phone; capped on desktop so it does not span three panes. */
+  width: min(640px, 100%);
   max-height: 85svh;
   overflow: auto;
   background: var(--panel);
@@ -248,6 +251,45 @@
   display: grid;
   gap: 10px;
   animation: slideUp 0.3s ease;
+}
+
+/* Form sheets scroll their body only, so the actions stay reachable no matter
+   how tall the form gets (the icon browser alone runs well past a screen). */
+.bottom-sheet.sheet-form-layout {
+  max-height: 92svh;
+  overflow: hidden;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.sheet-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 0;
+}
+
+.sheet-form-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding-bottom: 12px;
+}
+
+.sheet-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: var(--touch-gap);
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.sheet-actions > * {
+  flex: 1;
 }
 
 .bottom-sheet-handle {

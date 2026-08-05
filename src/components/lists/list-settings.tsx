@@ -1,6 +1,6 @@
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, CopyCheck, GripVertical, ListChecks, Pencil, Search, SlidersHorizontal, Star, StickyNote, Tag, ToggleRight, Trash2 } from "lucide-react";
+import { ChevronLeft, CopyCheck, GripVertical, ListChecks, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Star, StickyNote, Tag, ToggleRight, Trash2 } from "lucide-react";
 import {
   DndContext,
   KeyboardSensor,
@@ -20,6 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { RATING_PRESETS, hasOptions } from "@/lib/ratings";
 import { RATING_ICON_MAP, RATING_ICON_CHOICES } from "@/components/restaurant/rating-common";
+import { BottomSheet } from "@/components/shared/bottom-sheet";
 import { PanelTitle } from "@/components/shared/panel-title";
 import { appendCsrfToken } from "@/lib/csrf-client";
 import type { AppState, NoteSectionDefinition, RatingDefinition } from "@/lib/types";
@@ -55,6 +56,97 @@ function SortableCard({
   );
 }
 
+/**
+ * Submits an enable/disable mutation as a switch rather than a labelled button,
+ * so a row's controls fit beside its name instead of wrapping underneath.
+ */
+function ToggleSwitch({ checked, label }: { checked: boolean; label: string }) {
+  // SQLite hands `active` back as 0/1, so coerce before it reaches aria-checked —
+  // the styling keys off `aria-checked="true"` and would never match otherwise.
+  return (
+    <button className="switch" role="switch" aria-checked={Boolean(checked)} aria-label={label} title={label}>
+      <span className="switch-track"><span className="switch-thumb" /></span>
+    </button>
+  );
+}
+
+/** Overflow menu for a row's secondary actions (edit, delete). */
+function RowMenu({ label, children }: { label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutside = (event: PointerEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div className="row-menu" ref={ref}>
+      <button
+        type="button"
+        className="ghost-button icon-button compact-icon-button"
+        aria-label={label}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <MoreHorizontal size={16} />
+      </button>
+      {open ? (
+        <div className="row-menu-popover" role="menu" onClick={() => setOpen(false)}>
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Full-height form sheet: the body scrolls, the actions stay pinned. */
+function FieldSheet({
+  open,
+  title,
+  onClose,
+  children,
+  actions,
+  onSubmit,
+}: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  actions: ReactNode;
+  /** Omit to post the form to `/mutate` the usual way. */
+  onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <BottomSheet open={open} onClose={onClose} title={title} className="sheet-form-layout">
+      <form action="/mutate" method="post" className="sheet-form" onSubmit={onSubmit}>
+        <div className="sheet-form-body">{children}</div>
+        <footer className="sheet-actions">{actions}</footer>
+      </form>
+    </BottomSheet>
+  );
+}
+
+function AddItemButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button type="button" className="add-item-button" onClick={onClick}>
+      <Plus size={16} /> {label}
+    </button>
+  );
+}
+
 function presetDescription(key: string) {
   if (key === "go_back") return "Yes/no decision for whether you would return.";
   if (key === "price") return "$ through $$$$ cost indicator.";
@@ -63,10 +155,9 @@ function presetDescription(key: string) {
 }
 
 function fieldDescription(d: RatingDefinition) {
-  if (d.type === "choice") return `choice: ${d.options.join(", ")}`;
-  if (d.type === "multi") return `multiple choice: ${d.options.join(", ")}`;
-  if (d.type === "scale") return `scale (${d.min}-${d.max})`;
-  return "yes / no";
+  if (hasOptions(d.type)) return `${fieldTypeLabel(d.type)} · ${d.options.join(", ")}`;
+  if (d.type === "scale") return `Scale · ${d.min}–${d.max}`;
+  return "Yes / no";
 }
 
 type CustomFieldDraft = {
@@ -95,7 +186,7 @@ const FIELD_TYPE_OPTIONS: Array<{
 ];
 
 function fieldTypeLabel(type: FieldType) {
-  return (FIELD_TYPE_OPTIONS.find((option) => option.value === type)?.title ?? type).toLowerCase();
+  return FIELD_TYPE_OPTIONS.find((option) => option.value === type)?.title ?? type;
 }
 
 function emptyCustomFieldDraft(): CustomFieldDraft {
@@ -159,7 +250,7 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
                     <input type="hidden" name="presetKey" value={preset.key} />
                     <input type="hidden" name="enabled" value={enabled ? "0" : "1"} />
                     <div><strong>{preset.name}</strong><small>{presetDescription(preset.key)}</small></div>
-                    <button>{enabled ? "Disable" : "Enable"}</button>
+                    <ToggleSwitch checked={enabled} label={`${enabled ? "Disable" : "Enable"} ${preset.name}`} />
                   </form>
                 );
               })}
@@ -214,52 +305,72 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
   );
 }
 
-function EditDefinitionForm({ definition, onSave, onCancel }: { definition: RatingDefinition; onSave: (values: { name: string; options: string; min: string; max: string; icon: string }) => void; onCancel: () => void }) {
-  const [name, setName] = useState(definition.name);
-  const [options, setOptions] = useState(definition.options.join(", "));
-  const [min, setMin] = useState(String(definition.min ?? 1));
-  const [max, setMax] = useState(String(definition.max ?? 5));
-  const [icon, setIcon] = useState(definition.icon);
+/** Mount with `key={definition?.id}` so the draft resets per field opened. */
+function EditDefinitionSheet({ definition, onSave, onClose }: { definition: RatingDefinition | null; onSave: (values: { name: string; options: string; min: string; max: string; icon: string }) => void; onClose: () => void }) {
+  const [draft, setDraft] = useState(() => toDraft(definition));
 
   return (
-    <form className="attribute-card-rename inline-field-editor" onSubmit={(e) => { e.preventDefault(); onSave({ name, options, min, max, icon }); }}>
-      <span className="field-editor-kicker">Editing {fieldTypeLabel(definition.type)} field</span>
-      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} className="attribute-card-name-input" aria-label="Attribute name" />
-      <IconPicker field={{ icon }} onChange={(values) => setIcon(values.icon ?? icon)} />
-      {hasOptions(definition.type) ? (
-        <label className="field-extra-block">
-          <span>{definition.type === "multi" ? "Multiple choice options" : "Choice options"}</span>
-          <textarea value={options} onChange={(e) => setOptions(e.target.value)} placeholder="Pizza, tacos, noodles" />
-          <small>Separate options with commas. Their order controls how they appear.</small>
-        </label>
+    <FieldSheet
+      open={Boolean(definition)}
+      title={definition ? `Edit ${definition.name}` : "Edit field"}
+      onClose={onClose}
+      onSubmit={(e) => { e.preventDefault(); onSave(draft); }}
+      actions={
+        <>
+          <button type="button" className="rename-cancel" onClick={onClose}>Cancel</button>
+          <button type="submit" className="rename-save">Save changes</button>
+        </>
+      }
+    >
+      {definition ? (
+        <>
+          <span className="field-editor-kicker">{fieldTypeLabel(definition.type)} field</span>
+          <input
+            autoFocus
+            value={draft.name}
+            onChange={(e) => setDraft((c) => ({ ...c, name: e.target.value }))}
+            className="attribute-card-name-input"
+            aria-label="Attribute name"
+          />
+          <FieldExtras field={draft} onChange={(p) => setDraft((c) => ({ ...c, ...p }))} />
+          <IconPicker field={draft} onChange={(p) => setDraft((c) => ({ ...c, ...p }))} />
+        </>
       ) : null}
-      {definition.type === "scale" ? (
-        <div className="field-extra-block">
-          <span>Scale range</span>
-          <div className="split">
-            <input type="number" value={min} onChange={(e) => setMin(e.target.value)} aria-label="Scale minimum" />
-            <input type="number" value={max} onChange={(e) => setMax(e.target.value)} aria-label="Scale maximum" />
-          </div>
-        </div>
-      ) : null}
-      <div className="rename-actions">
-        <button type="submit" className="rename-save">Save</button>
-        <button type="button" className="rename-cancel" onClick={onCancel}>Cancel</button>
-      </div>
-    </form>
+    </FieldSheet>
   );
 }
 
-function RenameForm({ name, onSave, onCancel }: { name: string; onSave: (name: string) => void; onCancel: () => void }) {
+function toDraft(definition: RatingDefinition | null): CustomFieldDraft {
+  return {
+    id: String(definition?.id ?? "new"),
+    name: definition?.name ?? "",
+    type: definition?.type ?? "choice",
+    icon: definition?.icon ?? "tag",
+    options: definition?.options.join(", ") ?? "",
+    min: String(definition?.min ?? 1),
+    max: String(definition?.max ?? 5),
+  };
+}
+
+/** Mount with `key={editingId}` so the input resets per heading opened. */
+function RenameSheet({ open, title, name, onSave, onClose }: { open: boolean; title: string; name: string; onSave: (name: string) => void; onClose: () => void }) {
   const [editName, setEditName] = useState(name);
+
   return (
-    <form className="attribute-card-rename" onSubmit={(e) => { e.preventDefault(); onSave(editName); }}>
-      <input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)} className="attribute-card-name-input" />
-      <div className="rename-actions">
-        <button type="submit" className="rename-save">Save</button>
-        <button type="button" className="rename-cancel" onClick={onCancel}>Cancel</button>
-      </div>
-    </form>
+    <FieldSheet
+      open={open}
+      title={title}
+      onClose={onClose}
+      onSubmit={(e) => { e.preventDefault(); onSave(editName); }}
+      actions={
+        <>
+          <button type="button" className="rename-cancel" onClick={onClose}>Cancel</button>
+          <button type="submit" className="rename-save">Save</button>
+        </>
+      }
+    >
+      <input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)} className="attribute-card-name-input" aria-label="Heading name" />
+    </FieldSheet>
   );
 }
 
@@ -280,6 +391,7 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
   }
 
   const sorted = order.map((id) => definitions.find((d) => d.id === id)).filter(Boolean) as RatingDefinition[];
+  const editing = definitions.find((d) => d.id === editingId) ?? null;
 
   const handleDragEnd = async ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
@@ -312,75 +424,70 @@ function AttributeCards({ definitions }: { definitions: RatingDefinition[] }) {
     router.refresh();
   };
 
-  const closeRename = () => setEditingId(null);
+  const closeEditor = () => setEditingId(null);
 
   if (!definitions.length) return <p className="muted">No custom ratings yet.</p>;
 
   return (
-    <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
-      <SortableContext items={order} strategy={verticalListSortingStrategy}>
-        <div className="preset-grid">
-          {sorted.map((d) => (
-            <SortableCard
-              key={d.id}
-              id={d.id}
-              className={(isDragging) => `attribute-card${d.active ? " enabled" : ""}${isDragging ? " dragging" : ""}`}
-            >
-              {({ setActivatorNodeRef, attributes, listeners }) => (
-                <>
-                  <span
-                    className="attribute-card-drag"
-                    aria-label={`Reorder ${d.name}`}
-                    ref={setActivatorNodeRef}
-                    {...attributes}
-                    {...listeners}
-                  ><GripVertical size={15} /></span>
-                  <div className="attribute-card-copy">
-                    {editingId === d.id ? (
-                      <EditDefinitionForm
-                        definition={d}
-                        onSave={(values) => void saveDefinition(d.id, values)}
-                        onCancel={closeRename}
-                      />
-                    ) : (
-                      <>
-                        <strong>{d.name}</strong>
-                        <small>{fieldDescription(d)}</small>
-                      </>
-                    )}
-                  </div>
-                  <div className="attribute-card-actions">
-                    {editingId !== d.id ? (
-                      <button
-                        type="button"
-                        className="ghost-button icon-button compact-icon-button"
-                        aria-label={`Edit ${d.name}`}
-                        onClick={() => setEditingId(d.id)}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                    ) : null}
-                    <form action="/mutate" method="post">
-                      <input type="hidden" name="__action" value="updateRatingFieldActive" />
-                      <input type="hidden" name="definitionId" value={d.id} />
-                      <input type="hidden" name="active" value={d.active ? "0" : "1"} />
-                      <button className="compact-button">{d.active ? "Disable" : "Enable"}</button>
-                    </form>
-                    <form action="/mutate" method="post">
-                      <input type="hidden" name="__action" value="deleteRatingField" />
-                      <input type="hidden" name="definitionId" value={d.id} />
-                      <button className="ghost-button icon-button compact-icon-button" aria-label={`Remove ${d.name}`} title={`Remove ${d.name}`}>
-                        <Trash2 size={15} />
-                      </button>
-                    </form>
-                  </div>
-                </>
-              )}
-            </SortableCard>
-          ))}
-        </div>
-      </SortableContext>
-    </DndContext>
+    <>
+      <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
+        <SortableContext items={order} strategy={verticalListSortingStrategy}>
+          <div className="preset-grid">
+            {sorted.map((d) => (
+              <SortableCard
+                key={d.id}
+                id={d.id}
+                className={(isDragging) => `attribute-card${d.active ? " enabled" : ""}${isDragging ? " dragging" : ""}`}
+              >
+                {({ setActivatorNodeRef, attributes, listeners }) => (
+                  <>
+                    <span
+                      className="attribute-card-drag"
+                      aria-label={`Reorder ${d.name}`}
+                      ref={setActivatorNodeRef}
+                      {...attributes}
+                      {...listeners}
+                    ><GripVertical size={18} /></span>
+                    <div className="attribute-card-copy">
+                      <strong>{d.name}</strong>
+                      <small>{fieldDescription(d)}</small>
+                    </div>
+                    <div className="attribute-card-actions">
+                      <form action="/mutate" method="post">
+                        <input type="hidden" name="__action" value="updateRatingFieldActive" />
+                        <input type="hidden" name="definitionId" value={d.id} />
+                        <input type="hidden" name="active" value={d.active ? "0" : "1"} />
+                        <ToggleSwitch checked={d.active} label={`${d.active ? "Disable" : "Enable"} ${d.name}`} />
+                      </form>
+                      <RowMenu label={`More actions for ${d.name}`}>
+                        <button type="button" className="row-menu-item" onClick={() => setEditingId(d.id)}>
+                          <Pencil size={14} /> Edit
+                        </button>
+                        <form
+                          action="/mutate"
+                          method="post"
+                          onSubmit={(e) => { if (!confirm(`Delete "${d.name}"? Any ratings saved against it are removed too.`)) e.preventDefault(); }}
+                        >
+                          <input type="hidden" name="__action" value="deleteRatingField" />
+                          <input type="hidden" name="definitionId" value={d.id} />
+                          <button className="row-menu-item danger"><Trash2 size={14} /> Delete</button>
+                        </form>
+                      </RowMenu>
+                    </div>
+                  </>
+                )}
+              </SortableCard>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+      <EditDefinitionSheet
+        key={editingId}
+        definition={editing}
+        onSave={(values) => { if (editing) void saveDefinition(editing.id, values); }}
+        onClose={closeEditor}
+      />
+    </>
   );
 }
 
@@ -394,6 +501,7 @@ function NoteSectionCards({ sections }: { sections: NoteSectionDefinition[] }) {
   const baseOrder = sections.map((s) => s.id);
   const order = pendingOrder ?? baseOrder;
   const sorted = order.map((id) => sections.find((s) => s.id === id)).filter(Boolean) as NoteSectionDefinition[];
+  const editing = sections.find((s) => s.id === editingId) ?? null;
 
   const handleDragEnd = async ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
@@ -428,72 +536,69 @@ function NoteSectionCards({ sections }: { sections: NoteSectionDefinition[] }) {
   if (!sections.length) return <p className="muted">No note headings yet.</p>;
 
   return (
-    <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
-      <SortableContext items={order} strategy={verticalListSortingStrategy}>
-        <div className="preset-grid">
-          {sorted.map((s) => (
-            <SortableCard
-              key={s.id}
-              id={s.id}
-              className={(isDragging) => `attribute-card${s.active ? " enabled" : ""}${isDragging ? " dragging" : ""}`}
-            >
-              {({ setActivatorNodeRef, attributes, listeners }) => (
-                <>
-                  <span
-                    className="attribute-card-drag"
-                    aria-label={`Reorder ${s.name}`}
-                    ref={setActivatorNodeRef}
-                    {...attributes}
-                    {...listeners}
-                  ><GripVertical size={15} /></span>
-                  <div className="attribute-card-copy">
-                    {editingId === s.id ? (
-                      <RenameForm
-                        name={s.name}
-                        onSave={(name) => void saveName(s.id, name)}
-                        onCancel={closeRename}
-                      />
-                    ) : (
-                      <>
-                        <strong>{s.name}</strong>
-                        <small>{s.presetKey ? "Built-in" : "Custom"}</small>
-                      </>
-                    )}
-                  </div>
-                  <div className="attribute-card-actions">
-                    {editingId !== s.id ? (
-                      <button
-                        type="button"
-                        className="ghost-button icon-button compact-icon-button"
-                        aria-label={`Rename ${s.name}`}
-                        onClick={() => setEditingId(s.id)}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                    ) : null}
-                    <form action="/mutate" method="post">
-                      <input type="hidden" name="__action" value="updateNoteSectionActive" />
-                      <input type="hidden" name="sectionId" value={s.id} />
-                      <input type="hidden" name="active" value={s.active ? "0" : "1"} />
-                      <button className="compact-button">{s.active ? "Disable" : "Enable"}</button>
-                    </form>
-                    {s.presetKey ? null : (
+    <>
+      <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
+        <SortableContext items={order} strategy={verticalListSortingStrategy}>
+          <div className="preset-grid">
+            {sorted.map((s) => (
+              <SortableCard
+                key={s.id}
+                id={s.id}
+                className={(isDragging) => `attribute-card${s.active ? " enabled" : ""}${isDragging ? " dragging" : ""}`}
+              >
+                {({ setActivatorNodeRef, attributes, listeners }) => (
+                  <>
+                    <span
+                      className="attribute-card-drag"
+                      aria-label={`Reorder ${s.name}`}
+                      ref={setActivatorNodeRef}
+                      {...attributes}
+                      {...listeners}
+                    ><GripVertical size={18} /></span>
+                    <div className="attribute-card-copy">
+                      <strong>{s.name}</strong>
+                      <small>{s.presetKey ? "Built-in" : "Custom"}</small>
+                    </div>
+                    <div className="attribute-card-actions">
                       <form action="/mutate" method="post">
-                        <input type="hidden" name="__action" value="deleteNoteSection" />
+                        <input type="hidden" name="__action" value="updateNoteSectionActive" />
                         <input type="hidden" name="sectionId" value={s.id} />
-                        <button className="ghost-button icon-button compact-icon-button" aria-label={`Remove ${s.name}`} title={`Remove ${s.name}`}>
-                          <Trash2 size={15} />
-                        </button>
+                        <input type="hidden" name="active" value={s.active ? "0" : "1"} />
+                        <ToggleSwitch checked={s.active} label={`${s.active ? "Disable" : "Enable"} ${s.name}`} />
                       </form>
-                    )}
-                  </div>
-                </>
-              )}
-            </SortableCard>
-          ))}
-        </div>
-      </SortableContext>
-    </DndContext>
+                      <RowMenu label={`More actions for ${s.name}`}>
+                        <button type="button" className="row-menu-item" onClick={() => setEditingId(s.id)}>
+                          <Pencil size={14} /> Rename
+                        </button>
+                        {s.presetKey ? null : (
+                          <form
+                            action="/mutate"
+                            method="post"
+                            onSubmit={(e) => { if (!confirm(`Delete the "${s.name}" heading?`)) e.preventDefault(); }}
+                          >
+                            <input type="hidden" name="__action" value="deleteNoteSection" />
+                            <input type="hidden" name="sectionId" value={s.id} />
+                            <button className="row-menu-item danger"><Trash2 size={14} /> Delete</button>
+                          </form>
+                        )}
+                      </RowMenu>
+                    </div>
+                  </>
+                )}
+              </SortableCard>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+      <RenameSheet
+        key={editingId}
+        open={Boolean(editing)}
+        title={editing ? `Rename ${editing.name}` : "Rename heading"}
+        name={editing?.name ?? ""}
+        onSave={(name) => { if (editing) void saveName(editing.id, name); }}
+        onClose={closeRename}
+      />
+    </>
   );
 }
 
@@ -501,16 +606,26 @@ function AddNoteSectionForm() {
   const [open, setOpen] = useState(false);
   return (
     <div className="manual-add">
-      <button type="button" className="ghost-button" onClick={() => setOpen((value) => !value)}>
-        Add heading
-      </button>
-      {open ? (
-        <form action="/mutate" method="post" className="stack-form">
-          <input type="hidden" name="__action" value="createNoteSection" />
+      <AddItemButton label="Add heading" onClick={() => setOpen(true)} />
+      <FieldSheet
+        open={open}
+        title="New note heading"
+        onClose={() => setOpen(false)}
+        // Not prevented — the delegated /mutate handler still posts the form.
+        onSubmit={() => setOpen(false)}
+        actions={
+          <>
+            <button type="button" className="rename-cancel" onClick={() => setOpen(false)}>Cancel</button>
+            <button type="submit" className="rename-save">Add heading</button>
+          </>
+        }
+      >
+        <input type="hidden" name="__action" value="createNoteSection" />
+        <label className="field-extra-block">
+          <span>Heading name</span>
           <input name="name" placeholder="Heading name" required />
-          <button>Add heading</button>
-        </form>
-      ) : null}
+        </label>
+      </FieldSheet>
     </div>
   );
 }
@@ -518,27 +633,34 @@ function AddNoteSectionForm() {
 function AddCustomFieldForm({ scope, listId }: { scope: "global" | "list"; listId?: number }) {
   const [field, setField] = useState<CustomFieldDraft>(emptyCustomFieldDraft());
   const [open, setOpen] = useState(false);
+
+  const close = () => {
+    setOpen(false);
+    setField(emptyCustomFieldDraft());
+  };
+
   return (
     <div className="manual-add">
-      <button type="button" className="ghost-button" onClick={() => setOpen((value) => !value)}>
-        {scope === "global" ? "Add global attribute" : "Add new field"}
-      </button>
-      {open ? (
-        <form action="/mutate" method="post" className="stack-form inline-field-editor">
-          <div className="field-editor-head">
-            <strong>New custom field</strong>
-            <small>Choose a type, set its values, then save.</small>
-          </div>
-          <input type="hidden" name="__action" value="createRatingDefinition" />
-          <input type="hidden" name="scope" value={scope} />
-          {listId ? <input type="hidden" name="listId" value={listId} /> : null}
-          <CustomFieldControls field={field} onChange={(p) => setField((c) => ({ ...c, ...p }))} includeNames />
-          <div className="rename-actions">
-            <button type="submit" className="rename-save">Add custom field</button>
-            <button type="button" className="rename-cancel" onClick={() => setOpen(false)}>Cancel</button>
-          </div>
-        </form>
-      ) : null}
+      <AddItemButton label={scope === "global" ? "Add global attribute" : "Add new field"} onClick={() => setOpen(true)} />
+      <FieldSheet
+        open={open}
+        title="New custom field"
+        onClose={close}
+        // Not prevented — the delegated /mutate handler still posts the form.
+        // It reads the FormData before React flushes this state update.
+        onSubmit={close}
+        actions={
+          <>
+            <button type="button" className="rename-cancel" onClick={close}>Cancel</button>
+            <button type="submit" className="rename-save">Add field</button>
+          </>
+        }
+      >
+        <input type="hidden" name="__action" value="createRatingDefinition" />
+        <input type="hidden" name="scope" value={scope} />
+        {listId ? <input type="hidden" name="listId" value={listId} /> : null}
+        <CustomFieldControls field={field} onChange={(p) => setField((c) => ({ ...c, ...p }))} includeNames />
+      </FieldSheet>
     </div>
   );
 }
@@ -554,14 +676,16 @@ export function CustomFieldControls({
 }) {
   return (
     <>
-      {includeNames ? (
-        <div className="field-intro">
-          <input name="name" placeholder="Attribute name" required value={field.name} onChange={(e) => onChange({ name: e.target.value })} />
-          <p className="microcopy">Choose the field type first, then pick an icon and fill in the details.</p>
-        </div>
-      ) : (
-        <input placeholder="Attribute name" required={includeNames} value={field.name} onChange={(e) => onChange({ name: e.target.value })} />
-      )}
+      <label className="field-extra-block">
+        <span>Field name</span>
+        <input
+          name={includeNames ? "name" : undefined}
+          placeholder="Attribute name"
+          required={includeNames}
+          value={field.name}
+          onChange={(e) => onChange({ name: e.target.value })}
+        />
+      </label>
       <FieldTypePicker field={field} onChange={onChange} includeNames={includeNames} />
       <FieldExtras field={field} onChange={onChange} includeNames={includeNames} />
       <IconPicker field={field} onChange={onChange} includeNames={includeNames} />
@@ -604,8 +728,8 @@ function FieldExtras({
         <div className="field-extra-block">
           <span>Scale range</span>
           <div className="split">
-            <input name={includeNames ? "min" : undefined} type="number" placeholder="Min" value={field.min} onChange={(e) => onChange({ min: e.target.value })} />
-            <input name={includeNames ? "max" : undefined} type="number" placeholder="Max" value={field.max} onChange={(e) => onChange({ max: e.target.value })} />
+            <input name={includeNames ? "min" : undefined} type="number" placeholder="Min" aria-label="Scale minimum" value={field.min} onChange={(e) => onChange({ min: e.target.value })} />
+            <input name={includeNames ? "max" : undefined} type="number" placeholder="Max" aria-label="Scale maximum" value={field.max} onChange={(e) => onChange({ max: e.target.value })} />
           </div>
           <small>Use a small range like 1 to 5.</small>
         </div>
@@ -646,7 +770,6 @@ function FieldTypePicker({
                 <strong>{option.title}</strong>
                 <small>{option.detail}</small>
               </span>
-              <span className="field-type-check">{active ? "Selected" : ""}</span>
             </button>
           );
         })}
@@ -666,8 +789,16 @@ function IconPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const browserRef = useRef<HTMLDivElement>(null);
   const groupedIcons = groupIcons(query);
   const selectedIcon = RATING_ICON_CHOICES.find((choice) => choice.value === field.icon) ?? RATING_ICON_CHOICES[0];
+
+  // The browser opens at the end of a form taller than the sheet, so pull it
+  // into view rather than leaving the grid below the fold. Re-pinning on every
+  // query keeps a narrowed result set on screen instead of scrolled past.
+  useEffect(() => {
+    if (open) browserRef.current?.scrollIntoView({ block: "start" });
+  }, [open, query]);
 
   return (
     <div className="icon-picker">
@@ -683,9 +814,9 @@ function IconPicker({
         </button>
       </div>
       {open ? (
-        <>
+        <div className="icon-picker-browser" ref={browserRef}>
           <label className="icon-picker-search">
-            <span>Find an icon</span>
+            <span className="visually-hidden">Find an icon</span>
             <div className="icon-picker-search-box">
               <Search size={15} />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search food, drink, or mood" />
@@ -705,18 +836,19 @@ function IconPicker({
                         className={`icon-choice ${active ? "active" : ""}`}
                         aria-pressed={active}
                         aria-label={icon.label}
+                        title={icon.label}
                         onClick={() => { onChange({ icon: icon.value }); setOpen(false); }}
                       >
                         <span className="icon-choice-icon">{icon.icon}</span>
-                        <span className="icon-choice-label">{icon.label}</span>
                       </button>
                     );
                   })}
                 </div>
               </section>
             ))}
+            {groupedIcons.length ? null : <p className="muted">No icons match that search.</p>}
           </div>
-        </>
+        </div>
       ) : null}
     </div>
   );
