@@ -108,3 +108,17 @@ docker compose up
 ```
 
 The image uses a multi-stage build with a non-root `nextjs` user. The `/data` directory is owned by that user at build time.
+
+### Version stamp
+
+The user menu shows the build version — the commit date and hash, e.g. `v2026-03-01 · 05017a9`, with the hash linking to that commit on GitHub. `/api/health` reports the same values.
+
+Local builds read this from git automatically. Docker builds cannot (`.git` is excluded from the build context), so pass it in:
+
+```bash
+MUNCHBASE_COMMIT=$(git rev-parse HEAD) \
+MUNCHBASE_COMMIT_DATE=$(git log -1 --format=%cs) \
+docker compose build
+```
+
+Without those variables the image still builds; the version is simply hidden.

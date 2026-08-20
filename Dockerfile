@@ -13,6 +13,12 @@ FROM node:26.3.1-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+# .dockerignore keeps .git out of the context, so the version stamp shown in the
+# app comes from build args. Empty values simply hide the version in the UI.
+ARG MUNCHBASE_COMMIT=""
+ARG MUNCHBASE_COMMIT_DATE=""
+ENV MUNCHBASE_COMMIT=$MUNCHBASE_COMMIT
+ENV MUNCHBASE_COMMIT_DATE=$MUNCHBASE_COMMIT_DATE
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

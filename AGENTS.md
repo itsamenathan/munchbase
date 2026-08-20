@@ -132,6 +132,7 @@ Cookie-based sessions. `currentUser()` in `src/lib/auth.ts` reads the session co
 | `src/lib/db.ts` | DB connection, `getAppState()`, `getRestaurants()`, migration hooks |
 | `src/db/schema.ts` | Drizzle schema (source of truth for table structure) |
 | `src/lib/routes.ts` | URL helpers: `tabHref`, `restaurantHref`, `listSettingsHref` |
+| `src/lib/version.ts` | Build version stamp (`APP_VERSION`), inlined by `next.config.ts` |
 | `src/components/app-shell.tsx` | Main client component; layout and wiring |
 | `src/lib/app-route-state.ts` | Derives UI state from pathname + search params |
 | `src/components/explore/explore-view.tsx` | Explore toolbar, filters, results list, Map branch |
@@ -149,6 +150,8 @@ Cookie-based sessions. `currentUser()` in `src/lib/auth.ts` reads the session co
 | `PHOTO_MAX_SIZE_MB` | `10` | Upload size limit |
 | `NEXT_PUBLIC_TILE_URL` | OSM tile URL | Map tile template |
 | `OSM_USER_AGENT` | `munchbase/0.1` | Required by OSM ToS |
+| `MUNCHBASE_COMMIT` | git `HEAD` | Build-time only. Docker build arg — `.git` is not in the build context |
+| `MUNCHBASE_COMMIT_DATE` | git commit date | Build-time only. `YYYY-MM-DD`; becomes the `v2026-03-01` label |
 
 ## Dev Commands
 

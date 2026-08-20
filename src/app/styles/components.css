@@ -854,6 +854,21 @@ code {
   width: 100%;
 }
 
+.user-menu-version {
+  margin: 2px 0 0;
+  padding: 8px 8px 2px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.user-menu-version a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .theme-picker {
   display: grid;
   gap: 8px;
