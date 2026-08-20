@@ -39,6 +39,12 @@ run = [
   "npm test",
 ]
 
+[tasks."docker:build"]
+description = "Build the Docker image with the git version stamp"
+# .dockerignore keeps .git out of the build context, so the commit has to be
+# passed in as a build arg — otherwise the image ships without a version.
+run = "MUNCHBASE_COMMIT=$(git rev-parse HEAD) MUNCHBASE_COMMIT_DATE=$(git log -1 --format=%cs) docker compose build"
+
 [tasks."db:integrity"]
 description = "Check SQLite integrity and foreign keys without changing the database"
 run = "npm run db:integrity"

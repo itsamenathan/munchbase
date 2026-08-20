@@ -18,6 +18,16 @@ function gitOutput(args: string[]) {
 const appCommit = process.env.MUNCHBASE_COMMIT?.trim() || gitOutput(["rev-parse", "HEAD"]);
 const appCommitDate = process.env.MUNCHBASE_COMMIT_DATE?.trim() || gitOutput(["log", "-1", "--format=%cs"]);
 
+// An unstamped image hides the version in the UI, which is indistinguishable from
+// "the deploy did not happen". Say so in the build log instead of failing silently.
+if (!appCommit || !appCommitDate) {
+  console.warn(
+    "⚠ Munchbase version stamp is missing — the user menu will not show a version.\n" +
+      "  Build with: MUNCHBASE_COMMIT=$(git rev-parse HEAD) MUNCHBASE_COMMIT_DATE=$(git log -1 --format=%cs) docker compose build\n" +
+      "  (or `mise run docker:build`, which does this for you)",
+  );
+}
+
 const withSerwist = withSerwistInit({
   swSrc: "src/sw.ts",
   swDest: "public/sw.js",

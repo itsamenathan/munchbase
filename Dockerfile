@@ -13,14 +13,21 @@ FROM node:26.3.1-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-# .dockerignore keeps .git out of the context, so the version stamp shown in the
-# app comes from build args. Empty values simply hide the version in the UI.
+# The version stamp shown in the app comes from the repo in the build context.
+# git is not in the base image, and platform builders (Dokploy, CI) clone the repo
+# rather than invoking docker build from a shell, so deriving it here keeps the
+# stamp working with no per-deployment configuration.
+RUN apk add --no-cache git
+# The build args stay as an override for contexts with no .git (e.g. an image built
+# from a source tarball). Empty values fall through to the repo lookup.
 ARG MUNCHBASE_COMMIT=""
 ARG MUNCHBASE_COMMIT_DATE=""
 ENV MUNCHBASE_COMMIT=$MUNCHBASE_COMMIT
 ENV MUNCHBASE_COMMIT_DATE=$MUNCHBASE_COMMIT_DATE
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# The copied repo is not owned by the build user, which git otherwise refuses to read.
+RUN git config --global --add safe.directory /app
 RUN npm run build
 
 FROM node:26.3.1-alpine AS runner
