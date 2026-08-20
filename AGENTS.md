@@ -150,7 +150,7 @@ Cookie-based sessions. `currentUser()` in `src/lib/auth.ts` reads the session co
 | `PHOTO_MAX_SIZE_MB` | `10` | Upload size limit |
 | `NEXT_PUBLIC_TILE_URL` | OSM tile URL | Map tile template |
 | `OSM_USER_AGENT` | `munchbase/0.1` | Required by OSM ToS |
-| `MUNCHBASE_COMMIT` | git `HEAD` | Build-time only. Docker build arg — `.git` is not in the build context |
+| `MUNCHBASE_COMMIT` | git `HEAD` | Build-time only. Override for build contexts without `.git` |
 | `MUNCHBASE_COMMIT_DATE` | git commit date | Build-time only. `YYYY-MM-DD`; becomes the `v2026-03-01` label |
 
 ## Dev Commands

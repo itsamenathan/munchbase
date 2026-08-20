@@ -113,12 +113,14 @@ The image uses a multi-stage build with a non-root `nextjs` user. The `/data` di
 
 The user menu shows the build version — the commit date and hash, e.g. `v2026-03-01 · 05017a9`, with the hash linking to that commit on GitHub. `/api/health` reports the same values.
 
-Local builds read this from git automatically. Docker builds cannot (`.git` is excluded from the build context), so pass it in:
+The stamp is derived during the build from the repository itself, so `docker compose build`, a platform builder like Dokploy, and a local `npm run build` all produce a versioned image with no extra configuration. This is why `.git` is *not* in `.dockerignore` — it is read in the builder stage and never copied into the final image.
+
+If you build from a source tarball or any context without `.git`, pass the values in instead:
 
 ```bash
 MUNCHBASE_COMMIT=$(git rev-parse HEAD) \
 MUNCHBASE_COMMIT_DATE=$(git log -1 --format=%cs) \
-docker compose build
+docker compose build     # or: mise run docker:build
 ```
 
-Without those variables the image still builds; the version is simply hidden.
+When neither source is available the image still builds; the build log warns, the user menu hides the version row, and `/api/health` reports `"version": null` — which distinguishes "built without a stamp" from "not redeployed yet".

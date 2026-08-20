@@ -5,7 +5,9 @@ data
 .env.local
 .env.development
 .env.production
-.git
+# .git is deliberately NOT ignored: the build reads the commit and its date from it
+# to stamp the app version. It stays in the builder stage and never reaches the
+# final image. ~1 MB of context.
 .claude
 .agents
 coverage
