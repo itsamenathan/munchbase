@@ -7,6 +7,7 @@ import { ThemePicker } from "@/components/layout/theme-picker";
 import type { ThemeChoice } from "@/hooks/use-theme";
 import { tabHref, type BottomTab, type RestaurantOrigin } from "@/lib/routes";
 import type { AppState } from "@/lib/types";
+import { APP_VERSION } from "@/lib/version";
 
 const TAB_TITLE: Record<BottomTab, string> = {
   explore: "Explore",
@@ -129,6 +130,17 @@ export function Topbar({
                   <LogOut size={16} /> Sign out
                 </button>
               </form>
+              {APP_VERSION ? (
+                <p className="user-menu-version">
+                  {APP_VERSION.label}
+                  {APP_VERSION.label && APP_VERSION.commitUrl ? " · " : null}
+                  {APP_VERSION.commitUrl ? (
+                    <a href={APP_VERSION.commitUrl} target="_blank" rel="noreferrer">
+                      {APP_VERSION.shortCommit}
+                    </a>
+                  ) : null}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>

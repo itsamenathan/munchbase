@@ -1,6 +1,10 @@
 services:
   munchbase:
-    build: .
+    build:
+      context: .
+      args:
+        MUNCHBASE_COMMIT: ${MUNCHBASE_COMMIT:-}
+        MUNCHBASE_COMMIT_DATE: ${MUNCHBASE_COMMIT_DATE:-}
     ports:
       - "3000:3000"
     environment:
