@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { compareRestaurantNames, restaurantNameSortKey } from "./restaurant-sort";
 
 describe("Restaurant name sorting", () => {

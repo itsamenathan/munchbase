@@ -89,7 +89,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       if (url.pathname !== MUTATE_PATH || navigator.onLine) return;
 
       const formData = new FormData(form);
-      const hasFile = [...formData.values()].some((value) => value instanceof File);
+      const hasFile = [...formData.values()].some((value) => typeof value !== "string");
       event.preventDefault();
 
       if (hasFile) {

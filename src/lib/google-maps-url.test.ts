@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { googleMapsPlaceId, isGoogleMapsUrl, parseGoogleMapsUrl, parseGoogleMapsUrlWithRedirects } from "./google-maps-url";
 
 describe("google maps url parser", () => {

@@ -1,15 +1,15 @@
-# Pin the full node version so builds are reproducible.
-# Update this intentionally rather than getting surprised by a Node patch pull.
-FROM node:26.3.1-alpine AS deps
+# Pin the full Bun version so builds are reproducible.
+# Update this intentionally rather than getting surprised by a Bun patch pull.
+FROM oven/bun:1.4.0-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
-# BuildKit cache mount keeps the npm cache between builds — meaningfully faster rebuilds.
-# --no-save prevents the extra sharp install from touching package-lock.json in the layer.
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci && \
-    npm install --no-save --os=linux --libc=musl --cpu=x64 sharp
+COPY package.json bun.lock ./
+# BuildKit cache mount keeps the Bun cache between builds — meaningfully faster rebuilds.
+# The image is musl/x64, so Bun resolves sharp's matching @img platform packages
+# without the extra targeted install npm needed here.
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 
-FROM node:26.3.1-alpine AS builder
+FROM oven/bun:1.4.0-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
@@ -28,9 +28,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # The copied repo is not owned by the build user, which git otherwise refuses to read.
 RUN git config --global --add safe.directory /app
-RUN npm run build
+RUN bun run build
 
-FROM node:26.3.1-alpine AS runner
+FROM oven/bun:1.4.0-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -49,4 +49,6 @@ COPY --from=builder --chown=nextjs:nextjs /app/node_modules/sharp ./node_modules
 COPY --from=builder --chown=nextjs:nextjs /app/node_modules/@img ./node_modules/@img
 USER nextjs
 EXPOSE 3000
-CMD ["node", "server.js"]
+# SQLite now comes from bun:sqlite, built into the runtime — there is no native
+# module to rebuild, so the runner image needs no toolchain.
+CMD ["bun", "server.js"]

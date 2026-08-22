@@ -3,18 +3,20 @@
   "version": "1.0.0",
   "description": "Self-hosted restaurant tracker",
   "scripts": {
-    "dev": "next dev -H 0.0.0.0 -p 3001",
-    "build": "next build",
-    "start": "next start -H 0.0.0.0",
-    "db:generate": "node -e \"require('node:fs').mkdirSync('data',{recursive:true})\" && drizzle-kit generate",
-    "db:migrate": "tsx scripts/database-cli.ts migrate",
-    "db:check": "drizzle-kit check",
-    "db:integrity": "tsx scripts/database-cli.ts integrity",
-    "db:seed:test": "node scripts/seed-test-data.mjs",
+    "dev": "bun --bun next dev -H 0.0.0.0 -p 3001",
+    "build": "bun --bun next build",
+    "start": "bun --bun next start -H 0.0.0.0",
+    "db:generate": "bun -e \"require('node:fs').mkdirSync('data',{recursive:true})\" && bun --bun drizzle-kit generate",
+    "db:migrate": "bun scripts/database-cli.ts migrate",
+    "db:check": "bun --bun drizzle-kit check",
+    "db:integrity": "bun scripts/database-cli.ts integrity",
+    "db:seed:test": "bun scripts/seed-test-data.mjs",
     "lint": "eslint .",
-    "test": "vitest run",
-    "test:migrations": "vitest run src/lib/database/database.test.ts",
-    "test:watch": "vitest"
+    "test": "bun test",
+    "test:migrations": "bun test src/lib/database/database.test.ts",
+    "test:golden": "bun test src/lib/database/golden-master.test.ts",
+    "test:golden:update": "UPDATE_GOLDEN=1 bun test src/lib/database/golden-master.test.ts",
+    "test:watch": "bun test --watch"
   },
   "keywords": [
     "restaurants",
@@ -30,7 +32,6 @@
     "@serwist/next": "^9.5.11",
     "@serwist/sw": "^9.5.11",
     "@types/leaflet": "^1.9.21",
-    "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.45.2",
     "idb": "^8.0.3",
     "leaflet": "^1.9.4",
@@ -44,27 +45,18 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
+    "@types/bun": "^1.4.0",
     "@types/node": "^25.9.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.2",
     "agent-browser": "^0.31.1",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.9",
-    "jsdom": "^29.1.1",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "typescript": "^6.0.3"
   },
-  "allowScripts": {
-    "better-sqlite3@12.11.1": true,
-    "esbuild@0.18.20": true,
-    "esbuild@0.25.12": true,
-    "esbuild@0.28.1": true,
-    "agent-browser@0.31.1": true,
-    "sharp@0.34.5": true,
-    "sharp@0.35.2": true,
-    "unrs-resolver@1.12.2": true
-  }
+  "trustedDependencies": [
+    "agent-browser",
+    "unrs-resolver"
+  ]
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { RATING_PRESETS, normalizeRatingDefinition, parseRatingValues, validateRatingValue } from "./ratings";
 import type { RatingDefinition } from "./types";
 

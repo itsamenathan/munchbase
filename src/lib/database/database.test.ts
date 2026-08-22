@@ -1,10 +1,10 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import { Database, pragma } from "./sqlite";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
 import { runLegacyCompatibility } from "./compatibility";
 import { resetDatabaseConnectionForTests } from "./connection";
 import { resetDatabaseMaintenanceSchedulerForTests, runDatabaseMaintenance, startDatabaseMaintenanceScheduler } from "./maintenance";
@@ -17,7 +17,7 @@ function temporaryDatabase() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "munchbase-db-"));
   temporaryDirectories.push(directory);
   const sqlite = new Database(path.join(directory, "munchbase.db"));
-  sqlite.pragma("foreign_keys = ON");
+  pragma(sqlite, "foreign_keys = ON");
   return sqlite;
 }
 
@@ -39,7 +39,7 @@ describe("database migrations", () => {
     expect(names).toContain("restaurants");
     expect(names).toContain("munchbase_system_migrations");
     expect(names).toContain("__drizzle_migrations");
-    expect((sqlite.pragma("table_info(rating_definitions)") as Array<{ name: string }>).some((column) => column.name === "sort_order")).toBe(true);
+    expect((pragma(sqlite, "table_info(rating_definitions)") as Array<{ name: string }>).some((column) => column.name === "sort_order")).toBe(true);
     const before = (sqlite.prepare("SELECT COUNT(*) AS count FROM __drizzle_migrations").get() as { count: number }).count;
     migrate(drizzle(sqlite), { migrationsFolder });
     runLegacyCompatibility(sqlite);
@@ -71,8 +71,8 @@ describe("database migrations", () => {
     const row = sqlite.prepare("SELECT id, list_id AS listId, scope, sort_order AS sortOrder FROM rating_definitions").get() as Record<string, unknown>;
     expect(row).toEqual({ id: 7, listId: 1, scope: "list", sortOrder: 7 });
     expect((sqlite.prepare("SELECT definition_id AS definitionId, value FROM rating_values").get() as Record<string, unknown>)).toEqual({ definitionId: 7, value: "true" });
-    expect((sqlite.pragma("table_info(rating_definitions)") as Array<{ name: string; notnull: number }>).find((column) => column.name === "list_id")?.notnull).toBe(0);
-    expect(sqlite.pragma("foreign_key_check")).toEqual([]);
+    expect((pragma(sqlite, "table_info(rating_definitions)") as Array<{ name: string; notnull: number }>).find((column) => column.name === "list_id")?.notnull).toBe(0);
+    expect(pragma(sqlite, "foreign_key_check")).toEqual([]);
     sqlite.close();
   });
 

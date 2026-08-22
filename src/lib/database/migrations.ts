@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import type Database from "better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import type { SqliteDatabase } from "./sqlite";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { logger } from "@/lib/logger";
 import { databasePath, openDatabase } from "./connection";
 
-function migrationCount(database: Database.Database) {
+function migrationCount(database: SqliteDatabase) {
   const exists = database.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '__drizzle_migrations'").get();
   if (!exists) return 0;
   return (database.prepare("SELECT COUNT(*) AS count FROM __drizzle_migrations").get() as { count: number }).count;

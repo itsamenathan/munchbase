@@ -56,15 +56,17 @@ Use this repository's terminology consistently in code, UI text, comments, and d
 
 ## Tech Stack
 
+- **Runtime**: Bun 1.4 — used as package manager, script runner, test runner, and the runtime that serves the app (`bun --bun next …`).
 - **Framework**: Next.js 16 App Router, React 19, TypeScript 6
-- **Database**: SQLite via `better-sqlite3`. Drizzle ORM is initialized but most queries are raw SQL. Schema in `src/db/schema.ts`. DB auto-migrates on startup via `drizzle/` folder.
+- **Database**: SQLite via `bun:sqlite` (built into the runtime — no native module to compile). `src/lib/database/sqlite.ts` re-exports the driver and provides the `pragma()` helper that `bun:sqlite` lacks. Drizzle ORM is initialized but most queries are raw SQL. Schema in `src/db/schema.ts`. DB auto-migrates on startup via `drizzle/` folder.
 - **PWA**: Serwist (`@serwist/next`, `@serwist/sw`) — service worker at `src/sw.ts`. RSC navigation fetches are bypassed to avoid caching issues.
 - **Maps**: Leaflet + react-leaflet (loaded dynamically to avoid SSR). Tile URL configurable via `NEXT_PUBLIC_TILE_URL`.
 - **Place search**: Photon (komoot.io) geocoding API, proxied at `/api/search`. Nearby search uses reverse geocode with a 1 km radius.
 - **Icons**: `lucide-react`
 - **CSS**: Custom CSS, no Tailwind. Design tokens in `src/app/styles/tokens.css`. Component classes in `src/app/styles/components.css`. Mobile-first.
-- **Testing**: Vitest (unit tests for lib utilities only — no component tests). Run with `npm test`.
-- **Deployment**: Docker (multi-stage, node:26.3.1-alpine). Standalone Next.js output. DB at `/data/munchbase.db` inside container.
+- **Testing**: `bun test` (unit tests for lib utilities only — no component tests). Run with `bun test`.
+- **Golden master**: `src/lib/database/golden-master.test.ts` seeds the real test corpus into a throwaway database, snapshots every read path, and compares byte-for-byte against `src/lib/database/golden/baseline.json`. Regenerate deliberately with `bun run test:golden:update` and review the diff — an unexplained change there means a query changed what it returns.
+- **Deployment**: Docker (multi-stage, oven/bun:1.4.0-alpine). Standalone Next.js output, served with `bun server.js`. DB at `/data/munchbase.db` inside container.
 
 ## Architecture
 
@@ -156,23 +158,42 @@ Cookie-based sessions. `currentUser()` in `src/lib/auth.ts` reads the session co
 ## Dev Commands
 
 ```bash
-mise install                  # Install the pinned Node.js and SQLite versions
+mise install                  # Install the pinned Bun and SQLite versions
 mise run setup                # Install packages, migrate, and load local test data
 mise run dev                  # Start dev server on 0.0.0.0:3001
 mise run build                # Production build
 mise run start                # Serve the production build
-mise exec -- npm run db:generate # Regenerate Drizzle migration files
-mise exec -- npm run db:migrate  # Apply migrations
-mise exec -- npm run db:seed:test # Refresh repeatable local test data
-mise run test                 # Run Vitest unit tests
-mise exec -- npx tsc --noEmit # TypeScript check (run before declaring done)
+mise exec -- bun run db:generate # Regenerate Drizzle migration files
+mise exec -- bun run db:migrate  # Apply migrations
+mise exec -- bun run db:seed:test # Refresh repeatable local test data
+mise run test                 # Run the unit tests
+mise exec -- bun run test:golden # Golden-master database check only
+mise exec -- bunx tsc --noEmit   # TypeScript check (run before declaring done)
 mise run check                # Run TypeScript, ESLint, and unit tests together
-mise exec -- npm run lint     # ESLint only
+mise exec -- bun run lint     # ESLint only
 ```
 
 Run project commands through `mise` so every agent and developer uses the
 versions pinned in `mise.toml`. For a fresh checkout, `mise run setup` is the
 preferred one-command local setup.
+
+## Known issue: first photo upload after a clean `.next` (dev only)
+
+Turbopack resolves externalized native packages through a generated symlink
+(`.next/dev/node_modules/sharp-<hash>` → `node_modules/sharp`). On a cold dev
+server the Bun runtime resolves that specifier before the symlink is usable,
+caches the failure, and every later attempt in the same process fails too.
+
+Symptom: uploading a photo redirects to
+`/explore?mutationError=failed&message=Failed+to+load+external+module+sharp-...`.
+
+Fix: restart the dev server. The symlink persists in `.next`, so it only happens
+on the first run after `.next` is deleted.
+
+This affects photo upload only — `sharp` is imported lazily in
+`src/lib/restaurant-photos.ts`, so no other route pulls it into the graph.
+Production builds are unaffected: the standalone server and the Docker image both
+resolve `sharp` correctly, verified end to end.
 
 ## Testing with agent-browser
 
@@ -192,10 +213,10 @@ preferred one-command local setup.
 
 Always run the following checks after making code changes, before reporting done:
 
-1. **TypeScript** — `mise exec -- npx tsc --noEmit`
+1. **TypeScript** — `mise exec -- bunx tsc --noEmit`
    Catches type errors that would fail the Docker build. This is the most important check — the build pipeline runs TypeScript and will reject the image if it fails.
 
-2. **ESLint** — `mise exec -- npm run lint`
+2. **ESLint** — `mise exec -- bun run lint`
    Must stay at zero errors. The `react-hooks/*` rules catch real defects (a missing dependency array once caused a `keydown` listener to be re-registered on every render). Where a rule is a false positive — an effect genuinely synchronizing with an external system such as `localStorage`, `document.cookie`, or IndexedDB — use a targeted `eslint-disable-next-line` with a one-line justification rather than restructuring working code.
 
    Both of the above are covered by `mise run check`.

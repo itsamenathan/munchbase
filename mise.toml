@@ -1,42 +1,40 @@
 [tools]
-node = "26.5.0"
+bun = "1.4.0"
 sqlite = "3.53.3"
 
 [tasks.setup]
 description = "Install dependencies, migrate the local database, and load test data"
 run = [
-  "node -e \"const fs=require('node:fs');const p='.env.local';if(!fs.existsSync(p)){const env=fs.readFileSync('.env.example','utf8').replace('APP_ORIGIN=http://localhost:3000','APP_ORIGIN=http://localhost:3001');fs.writeFileSync(p,env)}\"",
-  "npm ci",
-  "npm run db:migrate",
-  "npm run db:seed:test",
+  "bun -e \"const fs=require('node:fs');const p='.env.local';if(!fs.existsSync(p)){const env=fs.readFileSync('.env.example','utf8').replace('APP_ORIGIN=http://localhost:3000','APP_ORIGIN=http://localhost:3001');fs.writeFileSync(p,env)}\"",
+  "bun install --frozen-lockfile",
+  "bun run db:migrate",
+  "bun run db:seed:test",
 ]
 
 [tasks.dev]
 description = "Start Munchbase in development mode"
-# Launch Node directly so Ctrl+C does not trigger cmd.exe's
-# "Terminate batch job (Y/N)?" prompt on Windows.
-run = "node node_modules/next/dist/bin/next dev -H 0.0.0.0 -p 3001"
+run = "bun --bun next dev -H 0.0.0.0 -p 3001"
 
 [tasks.build]
 description = "Create a production build"
-run = "npm run build"
+run = "bun run build"
 
 [tasks.test]
 description = "Run the unit tests"
-run = "npm test"
+run = "bun test"
 
 [tasks.start]
 description = "Serve the production build"
-run = "npm run start"
+run = "bun run start"
 
 [tasks.check]
 description = "Run the required local verification suite"
 run = [
-  "npx tsc --noEmit",
-  "npm run lint",
-  "npm run db:check",
-  "npm run test:migrations",
-  "npm test",
+  "bunx tsc --noEmit",
+  "bun run lint",
+  "bun run db:check",
+  "bun run test:migrations",
+  "bun test",
 ]
 
 [tasks."docker:build"]
@@ -47,4 +45,4 @@ run = "MUNCHBASE_COMMIT=$(git rev-parse HEAD) MUNCHBASE_COMMIT_DATE=$(git log -1
 
 [tasks."db:integrity"]
 description = "Check SQLite integrity and foreign keys without changing the database"
-run = "npm run db:integrity"
+run = "bun run db:integrity"

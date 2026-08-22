@@ -1,3 +1,4 @@
+import type { SQLQueryBindings } from "bun:sqlite";
 import { initializeDatabase } from "./database/startup";
 import { openDatabase } from "./database/connection";
 import { getPhotoMediaUrl } from "./restaurant-photos";
@@ -63,7 +64,7 @@ export function getAppState(user: User, listId?: number | null): AppState {
     .all() as List[];
   const activeList = listId ? (lists.find((list) => list.id === listId) ?? null) : null;
   const activeListId = activeList?.id ?? null;
-  const readDefinitions = (where: string, ...params: unknown[]) =>
+  const readDefinitions = (where: string, ...params: SQLQueryBindings[]) =>
     (database
       .prepare(`SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon,
                 options_json AS optionsJson, min, max, active, sort_order AS sortOrder

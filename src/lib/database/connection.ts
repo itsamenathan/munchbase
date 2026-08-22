@@ -1,12 +1,12 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { Database, pragma, type SqliteDatabase } from "./sqlite";
 import fs from "node:fs";
 import path from "node:path";
 import * as schema from "@/db/schema";
 
 type ConnectionState = {
   path: string;
-  sqlite: Database.Database;
+  sqlite: SqliteDatabase;
   orm: ReturnType<typeof drizzle<typeof schema>>;
 };
 
@@ -23,10 +23,10 @@ export function openDatabase() {
   if (globalState.__munchbaseConnection) return globalState.__munchbaseConnection;
   const resolvedPath = databasePath();
   fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
-  const sqlite = new Database(resolvedPath);
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
-  sqlite.pragma("busy_timeout = 5000");
+  const sqlite = new Database(resolvedPath, { create: true });
+  pragma(sqlite, "journal_mode = WAL");
+  pragma(sqlite, "foreign_keys = ON");
+  pragma(sqlite, "busy_timeout = 5000");
   globalState.__munchbaseConnection = {
     path: resolvedPath,
     sqlite,

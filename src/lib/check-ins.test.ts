@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { buildCheckInFeed, formatCheckInTime, groupCheckInFeed } from "./check-ins";
 import type { CheckIn, Restaurant } from "./types";
 

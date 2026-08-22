@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import sharp, { type Metadata } from "sharp";
+import type { Metadata } from "sharp";
 
 const ALLOWED_IMAGE_FORMATS = new Map([
   ["jpeg", ".jpg"],
@@ -32,8 +32,20 @@ export function assertPhotoUpload(file: File | null | undefined) {
   if (file.size > maxBytes) throw new Error(`Photos must be ${maxMb} MB or smaller.`);
 }
 
+/**
+ * sharp is loaded on demand rather than at module scope. It is the only native
+ * dependency left in the server graph, and a top-level import pulled it into
+ * every route that touches the database — `src/lib/db.ts` imports
+ * `getPhotoMediaUrl` from this file, which is pure string work. Resizing is the
+ * only code path that actually needs it.
+ */
+async function loadSharp() {
+  return (await import("sharp")).default;
+}
+
 export async function saveRestaurantPhotoFiles(restaurantId: number, file: File) {
   assertPhotoUpload(file);
+  const sharp = await loadSharp();
   const bytes = Buffer.from(await file.arrayBuffer());
   const image = sharp(bytes, { limitInputPixels: MAX_IMAGE_PIXELS });
   let metadata: Metadata;

@@ -74,11 +74,11 @@ To back up the database while the server is running (safe with WAL mode):
 docker exec <container> sqlite3 /data/munchbase.db ".backup /data/munchbase.backup.db"
 ```
 
-Verify a live database without changing it with `mise run db:integrity` (or `npm run db:integrity`).
+Verify a live database without changing it with `mise run db:integrity` (or `bun run db:integrity`).
 
 To restore, stop Munchbase, restore both the database and `uploads/` directory from the same backup, ensure the files are owned by the container's `nextjs` user, then restart. Pending migrations run before the restored instance becomes ready. If migration fails, the process exits and the structured container logs identify the failing stage; restore the original volume before attempting repairs.
 
-Munchbase applies pending migrations automatically during Node startup, including after Docker image upgrades. Migration files are bundled into the image while `/data` remains persistent. Generate and commit migrations with `npm run db:generate`; validate their history with `npm run db:check`.
+Munchbase applies pending migrations automatically during startup, including after Docker image upgrades. Migration files are bundled into the image while `/data` remains persistent. Generate and commit migrations with `bun run db:generate`; validate their history with `bun run db:check`.
 
 ## Photo upload size
 
@@ -96,8 +96,8 @@ The setup task creates `.env.local` when needed, installs locked dependencies,
 applies database migrations, and loads repeatable local test data.
 
 - Tests: `mise run test`
-- Lint: `mise exec -- npm run lint`
-- Typecheck: `mise exec -- npx tsc --noEmit`
+- Lint: `mise exec -- bun run lint`
+- Typecheck: `mise exec -- bunx tsc --noEmit`
 - All required checks: `mise run check`
 
 ## Building the Docker image
@@ -113,7 +113,7 @@ The image uses a multi-stage build with a non-root `nextjs` user. The `/data` di
 
 The user menu shows the build version — the commit date and hash, e.g. `v2026-03-01 · 05017a9`, with the hash linking to that commit on GitHub. `/api/health` reports the same values.
 
-The stamp is derived during the build from the repository itself, so `docker compose build`, a platform builder like Dokploy, and a local `npm run build` all produce a versioned image with no extra configuration. This is why `.git` is *not* in `.dockerignore` — it is read in the builder stage and never copied into the final image.
+The stamp is derived during the build from the repository itself, so `docker compose build`, a platform builder like Dokploy, and a local `bun run build` all produce a versioned image with no extra configuration. This is why `.git` is *not* in `.dockerignore` — it is read in the builder stage and never copied into the final image.
 
 If you build from a source tarball or any context without `.git`, pass the values in instead:
 

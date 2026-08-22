@@ -1,23 +1,23 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 
 const databasePath = path.resolve(process.env.DATABASE_PATH ?? "./data/munchbase.db");
 
 if (!fs.existsSync(databasePath)) {
-  console.error(`Database not found at ${databasePath}. Run \"npm run db:migrate\" first.`);
+  console.error(`Database not found at ${databasePath}. Run \"bun run db:migrate\" first.`);
   process.exit(1);
 }
 
 const db = new Database(databasePath);
-db.pragma("foreign_keys = ON");
+db.exec("PRAGMA foreign_keys = ON");
 
 const requiredTable = db
   .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'restaurants'")
   .get();
 if (!requiredTable) {
-  console.error(`Database at ${databasePath} has not been migrated. Run \"npm run db:migrate\" first.`);
+  console.error(`Database at ${databasePath} has not been migrated. Run \"bun run db:migrate\" first.`);
   db.close();
   process.exit(1);
 }

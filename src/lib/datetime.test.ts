@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { formatShortDateTime, formatWallDateTime, localDateTimeInputValue } from "./datetime";
 
 describe("wall time datetime helpers", () => {

@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import type { RatingDefinition, Restaurant } from "@/lib/types";
 import { RestaurantDetail } from "./restaurant-detail";
 

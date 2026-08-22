@@ -1,9 +1,9 @@
-import type Database from "better-sqlite3";
+import { pragma, type SqliteDatabase } from "./sqlite";
 import { NOTE_SECTION_PRESETS } from "@/lib/note-sections";
 import { RATING_PRESETS } from "@/lib/ratings";
 import { logger } from "@/lib/logger";
 
-export function syncApplicationPresets(database: Database.Database) {
+export function syncApplicationPresets(database: SqliteDatabase) {
   for (const preset of RATING_PRESETS) {
     database.prepare(`INSERT INTO rating_definitions
       (list_id, scope, preset_key, name, type, icon, options_json, min, max, active)

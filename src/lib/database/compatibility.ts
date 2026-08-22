@@ -1,19 +1,19 @@
-import type Database from "better-sqlite3";
+import { pragma, type SqliteDatabase } from "./sqlite";
 import { logger } from "@/lib/logger";
 
 const MIGRATION_KEY = "legacy-rating-definitions-v1";
 
 type Column = { name: string; notnull: number };
 
-function columns(database: Database.Database) {
+function columns(database: SqliteDatabase) {
   return database.prepare("PRAGMA table_info(rating_definitions)").all() as Column[];
 }
 
-function foreignKeyViolations(database: Database.Database) {
-  return database.pragma("foreign_key_check") as unknown[];
+function foreignKeyViolations(database: SqliteDatabase) {
+  return pragma(database, "foreign_key_check") as unknown[];
 }
 
-export function runLegacyCompatibility(database: Database.Database) {
+export function runLegacyCompatibility(database: SqliteDatabase) {
   database.exec(`CREATE TABLE IF NOT EXISTS munchbase_system_migrations (
     key TEXT PRIMARY KEY,
     applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -48,17 +48,17 @@ export function runLegacyCompatibility(database: Database.Database) {
   });
 
   // SQLite cannot change foreign-key enforcement inside a transaction.
-  database.pragma("foreign_keys = OFF");
+  pragma(database, "foreign_keys = OFF");
   try {
     migrate();
   } finally {
-    database.pragma("foreign_keys = ON");
+    pragma(database, "foreign_keys = ON");
   }
   logger.info("Database compatibility migration applied", { migration: MIGRATION_KEY });
   return true;
 }
 
-function rebuildRatingDefinitions(database: Database.Database, hasSortOrder: boolean) {
+function rebuildRatingDefinitions(database: SqliteDatabase, hasSortOrder: boolean) {
   database.exec("DROP INDEX IF EXISTS rating_definitions_list_id_preset_key_unique");
   database.exec("DROP INDEX IF EXISTS rating_definitions_global_preset_key_unique");
   database.exec(`CREATE TABLE rating_definitions_compat_new (

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { distanceMiles, formatDistance } from "./distance";
 
 const NYC = { lat: 40.7128, lon: -74.006 };

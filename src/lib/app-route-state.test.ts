@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { deriveAppRouteState } from "./app-route-state";
 
 function derive(url: string, userRole = "user") {
