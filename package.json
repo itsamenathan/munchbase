@@ -14,6 +14,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:migrations": "vitest run src/lib/database/database.test.ts",
+    "test:golden": "vitest run src/lib/database/golden-master.test.ts",
+    "test:golden:update": "UPDATE_GOLDEN=1 vitest run src/lib/database/golden-master.test.ts",
     "test:watch": "vitest"
   },
   "keywords": [
