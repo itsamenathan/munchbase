@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { NetworkProvider } from "@/hooks/use-network-status";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { SwUpdateWatcher } from "@/components/sw-update-watcher";
 import "./styles/index.css";
@@ -62,7 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ThemeProvider>
-          <NetworkProvider>{children}</NetworkProvider>
+          {children}
         </ThemeProvider>
         <SwUpdateWatcher />
       </body>

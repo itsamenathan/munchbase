@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f8f8f2" />
+    <title>Munchbase is offline</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+        background: #f8f8f2;
+        color: #202126;
+      }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+      }
+      main {
+        width: min(28rem, calc(100% - 3rem));
+      }
+      h1 {
+        font-size: 1.75rem;
+        margin: 0 0 0.75rem;
+      }
+      p {
+        line-height: 1.5;
+        margin: 0 0 1.25rem;
+      }
+      a {
+        color: inherit;
+        font-weight: 700;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          background: #1e2029;
+          color: #f5f2e8;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>You're offline</h1>
+      <p>Munchbase needs a connection before it can open your restaurant data.</p>
+      <a href="/explore">Try again</a>
+    </main>
+  </body>
+</html>

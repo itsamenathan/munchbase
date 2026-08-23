@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { enqueueAction, getQueuedActions, removeQueuedAction, reportCacheFailure } from "@/lib/offline-db";
 import { CSRF_FIELD } from "@/lib/csrf-constants";
@@ -22,7 +22,7 @@ const NetworkContext = createContext<NetworkState>({
   syncedMessage: null,
 });
 
-export function NetworkProvider({ children }: { children: ReactNode }) {
+export function NetworkProvider({ children, userId }: { children: ReactNode; userId: number }) {
   const router = useRouter();
   const online = useSyncExternalStore(
     (onStoreChange) => {
@@ -42,23 +42,23 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   const [syncedMessage, setSyncedMessage] = useState<string | null>(null);
   const draining = useRef(false);
 
-  const refreshQueueCount = async () => {
+  const refreshQueueCount = useCallback(async () => {
     try {
-      const actions = await getQueuedActions();
+      const actions = await getQueuedActions(userId);
       setQueuedCount(actions.length);
     } catch (error) {
       // An unreadable queue is reported where it matters — when queueing or
       // draining. Keep the last known count rather than throwing from an effect.
       reportCacheFailure(error);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     // Seeds the badge from IndexedDB, which is unavailable during SSR and only
     // resolves asynchronously — there is no render-time equivalent.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshQueueCount();
-  }, []);
+  }, [refreshQueueCount]);
 
   // Queue mutations submitted while offline instead of letting the native
   // form POST fail outright. Runs in the bubble phase (after any per-form
@@ -102,7 +102,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       formData.forEach((value, key) => {
         entries[key] = String(value);
       });
-      void enqueueAction("mutate", entries).then(refreshQueueCount).catch((error) => {
+      void enqueueAction(userId, "mutate", entries).then(refreshQueueCount).catch((error) => {
         // The submit was already cancelled, so a failed queue write means the
         // change is gone. Say so instead of implying it was saved for later.
         reportCacheFailure(error);
@@ -113,7 +113,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
 
     document.addEventListener("submit", handleSubmit);
     return () => document.removeEventListener("submit", handleSubmit);
-  }, []);
+  }, [refreshQueueCount, userId]);
 
   // Drain the queue once connectivity returns.
   useEffect(() => {
@@ -122,7 +122,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     (async () => {
       let succeeded = 0;
       try {
-        const actions = await getQueuedActions();
+        const actions = await getQueuedActions(userId);
         for (const action of actions) {
           const formData = new FormData();
           Object.entries(action.payload as Record<string, string>).forEach(([key, value]) => {
@@ -151,7 +151,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         router.refresh();
       }
     })();
-  }, [online, router]);
+  }, [online, refreshQueueCount, router, userId]);
 
   return (
     <NetworkContext.Provider value={{ online, queuedCount, blockedMessage, syncedMessage }}>
