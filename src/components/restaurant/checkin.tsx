@@ -1,29 +1,26 @@
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { CalendarClock, CalendarPlus, Pencil, Trash2, UserRound } from "lucide-react";
 import { formatShortDateTime, localDateTimeInputValue } from "@/lib/datetime";
 import type { CheckIn } from "@/lib/types";
 import type { Restaurant } from "@/lib/types";
-import { submitMutation } from "@/lib/mutation-client";
 
-export function CheckInCard({ canWrite, checkIn }: { canWrite: boolean; checkIn: CheckIn }) {
-  const router = useRouter();
+export function CheckInCard({
+  canWrite,
+  checkIn,
+  restaurantId,
+}: {
+  canWrite: boolean;
+  checkIn: CheckIn;
+  restaurantId: number;
+}) {
   const [mode, setMode] = useState<"preview" | "edit">("preview");
   const [visitedAt, setVisitedAt] = useState(checkIn.visitedAt);
 
   if (mode === "edit") {
     return (
-      <form action="/mutate" method="post" className="checkin-card checkin-card-editing" onSubmit={async (event) => {
-        event.preventDefault();
-        const result = await submitMutation(event.currentTarget);
-        if (result.ok) {
-          setMode("preview");
-          router.refresh();
-        } else {
-          router.replace(result.redirectTo, { scroll: false });
-        }
-      }}>
+      <form action="/mutate" method="post" className="checkin-card checkin-card-editing" onSubmit={() => setMode("preview")}>
         <input type="hidden" name="__action" value="updateCheckIn" />
+        <input type="hidden" name="restaurantId" value={restaurantId} />
         <input type="hidden" name="checkInId" value={checkIn.id} />
         <div className="checkin-edit-head">
           <span className="checkin-avatar" aria-hidden="true"><UserRound size={15} /></span>
@@ -52,6 +49,7 @@ export function CheckInCard({ canWrite, checkIn }: { canWrite: boolean; checkIn:
             <button type="button" className="ghost-button icon-button" onClick={() => setMode("edit")} aria-label="Edit check-in"><Pencil size={16} /></button>
             <form action="/mutate" method="post" className="inline-form">
               <input type="hidden" name="__action" value="deleteCheckIn" />
+              <input type="hidden" name="restaurantId" value={restaurantId} />
               <input type="hidden" name="checkInId" value={checkIn.id} />
               <button className="ghost-button icon-only" aria-label="Delete check-in" onClick={() => navigator.vibrate?.([10, 50, 10])}><Trash2 size={16} /></button>
             </form>

@@ -8,7 +8,7 @@ import { RatingInput } from "./rating-input";
 import { CheckInCard, CheckInForm } from "./checkin";
 import { RestaurantPhotos } from "./restaurant-photos";
 import { RATING_ICON_MAP, RATING_PRESETS, type RatingDefinition, repeatedIcon } from "./rating-common";
-import { appendCsrfToken } from "@/lib/csrf-client";
+import { useAppMutation } from "@/hooks/use-app-mutation";
 import type { AppState, NoteSectionDefinition, Restaurant } from "@/lib/types";
 
 const NOTE_PRESET_PLACEHOLDERS: Record<string, string> = Object.fromEntries(
@@ -49,6 +49,8 @@ function YelpIcon() {
 
 export function RestaurantDetail({
   canWrite,
+  online,
+  pending,
   entry,
   activeListId,
   lists,
@@ -64,6 +66,8 @@ export function RestaurantDetail({
   onClosePhoto,
 }: {
   canWrite: boolean;
+  online: boolean;
+  pending: boolean;
   entry: Restaurant;
   activeListId: number | null;
   lists: AppState["lists"];
@@ -80,9 +84,10 @@ export function RestaurantDetail({
 }) {
   const [entryMode, setEntryMode] = useState<"edit" | "preview">(initialEdit && canWrite ? "edit" : "preview");
   const [noteValues, setNoteValues] = useState(() => parseNotes(entry.notes));
-  const [membershipIds, setMembershipIds] = useState(() => new Set(entry.memberships.map((m) => m.id)));
+  const [pendingMembershipIds, setPendingMembershipIds] = useState(() => new Set<number>());
   const [locationStatus, setLocationStatus] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const { submit } = useAppMutation();
   const latInputRef = useRef<HTMLInputElement>(null);
   const lonInputRef = useRef<HTMLInputElement>(null);
 
@@ -99,23 +104,21 @@ export function RestaurantDetail({
   }
 
   const toggleListMembership = async (listId: number, inList: boolean) => {
-    setMembershipIds((prev) => {
+    setPendingMembershipIds((prev) => {
       const next = new Set(prev);
-      if (inList) next.delete(listId); else next.add(listId);
+      next.add(listId);
       return next;
     });
     const formData = new FormData();
     formData.set("__action", inList ? "removeRestaurantFromList" : "attachRestaurantToList");
-    appendCsrfToken(formData);
     formData.set("restaurantId", String(entry.id));
     formData.set("listId", String(listId));
     try {
-      const res = await fetch("/mutate", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Mutation failed");
-    } catch {
-      setMembershipIds((prev) => {
+      await submit(formData);
+    } finally {
+      setPendingMembershipIds((prev) => {
         const next = new Set(prev);
-        if (inList) next.add(listId); else next.delete(listId);
+        next.delete(listId);
         return next;
       });
     }
@@ -159,7 +162,7 @@ export function RestaurantDetail({
   const globalSummaryDefinitions = globalRatingDefinitions.filter((d) => d.active);
 
   const memberLists = lists
-    .filter((list) => membershipIds.has(list.id))
+    .filter((list) => entry.memberships.some((membership) => membership.id === list.id))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const ratingGroups = [
@@ -181,6 +184,7 @@ export function RestaurantDetail({
       <div className="detail-head">
         <div className="detail-title-group">
           <h3>{entry.name}</h3>
+          {pending ? <span className="pending-change-badge">Pending sync</span> : null}
           <span className="detail-location">{formatCityState(entry.address)}</span>
           <RatingSummary entry={entry} definitions={globalSummaryDefinitions} />
         </div>
@@ -233,7 +237,7 @@ export function RestaurantDetail({
                 ) : (
                   <div className="list-toggle-grid">
                     {lists.map((list) => {
-                      const inList = membershipIds.has(list.id);
+                      const inList = entry.memberships.some((membership) => membership.id === list.id);
                       return (
                         <button
                           key={list.id}
@@ -241,6 +245,7 @@ export function RestaurantDetail({
                           className={`list-toggle-btn${inList ? " active" : ""}`}
                           aria-pressed={inList}
                           onClick={() => toggleListMembership(list.id, inList)}
+                          disabled={pendingMembershipIds.has(list.id)}
                         >
                           <span className="list-toggle-check" aria-hidden="true">
                             {inList ? <Check size={13} /> : <Plus size={13} />}
@@ -286,18 +291,20 @@ export function RestaurantDetail({
               {locationStatus ? <p className="microcopy" aria-live="polite">{locationStatus}</p> : null}
               <button>Update details</button>
             </form>
-            <form
-              action="/mutate"
-              method="post"
-              onSubmit={(e) => { if (!confirm(`Permanently delete ${entry.name}? All check-ins, ratings, and photos will be removed.`)) e.preventDefault(); }}
-            >
-              <input type="hidden" name="__action" value="deleteRestaurant" />
-              <input type="hidden" name="restaurantId" value={entry.id} />
-              {activeListId ? <input type="hidden" name="listId" value={activeListId} /> : null}
-              <button className="danger-button" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Trash2 size={14} /> Delete restaurant
-              </button>
-            </form>
+            {online ? (
+              <form
+                action="/mutate"
+                method="post"
+                onSubmit={(e) => { if (!confirm(`Permanently delete ${entry.name}? All check-ins, ratings, and photos will be removed.`)) e.preventDefault(); }}
+              >
+                <input type="hidden" name="__action" value="deleteRestaurant" />
+                <input type="hidden" name="restaurantId" value={entry.id} />
+                {activeListId ? <input type="hidden" name="listId" value={activeListId} /> : null}
+                <button className="danger-button" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Trash2 size={14} /> Delete restaurant
+                </button>
+              </form>
+            ) : <p className="microcopy">Deleting a Restaurant needs a connection.</p>}
           </details>
         </>
       ) : (
@@ -313,7 +320,7 @@ export function RestaurantDetail({
             </section>
           ) : null}
           <RestaurantPhotos
-            canWrite={canWrite}
+            canWrite={canWrite && online}
             entry={entry}
             activePhotoId={activePhotoId}
             onOpenPhoto={onOpenPhoto}
@@ -328,7 +335,14 @@ export function RestaurantDetail({
             {canWrite ? <CheckInForm entry={entry} /> : null}
             {entry.latestCheckIn ? (
               <div className="checkin-list">
-                {entry.checkIns.map((c) => (<CheckInCard key={c.id} canWrite={canWrite} checkIn={c} />))}
+                {entry.checkIns.map((c) => (
+                  <CheckInCard
+                    key={c.id}
+                    canWrite={canWrite && (online || c.id > 0)}
+                    checkIn={c}
+                    restaurantId={entry.id}
+                  />
+                ))}
               </div>
             ) : (
               <p className="checkin-empty">No visits logged yet.</p>

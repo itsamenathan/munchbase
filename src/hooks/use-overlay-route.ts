@@ -8,6 +8,11 @@ type Options = {
   fallbackHref: string;
   /** Runs before either close path, for resetting overlay-local state. */
   onClose?: () => void;
+  navigation?: {
+    push: (href: string) => void;
+    replace: (href: string) => void;
+    back: () => void;
+  };
 };
 
 export type OverlayRoute = {
@@ -23,7 +28,7 @@ export type OverlayRoute = {
  * consistent), or they deep-linked straight to it (so there is nothing to pop,
  * and `router.back()` would leave Munchbase entirely).
  */
-export function useOverlayRoute(isOpen: boolean, { fallbackHref, onClose }: Options): OverlayRoute {
+export function useOverlayRoute(isOpen: boolean, { fallbackHref, onClose, navigation }: Options): OverlayRoute {
   const router = useRouter();
   const openedInAppRef = useRef(false);
 
@@ -41,9 +46,10 @@ export function useOverlayRoute(isOpen: boolean, { fallbackHref, onClose }: Opti
   const open = useCallback(
     (href: string) => {
       openedInAppRef.current = true;
-      router.push(href, { scroll: false });
+      if (navigation) navigation.push(href);
+      else router.push(href, { scroll: false });
     },
-    [router],
+    [navigation, router],
   );
 
   const close = useCallback(() => {
@@ -51,9 +57,15 @@ export function useOverlayRoute(isOpen: boolean, { fallbackHref, onClose }: Opti
     // without it, a stray call would pop an unrelated history entry.
     if (!isOpen) return;
     onCloseRef.current?.();
-    if (openedInAppRef.current) router.back();
-    else router.replace(fallbackHref, { scroll: false });
-  }, [fallbackHref, isOpen, router]);
+    if (openedInAppRef.current) {
+      if (navigation) navigation.back();
+      else router.back();
+    } else if (navigation) {
+      navigation.replace(fallbackHref);
+    } else {
+      router.replace(fallbackHref, { scroll: false });
+    }
+  }, [fallbackHref, isOpen, navigation, router]);
 
   return { open, close };
 }

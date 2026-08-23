@@ -621,9 +621,14 @@ export async function createCheckIn(formData: FormData) {
   const user = await requireUser();
   const restaurantId = Number(text(formData, "restaurantId"));
   const visitedAt = text(formData, "visitedAt") || localDateTimeInputValue();
+  const clientMutationId = text(formData, "__mutationId") || null;
   getDb()
-    .prepare("INSERT INTO checkins (restaurant_id, author_id, visited_at) VALUES (?, ?, ?)")
-    .run(restaurantId, user.id, visitedAt);
+    .prepare(
+      `INSERT INTO checkins (restaurant_id, author_id, visited_at, client_mutation_id)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(author_id, client_mutation_id) DO NOTHING`,
+    )
+    .run(restaurantId, user.id, visitedAt, clientMutationId);
   revalidateApp();
 }
 

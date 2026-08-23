@@ -1,30 +1,78 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
-import { enqueueAction, getQueuedActions, removeQueuedAction, reportCacheFailure } from "@/lib/offline-db";
+import {
+  createOfflineMutationId,
+  enqueueMutationWithState,
+  getOfflineMetadata,
+  getQueuedActions,
+  markOfflineDataSynced,
+  removeQueuedAction,
+  updateQueuedActionFailure,
+  type SerializedFormData,
+} from "@/lib/offline-db";
+import { restoreMutationFormData } from "@/lib/offline-mutations";
+import { submitMutationData } from "@/lib/mutation-client";
 import { CSRF_FIELD } from "@/lib/csrf-constants";
 import { readCsrfToken } from "@/lib/csrf-client";
-
-const MUTATE_PATH = "/mutate";
+import type { AppState } from "@/lib/types";
 
 type NetworkState = {
   online: boolean;
   queuedCount: number;
+  pendingRestaurantIds: number[];
   blockedMessage: string | null;
   syncedMessage: string | null;
+  syncError: string | null;
+  syncing: boolean;
+  lastSyncedAt: number | null;
+  queueMutation: (
+    action: string,
+    payload: SerializedFormData,
+    state: AppState,
+    mutationId: string,
+  ) => Promise<void>;
+  createMutationId: () => string;
+  reportBlocked: (message: string) => void;
+  markOriginUnavailable: () => void;
 };
 
-const NetworkContext = createContext<NetworkState>({
-  online: true,
-  queuedCount: 0,
-  blockedMessage: null,
-  syncedMessage: null,
-});
+const NetworkContext = createContext<NetworkState | null>(null);
 
-export function NetworkProvider({ children, userId }: { children: ReactNode; userId: number }) {
+function onlineSnapshot() {
+  return navigator.onLine;
+}
+
+function restaurantIdFromPayload(payload: SerializedFormData | Record<string, string>) {
+  const entries = Array.isArray(payload) ? payload : Object.entries(payload);
+  const raw = entries.find(([key]) => key === "restaurantId")?.[1];
+  const id = Number(raw);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+export function NetworkProvider({
+  children,
+  userId,
+  initiallyOffline = false,
+  checkOrigin = true,
+}: {
+  children: ReactNode;
+  userId: number;
+  initiallyOffline?: boolean;
+  checkOrigin?: boolean;
+}) {
   const router = useRouter();
-  const online = useSyncExternalStore(
+  const browserOnline = useSyncExternalStore(
     (onStoreChange) => {
       window.addEventListener("online", onStoreChange);
       window.addEventListener("offline", onStoreChange);
@@ -33,133 +81,180 @@ export function NetworkProvider({ children, userId }: { children: ReactNode; use
         window.removeEventListener("offline", onStoreChange);
       };
     },
-    () => navigator.onLine,
+    onlineSnapshot,
     () => true,
   );
-
+  const [originAvailable, setOriginAvailable] = useState(!initiallyOffline);
+  const online = browserOnline && originAvailable;
   const [queuedCount, setQueuedCount] = useState(0);
+  const [pendingRestaurantIds, setPendingRestaurantIds] = useState<number[]>([]);
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
   const [syncedMessage, setSyncedMessage] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const draining = useRef(false);
+  const blockedTimer = useRef<number | null>(null);
 
-  const refreshQueueCount = useCallback(async () => {
-    try {
-      const actions = await getQueuedActions(userId);
-      setQueuedCount(actions.length);
-    } catch (error) {
-      // An unreadable queue is reported where it matters — when queueing or
-      // draining. Keep the last known count rather than throwing from an effect.
-      reportCacheFailure(error);
-    }
+  const refreshQueueState = useCallback(async () => {
+    const [actions, metadata] = await Promise.all([
+      getQueuedActions(userId),
+      getOfflineMetadata(),
+    ]);
+    setQueuedCount(actions.length);
+    setPendingRestaurantIds([...new Set(actions.map((action) => restaurantIdFromPayload(action.payload)).filter((id): id is number => id !== null))]);
+    if (metadata?.userId === userId) setLastSyncedAt(metadata.lastSyncedAt);
   }, [userId]);
 
-  useEffect(() => {
-    // Seeds the badge from IndexedDB, which is unavailable during SSR and only
-    // resolves asynchronously — there is no render-time equivalent.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refreshQueueCount();
-  }, [refreshQueueCount]);
+  const reportBlocked = useCallback((message: string) => {
+    setBlockedMessage(message);
+    if (blockedTimer.current !== null) window.clearTimeout(blockedTimer.current);
+    blockedTimer.current = window.setTimeout(() => setBlockedMessage(null), 5000);
+  }, []);
 
-  // Queue mutations submitted while offline instead of letting the native
-  // form POST fail outright. Runs in the bubble phase (after any per-form
-  // onSubmit handler, e.g. the delete-restaurant confirm() guard) so a
-  // cancelled confirmation is respected via event.defaultPrevented.
+  const markOriginUnavailable = useCallback(() => setOriginAvailable(false), []);
+
+  useEffect(() => {
+    if (!checkOrigin || !browserOnline || originAvailable) return;
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const response = await fetch("/api/health/live", { cache: "no-store" });
+        if (!cancelled && response.ok) setOriginAvailable(true);
+      } catch {
+        // Stay offline and try again. The queue must not drain against a dead origin.
+      }
+    };
+    void check();
+    const interval = window.setInterval(() => void check(), 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [browserOnline, checkOrigin, originAvailable]);
+
+  useEffect(() => () => {
+    if (blockedTimer.current !== null) window.clearTimeout(blockedTimer.current);
+  }, []);
+
+  useEffect(() => {
+    // IndexedDB is external state; seed the queue badge after the client mounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshQueueState().catch((error) => {
+      console.warn("Munchbase offline queue unavailable", error);
+    });
+  }, [refreshQueueState]);
+
+  const queueMutation = useCallback(async (
+    action: string,
+    payload: SerializedFormData,
+    state: AppState,
+    mutationId: string,
+  ) => {
+    await enqueueMutationWithState(userId, action, payload, state, mutationId);
+    await refreshQueueState();
+    setSyncError(null);
+  }, [refreshQueueState, userId]);
+
+  // Logout remains a normal server request, but it still needs a fresh CSRF
+  // token. Keep cached data when a session merely expires; explicit logout is
+  // the path that clears it.
   useEffect(() => {
     function handleSubmit(event: SubmitEvent) {
-      if (event.defaultPrevented) return;
       const form = event.target;
       if (!(form instanceof HTMLFormElement)) return;
-      let url: URL;
-      try {
-        url = new URL(form.action, window.location.href);
-      } catch {
+      const url = new URL(form.action, window.location.href);
+      if (url.pathname !== "/logout") return;
+      if (!online) {
+        event.preventDefault();
+        reportBlocked("Sign out needs a connection.");
         return;
       }
-      if ([MUTATE_PATH, "/login", "/logout"].includes(url.pathname)) {
-        let csrfInput = form.querySelector<HTMLInputElement>(`input[name="${CSRF_FIELD}"]`);
-        if (!csrfInput) {
-          csrfInput = document.createElement("input");
-          csrfInput.type = "hidden";
-          csrfInput.name = CSRF_FIELD;
-          form.prepend(csrfInput);
-        }
-        csrfInput.value = readCsrfToken();
+      let csrfInput = form.querySelector<HTMLInputElement>(`input[name="${CSRF_FIELD}"]`);
+      if (!csrfInput) {
+        csrfInput = document.createElement("input");
+        csrfInput.type = "hidden";
+        csrfInput.name = CSRF_FIELD;
+        form.prepend(csrfInput);
       }
-
-      if (url.pathname !== MUTATE_PATH || navigator.onLine) return;
-
-      const formData = new FormData(form);
-      const hasFile = [...formData.values()].some((value) => value instanceof File);
-      event.preventDefault();
-
-      if (hasFile) {
-        setBlockedMessage("You're offline — photo uploads need a connection.");
-        window.setTimeout(() => setBlockedMessage(null), 4000);
-        return;
-      }
-
-      const entries: Record<string, string> = {};
-      formData.forEach((value, key) => {
-        entries[key] = String(value);
-      });
-      void enqueueAction(userId, "mutate", entries).then(refreshQueueCount).catch((error) => {
-        // The submit was already cancelled, so a failed queue write means the
-        // change is gone. Say so instead of implying it was saved for later.
-        reportCacheFailure(error);
-        setBlockedMessage("You're offline and that change couldn't be saved for later.");
-        window.setTimeout(() => setBlockedMessage(null), 4000);
-      });
+      csrfInput.value = readCsrfToken();
     }
 
     document.addEventListener("submit", handleSubmit);
     return () => document.removeEventListener("submit", handleSubmit);
-  }, [refreshQueueCount, userId]);
+  }, [online, reportBlocked]);
 
-  // Drain the queue once connectivity returns.
   useEffect(() => {
     if (!online || draining.current) return;
     draining.current = true;
-    (async () => {
+    setSyncing(true);
+    setSyncError(null);
+
+    void (async () => {
       let succeeded = 0;
       try {
         const actions = await getQueuedActions(userId);
         for (const action of actions) {
-          const formData = new FormData();
-          Object.entries(action.payload as Record<string, string>).forEach(([key, value]) => {
-            formData.set(key, value);
-          });
+          const formData = restoreMutationFormData(action.payload);
           formData.set(CSRF_FIELD, readCsrfToken());
+          formData.set("__mutationId", action.mutationId || createOfflineMutationId());
           try {
-            await fetch(MUTATE_PATH, { method: "POST", body: formData, redirect: "manual" });
+            const result = await submitMutationData(formData);
+            if (!result.ok) {
+              await updateQueuedActionFailure(action.id, result.message);
+              setSyncError(result.message);
+              break;
+            }
             await removeQueuedAction(action.id);
             succeeded++;
-          } catch {
-            break; // still offline, or a real error — leave the rest queued for next time
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Sync failed.";
+            await updateQueuedActionFailure(action.id, message);
+            setSyncError(message);
+            setOriginAvailable(false);
+            break;
           }
         }
+        if (succeeded) {
+          await markOfflineDataSynced(userId);
+          setLastSyncedAt(Date.now());
+          setSyncedMessage(`Synced ${succeeded} change${succeeded === 1 ? "" : "s"}.`);
+          window.setTimeout(() => setSyncedMessage(null), 4000);
+          router.refresh();
+        }
       } catch (error) {
-        reportCacheFailure(error); // queue unreadable; try again on the next reconnect
+        const message = error instanceof Error ? error.message : "Sync failed.";
+        setSyncError(message);
       } finally {
-        // Always release the guard: leaving it set would block every later
-        // drain attempt for the lifetime of the page.
         draining.current = false;
-      }
-      await refreshQueueCount();
-      if (succeeded) {
-        setSyncedMessage(`Synced ${succeeded} change${succeeded === 1 ? "" : "s"}.`);
-        window.setTimeout(() => setSyncedMessage(null), 4000);
-        router.refresh();
+        setSyncing(false);
+        await refreshQueueState().catch(() => undefined);
       }
     })();
-  }, [online, refreshQueueCount, router, userId]);
+  }, [online, refreshQueueState, router, userId]);
 
   return (
-    <NetworkContext.Provider value={{ online, queuedCount, blockedMessage, syncedMessage }}>
+    <NetworkContext.Provider value={{
+      online,
+      queuedCount,
+      pendingRestaurantIds,
+      blockedMessage,
+      syncedMessage,
+      syncError,
+      syncing,
+      lastSyncedAt,
+      queueMutation,
+      createMutationId: createOfflineMutationId,
+      reportBlocked,
+      markOriginUnavailable,
+    }}>
       {children}
     </NetworkContext.Provider>
   );
 }
 
 export function useNetworkStatus() {
-  return useContext(NetworkContext);
+  const context = useContext(NetworkContext);
+  if (!context) throw new Error("useNetworkStatus must be used inside NetworkProvider.");
+  return context;
 }
