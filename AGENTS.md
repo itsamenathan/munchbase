@@ -64,6 +64,7 @@ Use this repository's terminology consistently in code, UI text, comments, and d
 - **Icons**: `lucide-react`
 - **CSS**: Custom CSS, no Tailwind. Design tokens in `src/app/styles/tokens.css`. Component classes in `src/app/styles/components.css`. Mobile-first.
 - **Testing**: Vitest (unit tests for lib utilities only — no component tests). Run with `npm test`.
+- **Golden master**: `src/lib/database/golden-master.test.ts` seeds the real test corpus into a throwaway database, snapshots every read path, and compares byte-for-byte against `src/lib/database/golden/baseline.json`. Regenerate deliberately with `npm run test:golden:update` and review the diff — an unexplained change there means a query changed what it returns. The baseline reflects a freshly migrated database, so regenerating it against a database with different history will produce a legitimate-looking diff that is not a regression.
 - **Deployment**: Docker (multi-stage, node:26.3.1-alpine). Standalone Next.js output. DB at `/data/munchbase.db` inside container.
 
 ## Architecture
@@ -165,6 +166,7 @@ mise exec -- npm run db:generate # Regenerate Drizzle migration files
 mise exec -- npm run db:migrate  # Apply migrations
 mise exec -- npm run db:seed:test # Refresh repeatable local test data
 mise run test                 # Run Vitest unit tests
+mise exec -- npm run test:golden # Golden-master database check only
 mise exec -- npx tsc --noEmit # TypeScript check (run before declaring done)
 mise run check                # Run TypeScript, ESLint, and unit tests together
 mise exec -- npm run lint     # ESLint only
