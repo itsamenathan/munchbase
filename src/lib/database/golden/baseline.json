@@ -6832,7 +6832,7 @@
     }
   },
   "rowCounts": {
-    "__drizzle_migrations": 2,
+    "__drizzle_migrations": 3,
     "app_settings": 1,
     "checkins": 7,
     "list_restaurants": 12,
@@ -6941,6 +6941,13 @@
         "defaultValue": "CURRENT_TIMESTAMP",
         "name": "updated_at",
         "notNull": 1,
+        "pk": 0,
+        "type": "TEXT"
+      },
+      {
+        "defaultValue": null,
+        "name": "client_mutation_id",
+        "notNull": 0,
         "pk": 0,
         "type": "TEXT"
       }
