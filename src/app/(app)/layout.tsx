@@ -4,6 +4,8 @@ import AppShell from "@/components/app-shell";
 import { LoginForm } from "@/components/auth/login-form";
 import { MutationErrorMessage } from "@/components/auth/mutation-error";
 import { CsrfInput } from "@/components/shared/csrf-input";
+import { OfflineDataCleanup } from "@/components/auth/offline-data-cleanup";
+import { NetworkProvider } from "@/hooks/use-network-status";
 import { getCsrfTokenFromCookies } from "@/lib/csrf";
 
 export default async function AuthenticatedAppLayout({ children }: { children: React.ReactNode }) {
@@ -53,12 +55,17 @@ export default async function AuthenticatedAppLayout({ children }: { children: R
     );
   }
 
-  return <AppShell state={getAppState(user, null)}>{children}</AppShell>;
+  return (
+    <NetworkProvider userId={user.id}>
+      <AppShell state={getAppState(user, null)}>{children}</AppShell>
+    </NetworkProvider>
+  );
 }
 
 function AuthFrame({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
     <main className="auth-page">
+      <OfflineDataCleanup />
       <section className="auth-panel">
         <p className="kicker">Self-hosted restaurant tracker</p>
         <h1>{title}</h1>

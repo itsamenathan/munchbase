@@ -97,9 +97,9 @@ export default function AppShell({
   useEffect(() => {
     // Write-through cache: keep the last successfully-loaded server state in
     // IndexedDB so a future offline session has something to fall back to.
-    void cacheAppState("latest", state).catch(reportCacheFailure);
-    void cacheRestaurants(state.allRestaurants).catch(reportCacheFailure);
-    void cacheLists(state.lists).catch(reportCacheFailure);
+    void cacheAppState(state.user.id, "latest", state).catch(reportCacheFailure);
+    void cacheRestaurants(state.user.id, state.allRestaurants).catch(reportCacheFailure);
+    void cacheLists(state.user.id, state.lists).catch(reportCacheFailure);
   }, [state]);
 
   const activeState = useMemo(() => {

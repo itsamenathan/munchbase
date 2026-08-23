@@ -4,7 +4,7 @@
   "description": "Self-hosted restaurant tracker",
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3001",
-    "build": "next build",
+    "build": "node scripts/verify-service-worker.mjs --clean && next build --webpack && node scripts/verify-service-worker.mjs",
     "start": "next start -H 0.0.0.0",
     "db:generate": "node -e \"require('node:fs').mkdirSync('data',{recursive:true})\" && drizzle-kit generate",
     "db:migrate": "tsx scripts/database-cli.ts migrate",
@@ -53,6 +53,7 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.9",
+    "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
