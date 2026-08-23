@@ -121,15 +121,20 @@ export const ratingValues = sqliteTable(
   (table) => [primaryKey({ columns: [table.restaurantId, table.definitionId] })],
 );
 
-export const checkins = sqliteTable("checkins", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  restaurantId: integer("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
-  authorId: integer("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  visitedAt: text("visited_at").notNull(),
-  notes: text("notes"),
-  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+export const checkins = sqliteTable(
+  "checkins",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    restaurantId: integer("restaurant_id").notNull().references(() => restaurants.id, { onDelete: "cascade" }),
+    authorId: integer("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    visitedAt: text("visited_at").notNull(),
+    notes: text("notes"),
+    clientMutationId: text("client_mutation_id"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [unique("checkins_author_id_client_mutation_id_unique").on(table.authorId, table.clientMutationId)],
+);
 
 export const restaurantPhotos = sqliteTable("restaurant_photos", {
   id: integer("id").primaryKey({ autoIncrement: true }),

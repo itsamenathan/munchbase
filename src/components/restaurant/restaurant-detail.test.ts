@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { AppMutationProvider } from "@/hooks/use-app-mutation";
 import type { RatingDefinition, Restaurant } from "@/lib/types";
 import { RestaurantDetail } from "./restaurant-detail";
 
@@ -42,22 +43,29 @@ const restaurant: Restaurant = {
 
 describe("RestaurantDetail", () => {
   it("does not nest interactive rating labels inside a field label", () => {
-    const markup = renderToStaticMarkup(createElement(RestaurantDetail, {
-      canWrite: true,
-      entry: restaurant,
-      activeListId: null,
-      lists: [],
-      globalRatingDefinitions: [goBackDefinition],
-      ratingDefinitions: [],
-      allRatingDefinitions: [],
-      noteSections: [],
-      initialEdit: true,
-      onEditChange: () => {},
-      activePhotoId: null,
-      onOpenPhoto: () => {},
-      onSelectPhoto: () => {},
-      onClosePhoto: () => {},
-    }));
+    const detail = createElement(RestaurantDetail, {
+        canWrite: true,
+        online: true,
+        pending: false,
+        entry: restaurant,
+        activeListId: null,
+        lists: [],
+        globalRatingDefinitions: [goBackDefinition],
+        ratingDefinitions: [],
+        allRatingDefinitions: [],
+        noteSections: [],
+        initialEdit: true,
+        onEditChange: () => {},
+        activePhotoId: null,
+        onOpenPhoto: () => {},
+        onSelectPhoto: () => {},
+        onClosePhoto: () => {},
+      });
+    const markup = renderToStaticMarkup(createElement(
+      AppMutationProvider,
+      { submit: async () => ({ ok: true as const, redirectTo: "/explore", queued: false }) },
+      detail,
+    ));
 
     expect(markup).toContain('<div class="rating-field-row">');
     expect(markup).not.toContain('<label class="rating-field-row">');

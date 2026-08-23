@@ -11,5 +11,5 @@ export async function POST(request: NextRequest) {
     return redirectTo("/explore?mutationError=csrf&message=Security%20check%20failed.%20Refresh%20and%20try%20again.");
   }
   await destroySession();
-  return redirectTo("/explore");
+  return redirectTo("/explore?signedOut=1");
 }

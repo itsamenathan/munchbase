@@ -24,8 +24,8 @@ if (worker.includes("self.__MUNCHBASE_MANIFEST")) {
   throw new Error("Serwist did not inject the precache manifest into public/sw.js.");
 }
 
-if (!worker.includes("/offline.html")) {
-  throw new Error("The generated service worker does not precache /offline.html.");
+if (!worker.includes("/offline")) {
+  throw new Error("The generated service worker does not precache /offline.");
 }
 
 console.log(`Verified ${path.relative(process.cwd(), workerPath)} (${worker.length} bytes).`);

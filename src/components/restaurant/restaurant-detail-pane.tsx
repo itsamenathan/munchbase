@@ -14,6 +14,8 @@ export function RestaurantDetailPane({
   restaurant,
   state,
   canWrite,
+  online,
+  pending,
   editing,
   onEditChange,
   activePhotoId,
@@ -24,6 +26,8 @@ export function RestaurantDetailPane({
   restaurant: Restaurant;
   state: AppState & { activeListId: number | null; ratingDefinitions: AppState["allRatingDefinitions"] };
   canWrite: boolean;
+  online: boolean;
+  pending: boolean;
   editing: boolean;
   onEditChange: (edit: boolean) => void;
   activePhotoId: number | null;
@@ -37,6 +41,8 @@ export function RestaurantDetailPane({
       // rather than carrying the previous Restaurant's draft values.
       key={`${restaurant.id}:${editing ? "edit" : "view"}`}
       canWrite={canWrite}
+      online={online}
+      pending={pending}
       entry={restaurant}
       activeListId={state.activeListId}
       lists={state.lists}

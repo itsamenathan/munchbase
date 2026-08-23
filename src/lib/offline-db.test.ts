@@ -1,14 +1,17 @@
 import "fake-indexeddb/auto";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { List, Restaurant } from "./types";
+import type { AppState, List, Restaurant } from "./types";
 import {
   cacheAppState,
+  cacheAppStateSnapshot,
   cacheLists,
   cacheRestaurants,
   clearAllOfflineData,
   clearCachedDataForUser,
   clearUnsafeRuntimeCaches,
   enqueueAction,
+  enqueueMutationWithState,
+  getActiveCachedAppState,
   getCachedAppState,
   getCachedLists,
   getCachedRestaurants,
@@ -21,6 +24,23 @@ function restaurant(id: number, name: string) {
 
 function list(id: number, name: string): List {
   return { id, name, description: null };
+}
+
+function appState(userId: number, restaurantName: string): AppState {
+  return {
+    user: { id: userId, name: `User ${userId}`, email: `user${userId}@example.com`, role: "user", active: true },
+    lists: [list(1, "Saved")],
+    activeList: null,
+    activeListId: null,
+    restaurants: [restaurant(1, restaurantName)],
+    allRestaurants: [restaurant(1, restaurantName)],
+    globalRatingDefinitions: [],
+    ratingDefinitions: [],
+    allRatingDefinitions: [],
+    noteSections: [],
+    users: [],
+    appSettings: { selfSignupEnabled: false },
+  };
 }
 
 beforeEach(async () => {
@@ -73,6 +93,43 @@ describe("offline data isolation", () => {
     await expect(getQueuedActions(2)).resolves.toMatchObject([
       { userId: 2, action: "mutate", payload: { name: "two" } },
     ]);
+  });
+
+  it("loads the active user's complete AppState", async () => {
+    await cacheAppStateSnapshot(appState(1, "One"));
+
+    await expect(getActiveCachedAppState()).resolves.toMatchObject({
+      state: { user: { id: 1 }, allRestaurants: [{ name: "One" }] },
+      metadata: { userId: 1 },
+    });
+  });
+
+  it("stores an optimistic snapshot and queued mutation together", async () => {
+    const optimistic = appState(1, "Edited offline");
+    await cacheAppStateSnapshot(appState(1, "Old"));
+    await enqueueMutationWithState(1, "updateRestaurantMetadata", [
+      ["__action", "updateRestaurantMetadata"],
+      ["restaurantId", "1"],
+      ["name", "Edited offline"],
+    ], optimistic, "mutation-1");
+
+    await expect(getActiveCachedAppState()).resolves.toMatchObject({
+      state: { allRestaurants: [{ name: "Edited offline" }] },
+    });
+    await expect(getQueuedActions(1)).resolves.toMatchObject([
+      { mutationId: "mutation-1", action: "updateRestaurantMetadata" },
+    ]);
+  });
+
+  it("clears the previous account when a different user becomes active", async () => {
+    await cacheAppStateSnapshot(appState(1, "One"));
+    await enqueueAction(1, "updateRestaurantMetadata", { name: "One" });
+
+    await cacheAppStateSnapshot(appState(2, "Two"));
+
+    await expect(getQueuedActions(1)).resolves.toEqual([]);
+    await expect(getCachedAppState(1, "latest")).resolves.toBeUndefined();
+    await expect(getActiveCachedAppState()).resolves.toMatchObject({ state: { user: { id: 2 } } });
   });
 });
 

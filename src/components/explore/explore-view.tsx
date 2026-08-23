@@ -63,6 +63,7 @@ export function ExploreView({
   showMap,
   activeListName,
   selectedRestaurantId,
+  pendingRestaurantIds,
   hasDetail,
   addOpen,
   onOpenAdd,
@@ -77,6 +78,7 @@ export function ExploreView({
   showMap: boolean;
   activeListName: string;
   selectedRestaurantId: number | null;
+  pendingRestaurantIds: number[];
   hasDetail: boolean;
   addOpen: boolean;
   onOpenAdd: () => void;
@@ -214,6 +216,7 @@ export function ExploreView({
                       restaurant={restaurant}
                       state={state}
                       active={selectedRestaurantId === restaurant.id}
+                      pending={pendingRestaurantIds.includes(restaurant.id)}
                       distance={section.showDistance ? filter.distances.get(restaurant.id) ?? 0 : null}
                       onSelect={onSelectRestaurant}
                     />
@@ -233,12 +236,14 @@ function RestaurantRow({
   restaurant,
   state,
   active,
+  pending,
   distance,
   onSelect,
 }: {
   restaurant: Restaurant;
   state: ExploreState;
   active: boolean;
+  pending: boolean;
   /** Miles, or null when this section does not show distances. */
   distance: number | null;
   onSelect: (id: number) => void;
@@ -263,6 +268,7 @@ function RestaurantRow({
       <span>
         <span className="restaurant-row-top">
           <strong>{restaurant.name}</strong>
+          {pending ? <span className="pending-change-badge">Pending</span> : null}
         </span>
         <small>{formatCityState(restaurant.address) || restaurant.address}</small>
         {globalRatingIcons.some((i) => i) ? <span className="rating-icons">{globalRatingIcons}</span> : null}
