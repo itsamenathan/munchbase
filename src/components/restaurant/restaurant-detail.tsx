@@ -338,7 +338,7 @@ export function RestaurantDetail({
                 {entry.checkIns.map((c) => (
                   <CheckInCard
                     key={c.id}
-                    canWrite={canWrite && (online || c.id > 0)}
+                    canWrite={canWrite && online}
                     checkIn={c}
                     restaurantId={entry.id}
                   />

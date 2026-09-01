@@ -18,6 +18,7 @@ import {
   getQueuedActions,
   markOfflineDataSynced,
   removeQueuedAction,
+  restaurantIdFromQueuedAction,
   updateQueuedActionFailure,
   type SerializedFormData,
 } from "@/lib/offline-db";
@@ -53,11 +54,12 @@ function onlineSnapshot() {
   return navigator.onLine;
 }
 
-function restaurantIdFromPayload(payload: SerializedFormData | Record<string, string>) {
-  const entries = Array.isArray(payload) ? payload : Object.entries(payload);
-  const raw = entries.find(([key]) => key === "restaurantId")?.[1];
-  const id = Number(raw);
-  return Number.isInteger(id) && id > 0 ? id : null;
+async function submitQueuedMutation(formData: FormData) {
+  try {
+    return await submitMutationData(formData);
+  } catch {
+    return submitMutationData(formData);
+  }
 }
 
 export function NetworkProvider({
@@ -102,7 +104,12 @@ export function NetworkProvider({
       getOfflineMetadata(),
     ]);
     setQueuedCount(actions.length);
-    setPendingRestaurantIds([...new Set(actions.map((action) => restaurantIdFromPayload(action.payload)).filter((id): id is number => id !== null))]);
+    const restaurantIds = new Set<number>();
+    for (const action of actions) {
+      const restaurantId = restaurantIdFromQueuedAction(action);
+      if (restaurantId !== null) restaurantIds.add(restaurantId);
+    }
+    setPendingRestaurantIds([...restaurantIds]);
     if (metadata?.userId === userId) setLastSyncedAt(metadata.lastSyncedAt);
   }, [userId]);
 
@@ -199,7 +206,7 @@ export function NetworkProvider({
           formData.set(CSRF_FIELD, readCsrfToken());
           formData.set("__mutationId", action.mutationId || createOfflineMutationId());
           try {
-            const result = await submitMutationData(formData);
+            const result = await submitQueuedMutation(formData);
             if (!result.ok) {
               await updateQueuedActionFailure(action.id, result.message);
               setSyncError(result.message);

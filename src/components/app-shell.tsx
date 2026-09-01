@@ -52,6 +52,10 @@ import {
 import { compareRestaurantNames } from "@/lib/restaurant-sort";
 import type { AppState, RatingDefinition } from "@/lib/types";
 
+function offlineMutationFailure(message: string, redirectTo: string): AppMutationResult {
+  return { ok: false, code: "offline", message, redirectTo, queued: false };
+}
+
 export default function AppShell({
   state: initialState,
   children,
@@ -370,7 +374,7 @@ export default function AppShell({
     } catch (error) {
       const message = error instanceof Error ? error.message : "This change needs a connection.";
       reportBlocked(message);
-      return { ok: false, code: "offline", message, redirectTo, queued: false };
+      return offlineMutationFailure(message, redirectTo);
     }
 
     const queue = async () => {
@@ -388,7 +392,7 @@ export default function AppShell({
       } catch (error) {
         const message = error instanceof Error ? error.message : "This change could not be saved offline.";
         reportBlocked(message);
-        return { ok: false, code: "offline", message, redirectTo, queued: false };
+        return offlineMutationFailure(message, redirectTo);
       }
     }
 
@@ -412,12 +416,12 @@ export default function AppShell({
         } catch (queueError) {
           const message = queueError instanceof Error ? queueError.message : "This change could not be saved offline.";
           reportBlocked(message);
-          return { ok: false, code: "offline", message, redirectTo, queued: false };
+          return offlineMutationFailure(message, redirectTo);
         }
       }
       const message = error instanceof Error ? error.message : "This change needs a connection.";
       reportBlocked(message);
-      return { ok: false, code: "offline", message, redirectTo, queued: false };
+      return offlineMutationFailure(message, redirectTo);
     }
   }, [createMutationId, markOriginUnavailable, online, queueMutation, reportBlocked]);
 

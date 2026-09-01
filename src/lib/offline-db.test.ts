@@ -117,7 +117,7 @@ describe("offline data isolation", () => {
       state: { allRestaurants: [{ name: "Edited offline" }] },
     });
     await expect(getQueuedActions(1)).resolves.toMatchObject([
-      { mutationId: "mutation-1", action: "updateRestaurantMetadata" },
+      { mutationId: "mutation-1", action: "updateRestaurantMetadata", restaurantId: 1 },
     ]);
   });
 
