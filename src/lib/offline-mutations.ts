@@ -1,7 +1,8 @@
+import { localDateTimeInputValue } from "@/lib/datetime";
 import { buildNotes } from "@/lib/note-sections";
-import { serializeRatingValues, validateRatingValue } from "@/lib/ratings";
 import type { SerializedFormData } from "@/lib/offline-db";
-import type { AppState, CheckIn, Restaurant } from "@/lib/types";
+import { serializeRatingValues, validateRatingValue } from "@/lib/ratings";
+import type { AppState, Restaurant } from "@/lib/types";
 
 const SUPPORTED_ACTIONS = new Set([
   "updateEntryAndRatings",
@@ -9,8 +10,6 @@ const SUPPORTED_ACTIONS = new Set([
   "attachRestaurantToList",
   "removeRestaurantFromList",
   "createCheckIn",
-  "updateCheckIn",
-  "deleteCheckIn",
 ]);
 
 export class UnsupportedOfflineMutationError extends Error {
@@ -159,47 +158,18 @@ function temporaryCheckInId(mutationId: string) {
   return -(Math.abs(hash) + 1);
 }
 
-function sortedCheckIns(checkIns: CheckIn[]) {
-  return [...checkIns].sort((left, right) => right.visitedAt.localeCompare(left.visitedAt));
-}
-
 function createCheckIn(state: AppState, payload: SerializedFormData, mutationId: string) {
   const restaurantId = positiveId(payload, "restaurantId");
   const restaurant = state.allRestaurants.find((entry) => entry.id === restaurantId);
   if (!restaurant) throw new Error("Restaurant not found in the offline cache.");
-  const checkIn: CheckIn = {
+  const checkIn = {
     id: temporaryCheckInId(mutationId),
     authorName: state.user.name,
-    visitedAt: value(payload, "visitedAt") || new Date().toISOString().slice(0, 16),
+    visitedAt: value(payload, "visitedAt") || localDateTimeInputValue(),
     notes: null,
   };
-  const checkIns = sortedCheckIns([checkIn, ...restaurant.checkIns]);
-  return replaceRestaurant(state, {
-    ...restaurant,
-    checkIns,
-    latestCheckIn: checkIns[0] ?? null,
-    checkInCount: checkIns.length,
-  });
-}
-
-function updateCheckIn(state: AppState, payload: SerializedFormData) {
-  const checkInId = Number(value(payload, "checkInId"));
-  const visitedAt = value(payload, "visitedAt");
-  if (!Number.isInteger(checkInId) || !visitedAt) throw new Error("Invalid Check-in.");
-  const restaurant = state.allRestaurants.find((entry) => entry.checkIns.some((checkIn) => checkIn.id === checkInId));
-  if (!restaurant) throw new Error("Check-in not found in the offline cache.");
-  const checkIns = sortedCheckIns(restaurant.checkIns.map((checkIn) =>
-    checkIn.id === checkInId ? { ...checkIn, visitedAt } : checkIn,
-  ));
-  return replaceRestaurant(state, { ...restaurant, checkIns, latestCheckIn: checkIns[0] ?? null });
-}
-
-function deleteCheckIn(state: AppState, payload: SerializedFormData) {
-  const checkInId = Number(value(payload, "checkInId"));
-  if (!Number.isInteger(checkInId)) throw new Error("Invalid Check-in.");
-  const restaurant = state.allRestaurants.find((entry) => entry.checkIns.some((checkIn) => checkIn.id === checkInId));
-  if (!restaurant) throw new Error("Check-in not found in the offline cache.");
-  const checkIns = restaurant.checkIns.filter((checkIn) => checkIn.id !== checkInId);
+  const checkIns = [checkIn, ...restaurant.checkIns]
+    .sort((left, right) => right.visitedAt.localeCompare(left.visitedAt));
   return replaceRestaurant(state, {
     ...restaurant,
     checkIns,
@@ -219,7 +189,5 @@ export function applyOfflineMutation(
   if (action === "updateRestaurantMetadata") return updateMetadata(state, payload);
   if (action === "attachRestaurantToList") return updateMembership(state, payload, true);
   if (action === "removeRestaurantFromList") return updateMembership(state, payload, false);
-  if (action === "createCheckIn") return createCheckIn(state, payload, mutationId);
-  if (action === "updateCheckIn") return updateCheckIn(state, payload);
-  return deleteCheckIn(state, payload);
+  return createCheckIn(state, payload, mutationId);
 }

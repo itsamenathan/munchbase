@@ -32,10 +32,34 @@ export type QueuedAction = {
   mutationId: string;
   action: string;
   payload: SerializedFormData | Record<string, string>;
+  restaurantId?: number | null;
   timestamp: number;
   retries: number;
   lastError?: string | null;
 };
+
+export function restaurantIdFromQueuedAction(action: QueuedAction) {
+  if (action.restaurantId !== undefined) return action.restaurantId;
+  const entries = Array.isArray(action.payload) ? action.payload : Object.entries(action.payload);
+  const raw = entries.find(([key]) => key === "restaurantId")?.[1];
+  const id = Number(raw);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function restaurantIdFromPayload(payload: unknown) {
+  if (Array.isArray(payload)) {
+    const entry = payload.find((candidate): candidate is [string, string] =>
+      Array.isArray(candidate) && candidate[0] === "restaurantId" && typeof candidate[1] === "string"
+    );
+    const id = Number(entry?.[1]);
+    return Number.isInteger(id) && id > 0 ? id : null;
+  }
+  if (payload && typeof payload === "object") {
+    const id = Number((payload as Record<string, unknown>).restaurantId);
+    return Number.isInteger(id) && id > 0 ? id : null;
+  }
+  return null;
+}
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -233,6 +257,7 @@ export async function enqueueMutationWithState(
     mutationId,
     action,
     payload,
+    restaurantId: restaurantIdFromPayload(payload),
     timestamp: Date.now(),
     retries: 0,
     lastError: null,
@@ -254,6 +279,7 @@ export async function enqueueAction(userId: number, action: string, payload: unk
     mutationId: createOfflineMutationId(),
     action,
     payload,
+    restaurantId: restaurantIdFromPayload(payload),
     timestamp: Date.now(),
     retries: 0,
     lastError: null,

@@ -99,22 +99,20 @@ describe("offline Restaurant mutations", () => {
     });
   });
 
-  it("creates, edits, and deletes a pending Check-in", () => {
+  it("creates a pending Check-in", () => {
     const created = applyOfflineMutation(state(), "createCheckIn", [
       ["restaurantId", "10"],
       ["visitedAt", "2026-08-23T12:00"],
     ], "mutation-4");
     const checkInId = created.allRestaurants[0].checkIns[0].id;
-    const updated = applyOfflineMutation(created, "updateCheckIn", [
-      ["checkInId", String(checkInId)],
-      ["visitedAt", "2026-08-23T13:00"],
-    ], "mutation-5");
-    const deleted = applyOfflineMutation(updated, "deleteCheckIn", [
-      ["checkInId", String(checkInId)],
-    ], "mutation-6");
 
     expect(checkInId).toBeLessThan(0);
-    expect(updated.allRestaurants[0].checkIns[0].visitedAt).toBe("2026-08-23T13:00");
-    expect(deleted.allRestaurants[0].checkInCount).toBe(0);
+    expect(created.allRestaurants[0].checkIns[0].visitedAt).toBe("2026-08-23T12:00");
+    expect(created.allRestaurants[0].checkInCount).toBe(1);
+  });
+
+  it("does not support editing or deleting Check-ins offline", () => {
+    expect(() => applyOfflineMutation(state(), "updateCheckIn", [], "mutation-5")).toThrow(/connection/);
+    expect(() => applyOfflineMutation(state(), "deleteCheckIn", [], "mutation-6")).toThrow(/connection/);
   });
 });
