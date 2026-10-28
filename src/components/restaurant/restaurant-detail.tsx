@@ -338,7 +338,8 @@ export function RestaurantDetail({
                 {entry.checkIns.map((c) => (
                   <CheckInCard
                     key={c.id}
-                    canWrite={canWrite && online}
+                    // A Check-in made offline has a temporary negative id and no server row to edit or delete yet.
+                    canWrite={canWrite && online && c.id > 0}
                     checkIn={c}
                     restaurantId={entry.id}
                   />

@@ -16,6 +16,7 @@ import {
   getCachedLists,
   getCachedRestaurants,
   getQueuedActions,
+  restaurantIdFromQueuedAction,
 } from "./offline-db";
 
 function restaurant(id: number, name: string) {
@@ -116,9 +117,9 @@ describe("offline data isolation", () => {
     await expect(getActiveCachedAppState()).resolves.toMatchObject({
       state: { allRestaurants: [{ name: "Edited offline" }] },
     });
-    await expect(getQueuedActions(1)).resolves.toMatchObject([
-      { mutationId: "mutation-1", action: "updateRestaurantMetadata", restaurantId: 1 },
-    ]);
+    const queued = await getQueuedActions(1);
+    expect(queued).toMatchObject([{ mutationId: "mutation-1", action: "updateRestaurantMetadata" }]);
+    expect(restaurantIdFromQueuedAction(queued[0])).toBe(1);
   });
 
   it("clears the previous account when a different user becomes active", async () => {

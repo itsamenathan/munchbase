@@ -189,5 +189,7 @@ export function applyOfflineMutation(
   if (action === "updateRestaurantMetadata") return updateMetadata(state, payload);
   if (action === "attachRestaurantToList") return updateMembership(state, payload, true);
   if (action === "removeRestaurantFromList") return updateMembership(state, payload, false);
-  return createCheckIn(state, payload, mutationId);
+  if (action === "createCheckIn") return createCheckIn(state, payload, mutationId);
+  // A supported action without a branch here is a bug, not a Check-in.
+  throw new UnsupportedOfflineMutationError();
 }
