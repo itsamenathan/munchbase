@@ -37,7 +37,7 @@ export const onRequestError: Instrumentation.onRequestError = async (error, requ
     logger.error("Request error", { ...fields, err: error });
     return;
   }
-  // Middleware runs on the Edge runtime, where pino cannot load. Write the same fields as one
-  // JSON line so the error is still captured.
+  // Only reached on the Edge runtime, where pino cannot load. No route uses Edge today (the proxy
+  // runs on Node), but keep the branch so pino never enters an Edge bundle.
   console.error(JSON.stringify({ level: "error", msg: "Request error", ...fields, error: message, stack: error instanceof Error ? error.stack : undefined }));
 };
