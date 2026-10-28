@@ -65,6 +65,7 @@ Use this repository's terminology consistently in code, UI text, comments, and d
 - **CSS**: Custom CSS, no Tailwind. Design tokens in `src/app/styles/tokens.css`. Component classes in `src/app/styles/components.css`. Mobile-first.
 - **Testing**: Vitest (unit tests for lib utilities only — no component tests). Run with `npm test`.
 - **Golden master**: `src/lib/database/golden-master.test.ts` seeds the real test corpus into a throwaway database, snapshots every read path, and compares byte-for-byte against `src/lib/database/golden/baseline.json`. Regenerate deliberately with `npm run test:golden:update` and review the diff — an unexplained change there means a query changed what it returns. The baseline reflects a freshly migrated database, so regenerating it against a database with different history will produce a legitimate-looking diff that is not a regression.
+- **Observability**: OpenTelemetry Node SDK started from `src/instrumentation.ts`, exporting traces over OTLP/HTTP only when an OTLP endpoint is set (see Environment Variables). Server logs go through pino (`src/lib/logger.ts`) as JSON on stdout; log export through the SDK is off by default because the host collector already reads stdout.
 - **Deployment**: Docker (multi-stage, node:26.3.1-alpine). Standalone Next.js output. DB at `/data/munchbase.db` inside container.
 
 ## Architecture
@@ -141,6 +142,9 @@ Cookie-based sessions. `currentUser()` in `src/lib/auth.ts` reads the session co
 | `src/lib/ratings.ts` | Rating logic, preset definitions, value validation |
 | `src/lib/auth.ts` | Session creation/reading, password hashing |
 | `src/app/styles/tokens.css` | CSS custom properties (colors, spacing, etc.) |
+| `src/instrumentation.ts` | Next.js hooks: `register()` starts the OpenTelemetry SDK, `onRequestError` logs failed requests |
+| `src/instrumentation.node.ts` | Starts the OpenTelemetry Node SDK when an OTLP endpoint is configured |
+| `src/lib/logger.ts` | pino logger: one JSON line per message on stdout, with trace context inside a span |
 
 ## Environment Variables
 
@@ -153,6 +157,14 @@ Cookie-based sessions. `currentUser()` in `src/lib/auth.ts` reads the session co
 | `OSM_USER_AGENT` | `munchbase/0.1` | Required by OSM ToS |
 | `MUNCHBASE_COMMIT` | git `HEAD` | Build-time only. Override for build contexts without `.git` |
 | `MUNCHBASE_COMMIT_DATE` | git commit date | Build-time only. `YYYY-MM-DD`; becomes the `v2026-03-01` label |
+| `MUNCHBASE_LOG_LEVEL` | `info` | Minimum level written to stdout: `debug`, `info`, `warn`, `error` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | Turns on trace export when set (OTLP/HTTP, e.g. `http://clickstack-collector.example:4318`). Also `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` |
+| `OTEL_EXPORTER_OTLP_HEADERS` | unset | Headers for the collector, e.g. `authorization=<ingestion key>`. Never commit the key |
+| `OTEL_SERVICE_NAME` | `munchbase` | `service.name` on exported spans |
+| `OTEL_SDK_DISABLED` | unset | `true` turns the SDK off even when an endpoint is set |
+| `OTEL_LOGS_EXPORTER` | `none` (when export is on) | Leave unset so stdout is the only log path. `otlp` also exports log records through the SDK, which duplicates stdout |
+
+Other standard `OTEL_*` variables (`OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_BSP_SCHEDULE_DELAY`, ...) are honored by the SDK. Server code logs through `src/lib/logger.ts`, not `console.*`. Browser code and the CLI scripts under `scripts/` still use `console`.
 
 ## Dev Commands
 
@@ -165,7 +177,8 @@ mise run start                # Serve the production build
 mise exec -- npm run db:generate # Regenerate Drizzle migration files
 mise exec -- npm run db:migrate  # Apply migrations
 mise exec -- npm run db:seed:test # Refresh repeatable local test data
-mise run test                 # Run Vitest unit tests
+mise run test                 # Run Vitest unit tests (and the logger tests)
+mise exec -- npm run test:log # Logger tests only (JSON output, trace context)
 mise exec -- npm run test:golden # Golden-master database check only
 mise exec -- npx tsc --noEmit # TypeScript check (run before declaring done)
 mise run check                # Run TypeScript, ESLint, and unit tests together

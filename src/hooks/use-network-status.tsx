@@ -57,7 +57,11 @@ function onlineSnapshot() {
 async function submitQueuedMutation(formData: FormData) {
   try {
     return await submitMutationData(formData);
-  } catch {
+  } catch (error) {
+    // Only a failed fetch (TypeError) is retried. Any other error means the server answered,
+    // so the mutation may already have run and must not be submitted again.
+    if (!(error instanceof TypeError)) throw error;
+    await new Promise((resolve) => window.setTimeout(resolve, 1000));
     return submitMutationData(formData);
   }
 }
