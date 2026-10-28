@@ -28,6 +28,32 @@ if (!appCommit || !appCommitDate) {
   );
 }
 
+// Sent on every page and API response (not static assets or the service worker, which has its own
+// CSP). These used to be set by the proxy, which Next.js traces as a separate root span per request.
+const securityHeaders = [
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" },
+  ...(process.env.NODE_ENV === "production"
+    ? [
+        {
+          key: "Content-Security-Policy",
+          value: [
+            "default-src 'self'",
+            "img-src 'self' data: blob: https:",
+            "script-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline'",
+            "connect-src 'self' https://nominatim.openstreetmap.org",
+            "font-src 'self'",
+            "frame-ancestors 'none'",
+          ].join("; "),
+        },
+        { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+      ]
+    : []),
+];
+
 const withSerwist = withSerwistInit({
   swSrc: "src/sw.ts",
   swDest: "public/sw.js",
@@ -56,6 +82,10 @@ const nextConfig: NextConfig = {
   turbopack: {},
   allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean) ?? [],
   headers: async () => [
+    {
+      source: "/((?!_next/static|_next/image|favicon|icons|manifest\\.json|sw\\.js).*)",
+      headers: securityHeaders,
+    },
     {
       source: "/icons/:path*",
       headers: [
