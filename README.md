@@ -84,6 +84,26 @@ Munchbase applies pending migrations automatically during Node startup, includin
 
 The default maximum is 10 MB per photo. If you change `PHOTO_MAX_SIZE_MB`, the server-action body limit is automatically synced — no other config needed.
 
+## Observability
+
+Munchbase writes its own logs and exports traces with the OpenTelemetry SDK. Trace export stays off until an OTLP endpoint is set, so local development and tests send nothing.
+
+Logs go to stdout as one JSON object per line (`level`, `time`, `msg`, extra fields, and a serialized `err` for errors), written through `src/lib/logger.ts`. Lines logged inside a request also carry `trace_id`, `span_id` and `trace_flags`, so a collector that reads stdout can match them to the request's trace. Failed requests are logged with their route. Set `MUNCHBASE_LOG_LEVEL` (`debug`, `info`, `warn`, `error`; default `info`) to change the threshold. Output from Next.js itself is not JSON.
+
+Traces are exported over OTLP/HTTP. Set the standard OpenTelemetry variables in `.env`:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://clickstack-collector.example:4318
+OTEL_EXPORTER_OTLP_HEADERS=authorization=<ingestion key>
+# OTEL_SERVICE_NAME=munchbase
+```
+
+Replace `clickstack-collector.example:4318` with the OTLP/HTTP address of your collector, and keep the ingestion key in `.env`, out of Git. `OTEL_SDK_DISABLED=true` switches export off again. Other `OTEL_*` variables, such as `OTEL_EXPORTER_OTLP_PROTOCOL` or `OTEL_BSP_SCHEDULE_DELAY`, are honored too. Docker Compose passes these variables through from `.env`; restart the container after changing them. Next.js produces the request spans, including route handlers.
+
+The SDK does not export logs by default. A collector that already reads container output would store every line twice. Set `OTEL_LOGS_EXPORTER=otlp` to send them through the SDK as well, for example when nothing collects stdout.
+
+On shutdown, Next.js exits on SIGTERM without waiting for the SDK. Spans still queued in the last batch window (5 seconds by default) can be lost when the container stops. Lower `OTEL_BSP_SCHEDULE_DELAY` to shrink that window.
+
 ## Development
 
 ```bash
