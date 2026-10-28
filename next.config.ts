@@ -45,6 +45,14 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_APP_COMMIT: appCommit,
   },
   outputFileTracingIncludes: { "/*": ["./drizzle/**/*"] },
+  // Webpack bundles everything imported from instrumentation, ignoring serverExternalPackages. The
+  // startup migration there reaches better-sqlite3, a native module that must load from node_modules.
+  webpack: (config, { isServer, nextRuntime }) => {
+    if (isServer && nextRuntime === "nodejs") {
+      config.externals = [...[config.externals ?? []].flat(), { "better-sqlite3": "commonjs better-sqlite3" }];
+    }
+    return config;
+  },
   turbopack: {},
   allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean) ?? [],
   headers: async () => [

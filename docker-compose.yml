@@ -13,12 +13,17 @@ services:
       OSM_USER_AGENT: ${OSM_USER_AGENT:?Set OSM_USER_AGENT to identify your Munchbase instance}
       NEXT_PUBLIC_TILE_URL: ${NEXT_PUBLIC_TILE_URL:-https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png}
       PHOTO_MAX_SIZE_MB: ${PHOTO_MAX_SIZE_MB:-10}
-      # Trace export stays off while OTEL_EXPORTER_OTLP_ENDPOINT is empty.
+      # Trace export stays off while both OTLP endpoints are empty. Empty values count as unset.
       MUNCHBASE_LOG_LEVEL: ${MUNCHBASE_LOG_LEVEL:-info}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: ${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-munchbase}
       OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-}
+      OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER:-}
+      OTEL_BSP_SCHEDULE_DELAY: ${OTEL_BSP_SCHEDULE_DELAY:-}
     volumes:
       - munchbase-data:/data
     restart: unless-stopped

@@ -98,9 +98,9 @@ OTEL_EXPORTER_OTLP_HEADERS=authorization=<ingestion key>
 # OTEL_SERVICE_NAME=munchbase
 ```
 
-Replace `clickstack-collector.example:4318` with the OTLP/HTTP address of your collector, and keep the ingestion key in `.env`, out of Git. `OTEL_SDK_DISABLED=true` switches export off again. Other `OTEL_*` variables, such as `OTEL_EXPORTER_OTLP_PROTOCOL` or `OTEL_BSP_SCHEDULE_DELAY`, are honored too. Docker Compose passes these variables through from `.env`; restart the container after changing them. Next.js produces the request spans, including route handlers.
+Replace `clickstack-collector.example:4318` with the OTLP/HTTP address of your collector, and keep the ingestion key in `.env`, out of Git. `OTEL_SDK_DISABLED=true` switches export off again. Other `OTEL_*` variables, such as `OTEL_EXPORTER_OTLP_PROTOCOL` or `OTEL_BSP_SCHEDULE_DELAY`, are honored too. `docker-compose.yml` passes the variables named in this section through from `.env`; add any other `OTEL_*` variable to its `environment` list before setting it. Restart the container after changing them. Next.js produces the request spans, including route handlers.
 
-The SDK does not export logs by default. A collector that already reads container output would store every line twice. Set `OTEL_LOGS_EXPORTER=otlp` to send them through the SDK as well, for example when nothing collects stdout.
+The SDK does not export logs by default. A collector that already reads container output would store every line twice. Set `OTEL_LOGS_EXPORTER=otlp` to send them through the SDK as well, for example when nothing collects stdout. Log records are then sent to `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` or `OTEL_EXPORTER_OTLP_ENDPOINT`; a logs endpoint alone, without `OTEL_LOGS_EXPORTER=otlp`, exports nothing.
 
 On shutdown, Next.js exits on SIGTERM without waiting for the SDK. Spans still queued in the last batch window (5 seconds by default) can be lost when the container stops. Lower `OTEL_BSP_SCHEDULE_DELAY` to shrink that window.
 

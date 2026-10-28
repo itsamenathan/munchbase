@@ -75,3 +75,36 @@ test("MUNCHBASE_LOG_LEVEL filters quieter messages", () => {
   const { lines } = runLogger(`logger.info("i"); logger.warn("w"); logger.error("e");`, { MUNCHBASE_LOG_LEVEL: "warn" });
   assert.deepEqual(lines.map((line) => line.msg), ["w", "e"]);
 });
+
+test("an unknown MUNCHBASE_LOG_LEVEL falls back to info instead of throwing", () => {
+  const { lines } = runLogger(`logger.info("i");`, { MUNCHBASE_LOG_LEVEL: "warning" });
+  assert.deepEqual(lines.map((line) => line.msg), ["i"]);
+  const upper = runLogger(`logger.info("i"); logger.warn("w");`, { MUNCHBASE_LOG_LEVEL: "WARN" });
+  assert.deepEqual(upper.lines.map((line) => line.msg), ["w"]);
+});
+
+test("writes trace_flags as two hex digits", () => {
+  const { lines } = runLogger(`
+    const span = trace.wrapSpanContext({ traceId: "${traceId}", spanId: "${spanId}", traceFlags: 0x11 });
+    context.with(trace.setSpan(context.active(), span), () => logger.info("flags"));
+  `);
+  assert.equal(lines[0].trace_flags, "11");
+});
+
+test("emits SDK log records only when OTEL_LOGS_EXPORTER opts in", () => {
+  // The SDK in the child keeps log export off; a stand-in provider records what the logger emits.
+  const program = (exporter) => `
+    logs.setGlobalLoggerProvider({ getLogger: () => ({ emit: (record) => process.stderr.write(JSON.stringify(record) + "\\n") }) });
+    process.env.OTEL_LOGS_EXPORTER = "${exporter}";
+    logger.error("failed", { err: new TypeError("bad"), "http.route": "/x", count: 2 });
+  `;
+  assert.equal(runLogger(`import("@opentelemetry/api").then(({ logs }) => { ${program("none")} });`).stderr, "");
+  const { stderr } = runLogger(`import("@opentelemetry/api").then(({ logs }) => { ${program("otlp")} });`);
+  const record = JSON.parse(stderr.trim());
+  assert.equal(record.body, "failed");
+  assert.equal(record.severityText, "ERROR");
+  assert.equal(record.attributes["exception.type"], "TypeError");
+  assert.equal(record.attributes["exception.message"], "bad");
+  assert.equal(record.attributes["http.route"], "/x");
+  assert.equal(record.attributes.count, 2);
+});
