@@ -8,6 +8,7 @@ export function RatingBadge({ definition, value }: { definition: RatingDefinitio
       return (
         <span className="entry-rating-badge icon-badge positive" aria-label="Go back" title="Go back">
           <Undo2 size={14} />
+          Go back
         </span>
       );
     }

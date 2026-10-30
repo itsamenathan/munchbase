@@ -130,7 +130,7 @@ export function AddListModal({
             </section>
           ) : null}
           <footer className="form-actions add-list-actions">
-            <button type="button" className="ghost-button" onClick={onBackStep} disabled={step === "details"}>Back</button>
+            {step === "details" ? null : <button type="button" className="ghost-button" onClick={onBackStep}>Back</button>}
             {step === "restaurants" ? (
               <button key="submit" type="submit" disabled={!name.trim()}>Create list</button>
             ) : (

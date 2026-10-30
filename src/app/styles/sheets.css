@@ -1,3 +1,5 @@
+/* ---- Drawers (Admin) ----------------------------------------------------- */
+
 .drawer-backdrop {
   position: fixed;
   inset: 0;
@@ -8,229 +10,57 @@
   animation: fadeIn 0.2s ease;
 }
 
-.lists-backdrop {
-  justify-content: flex-start;
-}
-
 .add-list-backdrop {
-  align-items: center;
+  z-index: var(--z-modal);
+  align-items: flex-end;
   justify-content: center;
-  padding: 18px;
 }
 
-.drawer {
-  width: min(320px, 85%);
-  height: 100%;
-  overflow: auto;
-  border-right: 1px solid var(--line);
-  background: var(--panel);
-  box-shadow: 18px 0 48px rgba(31, 38, 31, 0.18);
-  padding: 14px;
-  display: grid;
-  align-content: start;
-  gap: 10px;
-  animation: slideInLeft 0.25s ease;
-}
-
+.drawer,
 .settings-drawer {
   width: min(560px, 100%);
   height: 100%;
-  overflow: auto;
-  border-left: 1px solid var(--line);
-  background: var(--panel);
-  box-shadow: -18px 0 48px rgba(31, 38, 31, 0.18);
-  padding: 14px;
+  overflow-y: auto;
   display: grid;
   align-content: start;
-  gap: 10px;
-  animation: slideInRight 0.25s ease;
+  gap: var(--space-3);
+  padding: calc(var(--safe-inset-top) + var(--space-3)) max(var(--space-3), var(--safe-inset-right)) calc(var(--safe-inset-bottom) + var(--space-4)) var(--space-3);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  animation: slideInRight 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .drawer-head {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  align-items: flex-start;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 10px;
+  gap: 12px;
 }
 
 .drawer-head h2 {
   margin: 0;
-}
-
-.drawer-section {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel-wash);
-  padding: 10px;
-  display: grid;
-  align-content: start;
-  gap: 10px;
-}
-
-.drawer-section .brand,
-.drawer-section .list-nav,
-.drawer-section .stack-form,
-.drawer-section form {
-  width: 100%;
-}
-
-.admin-drawer .admin-action-button {
-  width: auto;
-  min-width: 0;
-  min-height: 34px;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.admin-drawer .admin-inline-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-.admin-drawer .admin-stack-form {
-  grid-template-columns: 1fr;
-}
-
-.admin-drawer .admin-submit-button {
-  justify-self: end;
-  margin-top: 2px;
-}
-
-.admin-drawer .member-row {
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
-  padding: 8px;
-}
-
-.admin-drawer .member-row-action {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.admin-drawer .member-row .admin-action-button {
-  justify-self: end;
-}
-
-@media (max-width: 759px) {
-  .admin-drawer .member-row {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-  }
-
-  .admin-drawer .member-row div {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 420px) {
-  .admin-drawer .admin-inline-form,
-  .admin-drawer .member-row {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-drawer .admin-action-button,
-  .admin-drawer .admin-submit-button,
-  .admin-drawer .member-row .admin-action-button {
-    justify-self: start;
-  }
-}
-
-.add-list-modal {
-  width: min(680px, 100%);
-  max-height: min(760px, calc(100svh - 36px));
-  overflow: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel);
-  box-shadow: 0 24px 70px rgba(31, 38, 31, 0.22);
-  padding: 14px;
-  display: grid;
-  gap: 10px;
-  animation: scaleIn 0.2s ease;
-}
-
-.add-list-form {
-  display: grid;
-  gap: 10px;
-}
-
-.add-list-steps {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.add-list-steps span {
-  min-height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  color: var(--muted);
-  font-size: var(--font-size-xs);
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
   font-weight: 800;
 }
 
-.add-list-steps span.active {
-  border-color: var(--accent);
-  background: var(--selected-surface);
-  color: var(--ink);
+.drawer-head .icon-button {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
 }
 
-.add-list-search {
-  width: 100%;
-}
-
-.restaurant-picker-list {
+.drawer-section {
   display: grid;
-  gap: var(--touch-gap);
-  max-height: 310px;
-  overflow: auto;
-  padding-right: 2px;
+  gap: 10px;
 }
 
-.restaurant-picker-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--touch-gap);
-  align-items: center;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--field);
-  padding: 8px;
-}
-
-.restaurant-picker-row.selected {
-  border-color: var(--accent);
-  background: var(--selected-surface);
-}
-
-.restaurant-picker-row span {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.restaurant-picker-row small {
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.add-list-actions {
-  grid-template-columns: 1fr 1fr;
-}
+/* ---- Bottom sheet -------------------------------------------------------- */
 
 .bottom-sheet-backdrop {
   position: fixed;
   inset: 0;
-  /* Above --z-drawer, or the floating bottom nav covers the sheet's actions. */
+  /* Above --z-drawer, or the tab bar covers the sheet's actions. */
   z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
@@ -240,17 +70,25 @@
 }
 
 .bottom-sheet {
-  /* Full width on a phone; capped on desktop so it does not span three panes. */
-  width: min(640px, 100%);
-  max-height: 85svh;
-  overflow: auto;
-  background: var(--panel);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  box-shadow: 0 -12px 40px rgba(31, 38, 31, 0.18);
-  padding: 0 14px calc(14px + var(--safe-inset-bottom)) 14px;
+  width: min(560px, 100%);
+  max-height: 88svh;
+  overflow-y: auto;
   display: grid;
-  gap: 10px;
-  animation: slideUp 0.3s ease;
+  align-content: start;
+  gap: 12px;
+  padding: 0 max(var(--space-3), var(--safe-inset-right)) calc(var(--space-3) + var(--safe-inset-bottom)) max(var(--space-3), var(--safe-inset-left));
+  border-radius: 24px 24px 0 0;
+  background: var(--paper);
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.16);
+  animation: slideUp 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.bottom-sheet > .drawer-head {
+  padding: 0 0 4px;
+}
+
+.bottom-sheet > .drawer-head h2 {
+  font-size: var(--font-size-lg);
 }
 
 /* Form sheets scroll their body only, so the actions stay reachable no matter
@@ -265,7 +103,6 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  gap: 0;
 }
 
 .sheet-form-body {
@@ -275,31 +112,262 @@
   overscroll-behavior: contain;
   display: grid;
   align-content: start;
-  gap: 12px;
-  padding-bottom: 12px;
+  gap: 14px;
+  padding: 2px 2px 14px;
 }
 
 .sheet-actions {
   flex-shrink: 0;
-  display: flex;
-  gap: var(--touch-gap);
-  padding-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 8px;
+  padding-top: 12px;
   border-top: 1px solid var(--line);
-  background: var(--panel);
 }
 
-.sheet-actions > * {
-  flex: 1;
+.rename-cancel {
+  background: var(--field);
+  color: var(--ink);
 }
 
 .bottom-sheet-handle {
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line);
-  margin: 10px auto 6px;
+  width: 40px;
+  height: 5px;
+  margin: 8px auto 4px;
   flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--line-strong);
 }
+
+@media (min-width: 760px) {
+  .bottom-sheet-backdrop {
+    align-items: center;
+    padding: var(--space-4);
+  }
+
+  .bottom-sheet {
+    border-radius: var(--radius-lg);
+    padding-bottom: var(--space-3);
+    animation: scaleIn 0.2s ease;
+  }
+
+  .bottom-sheet-handle {
+    visibility: hidden;
+    margin-bottom: 0;
+  }
+}
+
+/* ---- List switcher ------------------------------------------------------- */
+
+.list-switcher {
+  display: grid;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.list-switcher-option {
+  position: relative;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  color: var(--ink);
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.list-switcher-option + .list-switcher-option::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 68px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+
+.list-switcher-option:active {
+  background: var(--field);
+}
+
+.list-switcher-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.list-switcher-copy strong {
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-switcher-copy small {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+
+.list-switcher-option.active strong {
+  color: var(--accent-text);
+}
+
+.list-switcher-check {
+  color: var(--accent-text);
+}
+
+.list-switcher-manage {
+  width: 100%;
+  background: transparent;
+  color: var(--accent-text);
+}
+
+/* ---- Add list wizard ----------------------------------------------------- */
+
+.add-list-modal {
+  width: min(600px, 100%);
+  max-height: calc(100svh - var(--safe-inset-top) - 24px);
+  overflow-y: auto;
+  display: grid;
+  gap: 14px;
+  padding: var(--space-3) max(var(--space-3), var(--safe-inset-right)) calc(var(--space-3) + var(--safe-inset-bottom)) max(var(--space-3), var(--safe-inset-left));
+  border-radius: 24px 24px 0 0;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  animation: slideUp 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.add-list-form {
+  display: grid;
+  gap: 14px;
+}
+
+.add-list-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.add-list-steps span {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  font-weight: 650;
+}
+
+.add-list-steps span::before {
+  content: "";
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--line-strong);
+}
+
+.add-list-steps span.active {
+  color: var(--accent-text);
+}
+
+.add-list-steps span.active::before {
+  background: var(--accent);
+}
+
+.add-list-steps:has(span:nth-child(2).active) span:first-child::before,
+.add-list-steps:has(span:nth-child(3).active) span:not(.active)::before {
+  background: var(--accent);
+}
+
+.wizard-field-list {
+  display: grid;
+  gap: 12px;
+}
+
+.wizard-field-card {
+  display: grid;
+  gap: 12px;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.add-list-search {
+  width: 100%;
+}
+
+.add-list-search input {
+  box-shadow: none;
+}
+
+.restaurant-picker-list {
+  max-height: 340px;
+  overflow-y: auto;
+  display: grid;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.restaurant-picker-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.restaurant-picker-row + .restaurant-picker-row {
+  border-top: 1px solid var(--line);
+}
+
+.restaurant-picker-row.selected {
+  background: var(--accent-soft);
+}
+
+.restaurant-picker-row span {
+  display: grid;
+  min-width: 0;
+}
+
+.restaurant-picker-row small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.restaurant-picker-list > .muted {
+  margin: 0;
+  padding: 14px;
+}
+
+.add-list-actions {
+  grid-template-columns: 1fr 1.6fr;
+}
+
+.add-list-actions .ghost-button {
+  background: var(--field);
+}
+
+/* The first step has no Back button, so Next takes the whole row. */
+.add-list-actions > button:only-child {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 760px) {
+  .add-list-backdrop {
+    align-items: center;
+    padding: var(--space-4);
+  }
+
+  .add-list-modal {
+    border-radius: var(--radius-lg);
+    animation: scaleIn 0.2s ease;
+  }
+}
+
+/* ---- Add restaurant ------------------------------------------------------ */
 
 .add-restaurant-sheet-backdrop {
   position: fixed;
@@ -320,71 +388,254 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--panel);
-  animation: slideUp 0.25s ease;
+  background: var(--paper);
+  animation: slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .add-restaurant-sheet-header {
   flex: 0 0 auto;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: max(14px, var(--safe-inset-top)) max(14px, var(--safe-inset-right)) 12px max(14px, var(--safe-inset-left));
-  border-bottom: 1px solid var(--line);
-  background: var(--topbar-bg);
+  padding: calc(var(--safe-inset-top) + 12px) max(var(--gutter), var(--safe-inset-right)) 4px max(var(--gutter), var(--safe-inset-left));
 }
 
-.add-restaurant-sheet-header h2,
-.add-restaurant-sheet-header p {
-  margin: 0;
+.add-restaurant-sheet-header h2 {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.add-restaurant-sheet-header .kicker {
+  color: var(--muted);
+}
+
+.add-restaurant-sheet-header .icon-button {
+  width: var(--touch-target-sm);
+  height: var(--touch-target-sm);
+  min-height: var(--touch-target-sm);
 }
 
 .add-restaurant-sheet-content {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 14px max(14px, var(--safe-inset-right)) calc(18px + var(--safe-inset-bottom)) max(14px, var(--safe-inset-left));
+  padding: 0 max(var(--gutter), var(--safe-inset-right)) calc(24px + var(--safe-inset-bottom)) max(var(--gutter), var(--safe-inset-left));
   overscroll-behavior: contain;
 }
 
 .add-restaurant-sheet-content .tool-panel {
-  width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
 }
 
 .add-restaurant-sheet-content .place-search {
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: 2px 0 8px;
+  padding: 8px 0;
+  background: var(--paper);
+}
+
+.add-restaurants-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.add-restaurants-panel > .microcopy {
+  margin: 0 4px;
+}
+
+.place-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.place-search-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.place-search input {
+  flex: 1;
+  padding-left: 42px;
   background: var(--panel);
+  border-color: var(--line);
+  border-radius: var(--radius-full);
+}
+
+.place-search button {
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+}
+
+.place-search-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  margin: 0 4px;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.add-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 4px 0;
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.add-results-list {
+  display: grid;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-xs);
+}
+
+.place-result {
+  position: relative;
+}
+
+.place-result + .place-result::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 0;
+  z-index: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.place-result button {
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 14px;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 400;
+  text-align: left;
+}
+
+.place-result button:active {
+  transform: none;
+  background: var(--field);
+}
+
+.place-result-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.place-result-copy strong {
+  font-weight: 650;
+}
+
+.place-result-copy small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.place-result-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.manual-add > summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+  border-radius: var(--radius);
+  color: var(--accent-text);
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+
+.manual-add > summary::-webkit-details-marker {
+  display: none;
+}
+
+.manual-add[open] {
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.manual-add[open] > summary {
+  justify-content: flex-start;
+  min-height: 0;
+  margin: 0;
+  color: var(--ink);
 }
 
 @media (min-width: 760px) and (max-width: 1079px) {
   .add-restaurant-sheet-backdrop {
     align-items: center;
     justify-content: center;
-    padding: 18px;
+    padding: var(--space-4);
   }
 
   .add-restaurant-sheet {
-    width: min(720px, 100%);
-    height: min(820px, calc(100svh - 36px));
-    border: 1px solid var(--line);
+    width: min(640px, 100%);
+    height: min(820px, calc(100svh - 48px));
     border-radius: var(--radius-lg);
-    box-shadow: 0 24px 70px rgba(31, 38, 31, 0.22);
+    box-shadow: var(--shadow);
+    animation: scaleIn 0.2s ease;
   }
 }
 
 @media (min-width: 1080px) {
   .add-restaurant-sheet-backdrop {
     display: none;
+  }
+
+  .utility .place-search input,
+  .utility .add-results-list,
+  .utility .list-nav {
+    background: var(--field);
+    box-shadow: none;
+  }
+
+  .utility .place-search input {
+    border-color: transparent;
+  }
+
+  .utility .manual-add[open] {
+    background: var(--field);
   }
 }
 
@@ -393,18 +644,13 @@
   to { opacity: 1; }
 }
 
-@keyframes slideInLeft {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
-}
-
 @keyframes slideInRight {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95); }
+  from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
 

@@ -19,6 +19,7 @@ const MUTATIONS = {
   addRestaurant: mutations.addRestaurant,
   addRestaurantFromGoogleMapsUrl: mutations.addRestaurantFromGoogleMapsUrl,
   updateEntry: mutations.updateEntry,
+  updateEntryAndRatings: mutations.updateEntryAndRatings,
   updateRestaurantMetadata: mutations.updateRestaurantMetadata,
   createRatingDefinition: mutations.createRatingDefinition,
   setRatingPresetEnabled: mutations.setRatingPresetEnabled,
@@ -40,10 +41,6 @@ const MUTATIONS = {
   uploadRestaurantPhoto: mutations.uploadRestaurantPhoto,
   updateRestaurantPhotoDescription: mutations.updateRestaurantPhotoDescription,
   deleteRestaurantPhoto: mutations.deleteRestaurantPhoto,
-  updateEntryAndRatings: async (formData: FormData) => {
-    await mutations.updateEntry(formData);
-    await mutations.saveRatings(formData);
-  },
 } satisfies Record<string, (formData: FormData, context: mutations.MutationContext) => Promise<mutations.MutationResult>>;
 
 function clientIp(request: NextRequest) {
@@ -99,14 +96,22 @@ export async function POST(request: NextRequest) {
     const result = await mutation(formData, { ip });
     logger.info("Mutation ok", { action: actionName, userId: user?.id, ip, ms: Date.now() - start });
     const redirectToPath = result?.redirectTo ?? fallback;
+    const photoId = result && "photoId" in result ? result.photoId : undefined;
+    const checkInId = result && "checkInId" in result ? result.checkInId : undefined;
     return wantsJson
-      ? NextResponse.json({ ok: true, redirectTo: redirectToPath })
+      ? NextResponse.json({ ok: true, redirectTo: redirectToPath, photoId, checkInId })
       : redirectTo(redirectToPath);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Something went wrong.";
     const code = error instanceof mutations.MutationError ? error.code : "failed";
     logger.warn("Mutation failed", { action: actionName, userId: user?.id, ip, code, error: message, ms: Date.now() - start });
     const redirectToPath = withMutationError(fallback, code, message);
+    if (error instanceof mutations.MutationConflictError) {
+      // The client keeps the person's edits on screen and asks what to do, so it needs the current values.
+      return wantsJson
+        ? NextResponse.json({ ok: false, code, message, redirectTo: redirectToPath, conflicts: error.conflicts }, { status: 409 })
+        : redirectTo(redirectToPath);
+    }
     return wantsJson
       ? NextResponse.json({ ok: false, code, message, redirectTo: redirectToPath }, { status: 400 })
       : redirectTo(redirectToPath);

@@ -2,8 +2,8 @@
 @import './reset.css';
 @import './layout.css';
 @import './components.css';
+@import './explore.css';
 @import './restaurant.css';
 @import './sheets.css';
-@import './bottom-nav.css';
 @import './checkins.css';
 @import './map.css';

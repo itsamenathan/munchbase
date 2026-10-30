@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarClock, ClipboardList, LayoutList, Map } from "lucide-react";
+import { CalendarCheck, Compass, LayoutList, Map } from "lucide-react";
 import { tabHref, type BottomTab } from "@/lib/routes";
 
 export function BottomNav({
@@ -20,9 +20,9 @@ export function BottomNav({
         replace
         onClick={() => onNavigate("explore")}
         className={activeTab === "explore" ? "active" : ""}
-        aria-label="Restaurant list"
+        aria-label="Explore"
       >
-        <ClipboardList size={22} />
+        <Compass size={24} />
         <span>Explore</span>
       </Link>
       <Link
@@ -30,9 +30,9 @@ export function BottomNav({
         replace
         onClick={() => onNavigate("map")}
         className={activeTab === "map" ? "active" : ""}
-        aria-label="Map view"
+        aria-label="Map"
       >
-        <Map size={22} />
+        <Map size={24} />
         <span>Map</span>
       </Link>
       <Link
@@ -42,7 +42,7 @@ export function BottomNav({
         className={activeTab === "checkins" ? "active" : ""}
         aria-label="Check-ins"
       >
-        <CalendarClock size={22} />
+        <CalendarCheck size={24} />
         <span>Check-ins</span>
       </Link>
       <Link
@@ -50,9 +50,9 @@ export function BottomNav({
         replace
         onClick={() => onNavigate("lists")}
         className={activeTab === "lists" ? "active" : ""}
-        aria-label="My lists"
+        aria-label="Lists"
       >
-        <LayoutList size={22} />
+        <LayoutList size={24} />
         <span>Lists</span>
       </Link>
     </nav>

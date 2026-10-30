@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
-import { ClipboardList, Filter, Plus, Search, X } from "lucide-react";
+import { ChevronRight, ClipboardList, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { RatingFilterOptions } from "@/components/explore/rating-filter-options";
 import { RatingBadge } from "@/components/restaurant/rating-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -91,7 +91,7 @@ export function ExploreView({
   const isFiltered = Boolean(query || filterDefinition);
 
   return (
-    <>
+    <div className={`explore-view${showMap ? " explore-map" : ""}`}>
       <div className="toolbar">
         <label className="search-box">
           <span className="sr-only">Search restaurants</span>
@@ -112,7 +112,7 @@ export function ExploreView({
           aria-expanded={filtersOpen}
           aria-controls="explore-filters"
         >
-          <Filter size={16} />
+          <SlidersHorizontal size={18} />
           <span>{filterDefinition ? "Filtered" : "Filter"}</span>
         </button>
         <button
@@ -123,8 +123,8 @@ export function ExploreView({
           aria-expanded={addOpen}
           aria-controls="add-restaurant-sheet"
         >
-          <Plus size={17} />
-          <span>Add</span>
+          <Plus size={24} strokeWidth={2.4} />
+          <span>Add restaurant</span>
         </button>
       </div>
 
@@ -175,7 +175,7 @@ export function ExploreView({
         </section>
       ) : filterDefinition && selectedFilterDefinition ? (
         <button type="button" className="active-filter-chip" onClick={() => filter.setFiltersOpen(true)}>
-          <Filter size={13} />
+          <SlidersHorizontal size={14} />
           {selectedFilterDefinition.name}
           {filterValue ? `: ${filterValue}` : ""}
         </button>
@@ -192,6 +192,12 @@ export function ExploreView({
         <div className={`content-grid restaurant-content-grid${hasDetail ? " has-detail" : ""}`}>
           <section className="results">
             <h3 className="results-heading">{activeListName}</h3>
+            {filter.restaurants.length > 0 ? (
+              <p className="results-count">
+                {filter.restaurants.length} {filter.restaurants.length === 1 ? "restaurant" : "restaurants"}
+                {isFiltered ? " match" : ""}
+              </p>
+            ) : null}
             {filter.restaurants.length === 0 ? (
               <EmptyState
                 icon={<ClipboardList size={32} />}
@@ -210,6 +216,7 @@ export function ExploreView({
                     <strong>{section.label}</strong>
                     <span>{section.detail}</span>
                   </div>
+                  <div className="restaurant-group">
                   {section.restaurants.map((restaurant) => (
                     <RestaurantRow
                       key={restaurant.id}
@@ -221,6 +228,7 @@ export function ExploreView({
                       onSelect={onSelectRestaurant}
                     />
                   ))}
+                  </div>
                 </div>
               ))
             )}
@@ -228,7 +236,7 @@ export function ExploreView({
           <section className="detail">{detail}</section>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -260,25 +268,29 @@ function RestaurantRow({
     return <RatingBadge key={d.id} definition={d} value={rating?.value ?? ""} />;
   });
 
+  const location = formatCityState(restaurant.address) || restaurant.address;
+  const visits = restaurant.checkInCount
+    ? `${restaurant.checkInCount} visit${restaurant.checkInCount === 1 ? "" : "s"}`
+    : null;
+
   return (
     <button
       className={`restaurant-row ${active ? "active" : ""}`}
       onClick={() => onSelect(restaurant.id)}
     >
-      <span>
+      <span className="restaurant-row-body">
         <span className="restaurant-row-top">
           <strong>{restaurant.name}</strong>
           {pending ? <span className="pending-change-badge">Pending</span> : null}
         </span>
-        <small>{formatCityState(restaurant.address) || restaurant.address}</small>
-        {globalRatingIcons.some((i) => i) ? <span className="rating-icons">{globalRatingIcons}</span> : null}
-        {listRatingIcons.some((i) => i) ? <span className="rating-icons">{listRatingIcons}</span> : null}
+        <small>{[location, visits].filter(Boolean).join(" · ")}</small>
+        {globalRatingIcons.some((i) => i) || listRatingIcons.some((i) => i) ? (
+          <span className="rating-icons">{globalRatingIcons}{listRatingIcons}</span>
+        ) : null}
       </span>
       <span className="restaurant-row-meta">
         {distance !== null ? <strong>{formatDistance(distance)}</strong> : null}
-        {restaurant.checkInCount ? (
-          <span>{`${restaurant.checkInCount} visit${restaurant.checkInCount === 1 ? "" : "s"}`}</span>
-        ) : null}
+        <ChevronRight size={18} aria-hidden="true" />
       </span>
     </button>
   );

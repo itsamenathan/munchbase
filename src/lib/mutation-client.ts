@@ -1,8 +1,9 @@
 import { appendCsrfToken } from "./csrf-client";
+import type { EditConflict } from "./entry-edit";
 
 export type MutationResponse =
-  | { ok: true; redirectTo: string }
-  | { ok: false; code: string; message: string; redirectTo: string };
+  | { ok: true; redirectTo: string; photoId?: number; checkInId?: number }
+  | { ok: false; code: string; message: string; redirectTo: string; conflicts?: EditConflict[] };
 
 export class MutationTransportError extends Error {
   constructor(public readonly status: number, message = "Munchbase could not reach the server.") {

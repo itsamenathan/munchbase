@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, CopyCheck, GripVertical, ListChecks, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Star, StickyNote, Tag, ToggleRight, Trash2 } from "lucide-react";
+import { CopyCheck, GripVertical, ListChecks, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Star, StickyNote, Tag, ToggleRight, Trash2 } from "lucide-react";
 import {
   DndContext,
   KeyboardSensor,
@@ -223,12 +223,9 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
 
   return (
     <div className="detail-content">
-      <button type="button" className="mobile-back-button" onClick={onClose}>
-        <ChevronLeft size={18} /> Back to Lists
-      </button>
       <div className="detail-head">
         <div className="detail-title-group">
-          <span className="kicker">{isGlobal ? "Global ratings" : "List settings"}</span>
+          <span className="kicker">{isGlobal ? "Global attributes" : "List settings"}</span>
           <h3>{state.activeList?.name ?? "All restaurants"}</h3>
         </div>
         <div className="detail-actions">
@@ -272,7 +269,7 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
       {!isGlobal && state.activeList ? (
         <>
           <section className="settings-section">
-            <PanelTitle icon={<Star size={17} />} title="List details" detail="Rename this list." />
+            <PanelTitle icon={<Pencil size={17} />} title="List details" detail="Rename this list." />
             <form action="/mutate" method="post" className="stack-form">
               <input type="hidden" name="__action" value="updateListDetails" />
               <input type="hidden" name="listId" value={state.activeList.id} />
@@ -281,12 +278,12 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
             </form>
           </section>
           <section className="settings-section">
-            <PanelTitle icon={<Star size={17} />} title="Custom fields" detail="Add list-specific ratings for restaurants in this list." />
+            <PanelTitle icon={<SlidersHorizontal size={17} />} title="Custom fields" detail="Add list-specific ratings for restaurants in this list." />
             <AttributeCards definitions={definitions} />
             <AddCustomFieldForm scope="list" listId={state.activeList.id} />
           </section>
           <details className="danger-zone">
-            <summary>Danger zone</summary>
+            <summary>Delete list</summary>
             <form
               action="/mutate"
               method="post"
@@ -294,8 +291,8 @@ export function ListSettingsPanel({ state, onClose }: { state: AppState; onClose
             >
               <input type="hidden" name="__action" value="deleteList" />
               <input type="hidden" name="listId" value={state.activeList.id} />
-              <button className="danger-button" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Trash2 size={14} /> Delete list
+              <button className="danger-button">
+                <Trash2 size={16} /> Delete list
               </button>
             </form>
           </details>

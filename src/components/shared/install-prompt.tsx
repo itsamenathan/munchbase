@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
+import { X } from "lucide-react";
 
 let deferredPrompt: Event | null = null;
 
@@ -58,9 +59,9 @@ export function InstallPrompt() {
   if (ios) {
     return (
       <div className="install-prompt" role="dialog" aria-label="Install app">
-        <p>Add Munchbase to your home screen: tap Share, then &quot;Add to Home Screen&quot;.</p>
-        <button className="ghost-button" style={{ width: "auto" }} onClick={dismiss}>
-          Got it
+        <p>Install: tap Share, then &quot;Add to Home Screen&quot;.</p>
+        <button type="button" className="install-dismiss ghost-button" onClick={dismiss} aria-label="Dismiss">
+          <X size={18} />
         </button>
       </div>
     );
@@ -68,7 +69,7 @@ export function InstallPrompt() {
 
   return (
     <div className="install-prompt" role="dialog" aria-label="Install app">
-      <p>Add Munchbase to your home screen for quick access.</p>
+      <p>Install Munchbase for quick access.</p>
       <button
         onClick={async () => {
           if (deferredPrompt) {
@@ -80,8 +81,8 @@ export function InstallPrompt() {
       >
         Install
       </button>
-      <button className="ghost-button" style={{ width: "auto" }} onClick={dismiss}>
-        Later
+      <button type="button" className="install-dismiss ghost-button" onClick={dismiss} aria-label="Dismiss">
+        <X size={18} />
       </button>
     </div>
   );

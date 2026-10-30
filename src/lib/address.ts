@@ -89,8 +89,10 @@ function isSubCity(part: string) {
   return SUB_CITY_KEYWORDS.some((keyword) => lower.includes(keyword));
 }
 
-export function formatCityState(address: string | null | undefined) {
-  if (!address) return "";
+type ParsedAddress = { parts: string[]; stateCode: string; cityIndex: number };
+
+/** Splits an address into segments and locates the city and state, or returns null when it can't. */
+function parseAddress(address: string): ParsedAddress | null {
   const parts = address.split(",").map((part) => part.trim());
 
   // Drop trailing country names.
@@ -119,22 +121,27 @@ export function formatCityState(address: string | null | undefined) {
     }
   }
 
-  if (stateIndex <= 0) {
-    return address;
-  }
+  if (stateIndex <= 0) return null;
 
   // Walk backwards from the state to find the city, skipping sub-city parts like "Weld County".
-  let city = "";
   for (let i = stateIndex - 1; i >= 0; i--) {
-    if (!isSubCity(parts[i])) {
-      city = parts[i];
-      break;
-    }
+    if (!isSubCity(parts[i])) return { parts, stateCode, cityIndex: i };
   }
+  return null;
+}
 
-  if (!city) {
-    return address;
-  }
+export function formatCityState(address: string | null | undefined) {
+  if (!address) return "";
+  const parsed = parseAddress(address);
+  if (!parsed) return address;
+  return `${parsed.parts[parsed.cityIndex]}, ${parsed.stateCode}`;
+}
 
-  return `${city}, ${stateCode}`;
+/** Short form for search results: the first segment (usually the street) and the city. */
+export function formatStreetCity(address: string | null | undefined) {
+  if (!address) return "";
+  const parsed = parseAddress(address);
+  if (!parsed) return address;
+  const city = parsed.parts[parsed.cityIndex];
+  return parsed.cityIndex > 0 ? `${parsed.parts[0]}, ${city}` : city;
 }

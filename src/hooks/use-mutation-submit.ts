@@ -2,7 +2,10 @@
 
 import { useCallback, type FormEvent } from "react";
 import type { AppMutationResult } from "@/hooks/use-app-mutation";
+import type { EditConflictState } from "@/hooks/use-edit-session";
+import { hasEntryChanges, pruneUnchangedFields } from "@/lib/entry-edit";
 import { addListHistoryDepth, restaurantOriginHref, type AddListStep, type RestaurantOrigin } from "@/lib/routes";
+import type { RatingDefinition } from "@/lib/types";
 
 type Options = {
   activeListId: number | null;
@@ -13,6 +16,10 @@ type Options = {
   /** Marks that leaving edit mode should trigger a refresh. */
   markPendingEditRefresh: () => void;
   submitMutation: (formData: FormData) => Promise<AppMutationResult>;
+  /** Used to tell which ratings changed when an edit is saved. */
+  ratingDefinitions: RatingDefinition[];
+  /** Called with the rejected fields when someone else changed them first, and with null to clear. */
+  onEditConflict: (conflict: EditConflictState | null) => void;
   navigate: {
     back: () => void;
     push: (href: string) => void;
@@ -35,6 +42,8 @@ export function useMutationSubmit({
   addListOpenedInApp,
   markPendingEditRefresh,
   submitMutation,
+  ratingDefinitions,
+  onEditConflict,
   navigate,
 }: Options) {
   return useCallback(
@@ -51,12 +60,32 @@ export function useMutationSubmit({
       if (submitter instanceof HTMLButtonElement) submitter.disabled = true;
 
       try {
-        const result = await submitMutation(new FormData(form));
+        const formData = new FormData(form);
+        if (action === "updateEntryAndRatings") {
+          // Send only what was changed, so a save cannot overwrite what someone else changed in a field left alone.
+          pruneUnchangedFields(formData, ratingDefinitions);
+          if (!hasEntryChanges(formData)) {
+            onEditConflict(null);
+            navigate.back();
+            return;
+          }
+        }
+        const result = await submitMutation(formData);
         if (!result.ok) {
+          if (result.code === "conflict") {
+            // Stay on the edit form so nothing typed is lost; the form asks what to do.
+            onEditConflict({
+              restaurantId: Number(formData.get("restaurantId")),
+              message: result.message,
+              fields: result.conflicts ?? [],
+            });
+            return;
+          }
           if (result.code !== "offline") navigate.replace(result.redirectTo);
           return;
         }
         if (action === "updateEntryAndRatings") {
+          onEditConflict(null);
           // Leaving edit mode triggers the refresh; see markPendingEditRefresh.
           if (!result.queued) markPendingEditRefresh();
           navigate.back();
@@ -87,6 +116,6 @@ export function useMutationSubmit({
         if (submitter instanceof HTMLButtonElement) submitter.disabled = false;
       }
     },
-    [activeListId, addListOpenedInApp, addListStep, markPendingEditRefresh, navigate, restaurantOrigin, submitMutation],
+    [activeListId, addListOpenedInApp, addListStep, markPendingEditRefresh, navigate, onEditConflict, ratingDefinitions, restaurantOrigin, submitMutation],
   );
 }
