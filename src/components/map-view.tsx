@@ -185,6 +185,13 @@ export default function MapView({
 
   return (
     <div className="map-shell">
+      {goBackDefinitionId !== null ? (
+        <ul className="map-legend" aria-label="Pin colors">
+          <li><span className="map-legend-dot go-back" aria-hidden="true" />Go back</li>
+          <li><span className="map-legend-dot no-go" aria-hidden="true" />Not going back</li>
+          <li><span className="map-legend-dot" aria-hidden="true" />Not rated</li>
+        </ul>
+      ) : null}
       <MapContainer center={initialCenter} zoom={initialZoom} className="map">
         <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

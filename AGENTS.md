@@ -82,6 +82,21 @@ The handler (`src/app/mutate/route.ts`) dispatches to named functions in `src/li
 
 After every mutation, call `revalidatePath("/", "layout")`.
 
+### Concurrent edits (notes and ratings)
+Two people can edit the same Restaurant, so saving the edit form (`updateEntryAndRatings`) never overwrites a field someone else changed first:
+
+- Every `note:<id>` and `rating:<id>` field in the edit form travels with a `base:<same key>` field holding the value it had when editing began. `pruneUnchangedFields` (`src/lib/entry-edit.ts`) drops unchanged fields before submitting, so a save only carries what the person edited.
+- The server (`updateEntryAndRatings` in `src/lib/mutations.ts`) runs in one transaction. If a posted field's stored value differs from its base *and* from the submitted value, it writes nothing and throws `MutationConflictError`; `/mutate` answers JSON with `code: "conflict"`, HTTP 409, and `conflicts` (key, current value, label, display text). Fields posted without a base are applied unchecked.
+- The edit form stays on screen and offers "Keep my changes" (move the base forward, then save) or "Use their version". A queued offline edit that conflicts during sync raises the same choice in the offline banner (`syncConflict` in `use-network-status.tsx`); the queued payload carries its bases, so no extra storage is needed.
+- Pressing Edit fetches `/api/restaurants/[id]/edit-state` so editing starts from what is stored now. The Restaurant detail remounts when edit mode opens, so those values travel through `EditSessionProvider` (`use-edit-session.tsx`). The app also refreshes server data when it returns to the foreground (`use-refresh-on-return.ts`), unless changes are waiting to sync.
+- Global ratings live in `globalRatingDefinitions`, not `allRatingDefinitions` (list-level only); anything comparing rating values needs both.
+
+### Toasts and Undo
+`ToastProvider` (`src/hooks/use-toast.tsx`, mounted in AppShell) shows one toast at a time. A toast with an action holds a change back: `onExpire` runs when it times out, is replaced by another toast, or the page is hidden; pressing the action runs `onAction` and skips `onExpire`. Photo delete uses this (the photo hides at once and is deleted when the toast lapses, with a `keepalive` request). Check in creates the visit right away, and Undo deletes it using the `checkInId` that `createCheckIn` returns.
+
+### One layout at a time
+The Restaurant detail and List settings appear in place of the list on phones and beside it from 760px up. AppShell renders only the one that is showing (`useMediaQuery("(min-width: 760px)")`), since mounting every layout and hiding the rest with CSS duplicated state and caused bugs. Keep that media query in step with the breakpoint in `layout.css`.
+
 ### AppState / data loading
 `getAppState(user, listId)` in `src/lib/db.ts` loads all app data in one server-side call. It returns an `AppState` object (typed in `src/lib/types.ts`) that is passed into the `AppShell` client component. The client re-derives filtered state (active list, visible restaurants, rating definitions) from this object without further fetches.
 

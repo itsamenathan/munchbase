@@ -1,0 +1,403 @@
+/* ---- Explore view -------------------------------------------------------- */
+
+.explore-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 10px;
+}
+
+.search-box {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.search-box > svg {
+  position: absolute;
+  left: 14px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.search-box input {
+  padding-left: 42px;
+  background: var(--panel);
+  border-color: var(--line);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-xs);
+}
+
+.search-box input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+.filter-toggle {
+  width: var(--touch-target);
+  padding: 0;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow-xs);
+}
+
+.filter-toggle span {
+  display: none;
+}
+
+.filter-toggle.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* Floating Add button on phones and tablets; the desktop has a docked panel. */
+.add-restaurant-trigger {
+  position: fixed;
+  right: max(var(--gutter), var(--safe-inset-right));
+  bottom: calc(var(--nav-height) + var(--safe-inset-bottom) + 16px);
+  z-index: calc(var(--z-drawer) - 2);
+  width: var(--fab-size);
+  height: var(--fab-size);
+  min-height: var(--fab-size);
+  padding: 0;
+  border-radius: 18px;
+  box-shadow: var(--shadow-fab);
+}
+
+.add-restaurant-trigger span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.filter-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  animation: slideUpFade 0.18s ease;
+}
+
+.filter-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.filter-panel-head h3 {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 700;
+}
+
+.filter-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-panel label {
+  display: grid;
+  gap: 6px;
+}
+
+.filter-panel label span {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.active-filter-chip {
+  align-self: flex-start;
+  min-height: 34px;
+  margin-bottom: 12px;
+  padding: 0 14px;
+  gap: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+}
+
+/* ---- Results ------------------------------------------------------------- */
+
+.results {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+}
+
+.results-heading {
+  display: none;
+}
+
+.results-count {
+  margin: -4px 4px -6px;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+
+.restaurant-section {
+  display: grid;
+  gap: 8px;
+}
+
+.restaurant-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.restaurant-section-heading strong {
+  color: var(--ink);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+}
+
+.restaurant-section-heading span {
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  font-weight: 550;
+}
+
+.restaurant-group {
+  display: grid;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-xs);
+}
+
+.restaurant-row {
+  position: relative;
+  width: 100%;
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 12px 12px 14px;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 400;
+  text-align: left;
+  transition: background-color 0.12s ease;
+}
+
+.restaurant-row + .restaurant-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+
+.restaurant-row:active {
+  transform: none;
+  background: var(--field);
+}
+
+@media (hover: hover) {
+  .restaurant-row:hover {
+    background: color-mix(in srgb, var(--field) 60%, transparent);
+  }
+}
+
+.restaurant-row.active {
+  background: var(--accent-soft);
+}
+
+.restaurant-row-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.restaurant-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.restaurant-row-top strong {
+  overflow: hidden;
+  font-size: var(--font-size-base);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.restaurant-row-body > small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.restaurant-row-body .rating-icons {
+  margin-top: 4px;
+}
+
+.restaurant-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--line-strong);
+}
+
+.restaurant-row-meta strong {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---- Rating badges ------------------------------------------------------- */
+
+.rating-icons,
+.rating-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.rating-summary.empty {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+
+.entry-rating-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-full);
+  background: var(--field);
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.entry-rating-badge.icon-badge {
+  padding: 0 6px;
+}
+
+.entry-rating-badge.positive {
+  background: var(--positive-soft);
+  color: var(--positive);
+}
+
+.entry-rating-badge.price {
+  color: var(--ink);
+}
+
+.entry-rating-badge.stars {
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  color: var(--gold);
+}
+
+.rating-icon-stack {
+  display: inline-flex;
+  align-items: center;
+}
+
+.rating-icon-stack-item {
+  display: inline-flex;
+}
+
+.price .rating-icon-stack-item + .rating-icon-stack-item {
+  margin-left: -4px;
+}
+
+.stars .rating-icon-stack-item + .rating-icon-stack-item {
+  margin-left: -1px;
+}
+
+/* ---- Tablet and desktop -------------------------------------------------- */
+
+@media (min-width: 760px) {
+  .add-restaurant-trigger {
+    position: static;
+    width: auto;
+    height: var(--touch-target);
+    min-height: var(--touch-target);
+    padding: 0 18px 0 14px;
+    border-radius: var(--radius-full);
+    box-shadow: none;
+  }
+
+  .add-restaurant-trigger svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .add-restaurant-trigger span {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+  }
+
+  .filter-toggle {
+    width: auto;
+    padding: 0 16px;
+  }
+
+  .filter-toggle span {
+    display: inline;
+  }
+
+  .results {
+    padding-bottom: var(--space-3);
+  }
+}
+
+@media (min-width: 1080px) {
+  .add-restaurant-trigger {
+    display: none;
+  }
+}
+
+@container (min-width: 720px) {
+  .restaurant-content-grid:not(.has-detail) .restaurant-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .restaurant-content-grid:not(.has-detail) .restaurant-row:nth-child(2)::before {
+    display: none;
+  }
+
+  .restaurant-content-grid:not(.has-detail) .restaurant-row:nth-child(even) {
+    border-left: 1px solid var(--line);
+  }
+}

@@ -7,7 +7,8 @@ import { googleMapsPlaceId, parseGoogleMapsUrlWithRedirects } from "@/lib/google
 import { reverseGeocodeAddress } from "@/lib/photon";
 import { deletePhotoFiles, saveRestaurantPhotoFiles } from "@/lib/restaurant-photos";
 import { normalizeRatingDefinition, presetByKey, serializeRatingValues, validateRatingValue } from "@/lib/ratings";
-import { buildNotes } from "@/lib/note-sections";
+import { BASE_PREFIX, describeConflictValue, normalizeSubmittedRating, sameNoteValue, sameRatingValue, type EditConflict } from "@/lib/entry-edit";
+import { buildNotes, parseNotes } from "@/lib/note-sections";
 import { restaurantHref, tabHref } from "@/lib/routes";
 import type { RatingDefinition, RatingPresetKey, RatingType } from "@/lib/types";
 
@@ -54,7 +55,7 @@ function revalidateApp() {
 }
 
 export type MutationContext = { ip: string };
-export type MutationResult = { redirectTo?: string } | void;
+export type MutationResult = { redirectTo?: string; photoId?: number; checkInId?: number } | void;
 
 export class MutationError extends Error {
   constructor(
@@ -62,6 +63,16 @@ export class MutationError extends Error {
     public readonly code = "invalid",
   ) {
     super(message);
+  }
+}
+
+/** A save that would overwrite a field someone else changed since the editor started. */
+export class MutationConflictError extends MutationError {
+  constructor(
+    message: string,
+    public readonly conflicts: EditConflict[],
+  ) {
+    super(message, "conflict");
   }
 }
 
@@ -349,23 +360,6 @@ export async function addRestaurantFromGoogleMapsUrl(formData: FormData) {
   return { redirectTo: restaurantHref(restaurant.id, listId, { origin: "explore", edit: true }) };
 }
 
-export async function updateEntry(formData: FormData) {
-  await requireUser();
-  const restaurantId = Number(text(formData, "restaurantId"));
-  const db = getDb();
-  const existing = db.prepare("SELECT notes FROM restaurants WHERE id = ?").get(restaurantId) as
-    | { notes: string | null }
-    | undefined;
-  if (!existing) throw new Error("Restaurant not found.");
-
-  const notes = buildNotes(existing.notes, collectNoteUpdates(formData));
-  db.prepare(
-    `UPDATE restaurants
-     SET notes = ?, updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`,
-  ).run(notes, restaurantId);
-  revalidateApp();
-}
 
 export async function updateRestaurantMetadata(formData: FormData) {
   await requireUser();
@@ -570,11 +564,24 @@ export async function deleteNoteSection(formData: FormData) {
   revalidateApp();
 }
 
-export async function saveRatings(formData: FormData) {
-  await requireUser();
-  const restaurantId = Number(text(formData, "restaurantId"));
-  const db = getDb();
-  const definitions = new Map<number, RatingDefinition>(
+type Db = ReturnType<typeof getDb>;
+
+function applyNoteUpdates(db: Db, restaurantId: number, formData: FormData) {
+  const existing = db.prepare("SELECT notes FROM restaurants WHERE id = ?").get(restaurantId) as
+    | { notes: string | null }
+    | undefined;
+  if (!existing) throw new Error("Restaurant not found.");
+
+  const notes = buildNotes(existing.notes, collectNoteUpdates(formData));
+  db.prepare(
+    `UPDATE restaurants
+     SET notes = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+  ).run(notes, restaurantId);
+}
+
+function loadRatingDefinitions(db: Db) {
+  return new Map<number, RatingDefinition>(
     (db
       .prepare(
         `SELECT id, list_id AS listId, scope, preset_key AS presetKey, name, type, icon, options_json AS optionsJson, min, max, active
@@ -585,12 +592,14 @@ export async function saveRatings(formData: FormData) {
       { ...definition, options: JSON.parse(definition.optionsJson) as string[] },
     ]),
   );
-  const ratingKeys = new Set(
-    [...formData.keys()].filter((key) => key.startsWith("rating:")),
-  );
+}
+
+/** Ratings in this save that apply to the restaurant, as [definition, field key] pairs. */
+function submittedRatingFields(db: Db, restaurantId: number, formData: FormData, definitions: Map<number, RatingDefinition>) {
+  const fields: Array<{ definition: RatingDefinition; key: string }> = [];
+  const ratingKeys = new Set([...formData.keys()].filter((key) => key.startsWith("rating:")));
   for (const key of ratingKeys) {
-    const definitionId = Number(key.split(":")[1]);
-    const definition = definitions.get(definitionId);
+    const definition = definitions.get(Number(key.split(":")[1]));
     if (!definition) continue;
     if (definition.scope === "list" && definition.listId !== null) {
       const membership = db
@@ -598,6 +607,14 @@ export async function saveRatings(formData: FormData) {
         .get(restaurantId, definition.listId);
       if (!membership) continue;
     }
+    fields.push({ definition, key });
+  }
+  return fields;
+}
+
+function applyRatingUpdates(db: Db, restaurantId: number, formData: FormData) {
+  const definitions = loadRatingDefinitions(db);
+  for (const { definition, key } of submittedRatingFields(db, restaurantId, formData, definitions)) {
     // A `multi` field posts one entry per ticked checkbox; every other type
     // posts a single entry (an empty one when the input is cleared).
     const submitted = formData.getAll(key).filter((entry): entry is string => typeof entry === "string");
@@ -606,30 +623,120 @@ export async function saveRatings(formData: FormData) {
       : submitted[submitted.length - 1] ?? "";
     const value = validateRatingValue(definition, raw);
     if (!value) {
-      db.prepare("DELETE FROM rating_values WHERE restaurant_id = ? AND definition_id = ?").run(restaurantId, definitionId);
+      db.prepare("DELETE FROM rating_values WHERE restaurant_id = ? AND definition_id = ?").run(restaurantId, definition.id);
     } else {
       db.prepare(
         `INSERT INTO rating_values (restaurant_id, definition_id, value) VALUES (?, ?, ?)
          ON CONFLICT(restaurant_id, definition_id) DO UPDATE SET value = excluded.value`,
-      ).run(restaurantId, definitionId, value);
+      ).run(restaurantId, definition.id, value);
     }
   }
+}
+
+/**
+ * Fields in this save whose stored value differs from the value the editor
+ * started from (`base:<key>`) and from what they are submitting, meaning someone
+ * else changed them in between. Fields posted without a base are not checked.
+ */
+function findEditConflicts(db: Db, restaurantId: number, formData: FormData): EditConflict[] {
+  const conflicts: EditConflict[] = [];
+  const formValue = (key: string) => {
+    const value = formData.get(key);
+    return typeof value === "string" ? value : "";
+  };
+
+  const existing = db.prepare("SELECT notes FROM restaurants WHERE id = ?").get(restaurantId) as
+    | { notes: string | null }
+    | undefined;
+  const storedNotes = parseNotes(existing?.notes ?? null);
+  for (const key of new Set([...formData.keys()].filter((candidate) => candidate.startsWith("note:")))) {
+    const baseKey = BASE_PREFIX + key;
+    if (!formData.has(baseKey)) continue;
+    const sectionId = Number(key.slice("note:".length));
+    const current = (storedNotes[sectionId] ?? "").trim();
+    if (!sameNoteValue(current, formValue(baseKey)) && !sameNoteValue(current, formValue(key))) {
+      const section = db.prepare("SELECT name FROM note_sections WHERE id = ?").get(sectionId) as { name: string } | undefined;
+      conflicts.push({ key, current, label: section?.name ?? "Note", display: describeConflictValue(null, current) });
+    }
+  }
+
+  const definitions = loadRatingDefinitions(db);
+  for (const { definition, key } of submittedRatingFields(db, restaurantId, formData, definitions)) {
+    const baseKey = BASE_PREFIX + key;
+    if (!formData.has(baseKey)) continue;
+    const stored = db
+      .prepare("SELECT value FROM rating_values WHERE restaurant_id = ? AND definition_id = ?")
+      .get(restaurantId, definition.id) as { value: string } | undefined;
+    const current = stored?.value ?? "";
+    const submitted = normalizeSubmittedRating(
+      definition,
+      formData.getAll(key).filter((entry): entry is string => typeof entry === "string"),
+    );
+    if (!sameRatingValue(definition, current, formValue(baseKey)) && !sameRatingValue(definition, current, submitted)) {
+      conflicts.push({ key, current, label: definition.name, display: describeConflictValue(definition, current) });
+    }
+  }
+  return conflicts;
+}
+
+export async function updateEntry(formData: FormData) {
+  await requireUser();
+  const restaurantId = Number(text(formData, "restaurantId"));
+  applyNoteUpdates(getDb(), restaurantId, formData);
   revalidateApp();
 }
 
-export async function createCheckIn(formData: FormData) {
+export async function saveRatings(formData: FormData) {
+  await requireUser();
+  applyRatingUpdates(getDb(), Number(text(formData, "restaurantId")), formData);
+  revalidateApp();
+}
+
+/**
+ * Saves notes and ratings together, all or nothing. A field that someone else
+ * changed since this editor loaded it is reported as a conflict instead of
+ * being overwritten, and nothing from the save is written.
+ */
+export async function updateEntryAndRatings(formData: FormData) {
+  await requireUser();
+  const restaurantId = Number(text(formData, "restaurantId"));
+  const db = getDb();
+  db.transaction(() => {
+    const conflicts = findEditConflicts(db, restaurantId, formData);
+    if (conflicts.length) {
+      const place = db
+        .prepare("SELECT places.name AS name FROM restaurants JOIN places ON places.id = restaurants.place_id WHERE restaurants.id = ?")
+        .get(restaurantId) as { name: string } | undefined;
+      throw new MutationConflictError(
+        `${place?.name ?? "This restaurant"} was changed by someone else while you were editing.`,
+        conflicts,
+      );
+    }
+    applyNoteUpdates(db, restaurantId, formData);
+    applyRatingUpdates(db, restaurantId, formData);
+  })();
+  revalidateApp();
+}
+
+export async function createCheckIn(formData: FormData): Promise<MutationResult> {
   const user = await requireUser();
   const restaurantId = Number(text(formData, "restaurantId"));
   const visitedAt = text(formData, "visitedAt") || localDateTimeInputValue();
   const clientMutationId = text(formData, "__mutationId") || null;
-  getDb()
+  const db = getDb();
+  const info = db
     .prepare(
       `INSERT INTO checkins (restaurant_id, author_id, visited_at, client_mutation_id)
        VALUES (?, ?, ?, ?)
        ON CONFLICT(author_id, client_mutation_id) DO NOTHING`,
     )
     .run(restaurantId, user.id, visitedAt, clientMutationId);
+  // A repeated request (same mutation id) inserts nothing; report the visit it already made.
+  const existing = !info.changes && clientMutationId
+    ? db.prepare("SELECT id FROM checkins WHERE author_id = ? AND client_mutation_id = ?").get(user.id, clientMutationId) as { id: number } | undefined
+    : undefined;
   revalidateApp();
+  return { checkInId: info.changes ? Number(info.lastInsertRowid) : existing?.id };
 }
 
 export async function deleteCheckIn(formData: FormData) {
@@ -673,7 +780,7 @@ export async function removeRestaurantFromList(formData: FormData) {
   revalidateApp();
 }
 
-export async function uploadRestaurantPhoto(formData: FormData) {
+export async function uploadRestaurantPhoto(formData: FormData): Promise<MutationResult> {
   const user = await requireUser();
   const restaurantId = Number(text(formData, "restaurantId"));
   if (!restaurantId) throw new Error("Restaurant is required.");
@@ -685,20 +792,23 @@ export async function uploadRestaurantPhoto(formData: FormData) {
   if (!restaurant) throw new Error("Restaurant not found.");
 
   const saved = await saveRestaurantPhotoFiles(restaurantId, file);
+  let photoId: number;
   try {
-    getDb()
+    const info = getDb()
       .prepare(
         `INSERT INTO restaurant_photos
          (restaurant_id, storage_key, original_storage_key, thumbnail_storage_key, description, uploaded_by)
          VALUES (?, ?, ?, ?, ?, ?)`,
       )
       .run(restaurantId, saved.storageKey, saved.originalStorageKey, saved.thumbnailStorageKey, description, user.id);
+    photoId = Number(info.lastInsertRowid);
   } catch (error) {
     await deletePhotoFiles([saved.originalStorageKey, saved.storageKey, saved.thumbnailStorageKey]);
     throw error;
   }
 
   revalidateApp();
+  return { photoId };
 }
 
 export async function updateRestaurantPhotoDescription(formData: FormData) {

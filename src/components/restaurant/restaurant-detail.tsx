@@ -1,15 +1,17 @@
 import { useRef, useState } from "react";
-import { CalendarClock, Check, LocateFixed, NotebookText, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { CalendarClock, Check, LayoutList, LocateFixed, MapPin, NotebookText, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { formatCityState } from "@/lib/address";
 import { NOTE_SECTION_PRESETS, parseNotes } from "@/lib/note-sections";
 import { NotePreview, NotesEditField } from "./notes";
 import { RatingSummary, AttributePreview } from "./rating-display";
 import { RatingInput } from "./rating-input";
-import { CheckInCard, CheckInForm } from "./checkin";
+import { CheckInCard, PastVisitForm, QuickCheckIn } from "./checkin";
 import { RestaurantPhotos } from "./restaurant-photos";
 import { RATING_ICON_MAP, RATING_PRESETS, type RatingDefinition, repeatedIcon } from "./rating-common";
 import { useAppMutation } from "@/hooks/use-app-mutation";
-import type { AppState, NoteSectionDefinition, Restaurant } from "@/lib/types";
+import { useEditSession } from "@/hooks/use-edit-session";
+import { ratingValuesFromForm, snapshotEditBase, type EditBase } from "@/lib/entry-edit";
+import type { AppState, NoteSectionDefinition, RatingValue, Restaurant } from "@/lib/types";
 
 const NOTE_PRESET_PLACEHOLDERS: Record<string, string> = Object.fromEntries(
   NOTE_SECTION_PRESETS.map((preset) => [preset.key, preset.placeholder]),
@@ -83,7 +85,22 @@ export function RestaurantDetail({
   onClosePhoto: () => void;
 }) {
   const [entryMode, setEntryMode] = useState<"edit" | "preview">(initialEdit && canWrite ? "edit" : "preview");
-  const [noteValues, setNoteValues] = useState(() => parseNotes(entry.notes));
+  const { conflict, setConflict, freshStart, setFreshStart } = useEditSession();
+  // Values loaded when the Edit button was pressed. This component remounts as edit
+  // mode opens, so they arrive through the edit session rather than local state.
+  const fresh = canWrite && initialEdit && freshStart?.restaurantId === entry.id ? freshStart : null;
+  const [noteValues, setNoteValues] = useState(() => parseNotes((fresh ?? entry).notes));
+  // What the stored values were when editing began. A save sends these alongside
+  // the changed fields so the server can tell if someone else changed them first.
+  const [editBase, setEditBase] = useState<EditBase>(() => snapshotEditBase(fresh ?? entry));
+  const [freshEdit, setFreshEdit] = useState<{ notes: string | null; ratings: RatingValue[] } | null>(
+    () => (fresh ? { notes: fresh.notes, ratings: fresh.ratings } : null),
+  );
+  const [ratingsKey, setRatingsKey] = useState(0);
+  const [openingEdit, setOpeningEdit] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  // Global ratings (go back, price, stars) are kept apart from the list-level ones.
+  const editableRatingDefinitions = [...globalRatingDefinitions, ...allRatingDefinitions];
   const [pendingMembershipIds, setPendingMembershipIds] = useState(() => new Set<number>());
   const [locationStatus, setLocationStatus] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
@@ -100,7 +117,14 @@ export function RestaurantDetail({
     setSyncedModeKey(modeKey);
     const nextMode = initialEdit && canWrite ? "edit" : "preview";
     setEntryMode(nextMode);
-    if (nextMode === "preview") setNoteValues(parseNotes(entry.notes));
+    if (nextMode === "preview") {
+      setNoteValues(parseNotes(entry.notes));
+      setFreshEdit(null);
+    } else if (entryMode !== "edit") {
+      // Arrived in edit mode from the route (not via the Edit button): start from what is loaded.
+      setEditBase(snapshotEditBase(entry));
+      setNoteValues(parseNotes(entry.notes));
+    }
   }
 
   const toggleListMembership = async (listId: number, inList: boolean) => {
@@ -129,9 +153,78 @@ export function RestaurantDetail({
     setEntryMode(edit ? "edit" : "preview");
   };
 
+  // Load the stored notes and ratings first, so editing starts from what is saved
+  // now rather than from a screen that may have been open for a while.
+  const openEdit = async () => {
+    if (openingEdit) return;
+    setOpeningEdit(true);
+    let loaded: { notes: string | null; ratings: RatingValue[] } | null = null;
+    if (online) {
+      try {
+        const response = await fetch(`/api/restaurants/${entry.id}/edit-state`, {
+          cache: "no-store",
+          signal: AbortSignal.timeout(2500),
+        });
+        if (response.ok) loaded = await response.json();
+      } catch {
+        // Offline or slow: edit what is loaded; the server still checks for conflicts on save.
+      }
+    }
+    // Opening edit mode remounts this component, which then starts from these values.
+    setFreshStart(loaded ? { restaurantId: entry.id, ...loaded } : null);
+    setConflict(null);
+    setOpeningEdit(false);
+    setEditMode(true);
+  };
+
   const resetEntryEdit = () => {
     setNoteValues(parseNotes(entry.notes));
+    setFreshEdit(null);
+    setFreshStart(null);
+    setConflict(null);
     setEditMode(false);
+  };
+
+  const conflictFields = conflict && conflict.restaurantId === entry.id ? conflict.fields : [];
+
+  // Their version becomes the starting point, so the next save replaces it with mine.
+  const rebaseConflicts = () => {
+    setEditBase((previous) => {
+      const next: EditBase = { notes: { ...previous.notes }, ratings: { ...previous.ratings } };
+      for (const field of conflictFields) {
+        const id = Number(field.key.split(":")[1]);
+        if (field.key.startsWith("note:")) next.notes[id] = field.current.trim();
+        else next.ratings[id] = field.current;
+      }
+      return next;
+    });
+  };
+
+  const keepMyChanges = () => {
+    rebaseConflicts();
+    setConflict(null);
+  };
+
+  const useTheirVersion = () => {
+    const theirRatings: Record<number, string> = {};
+    for (const field of conflictFields) {
+      const id = Number(field.key.split(":")[1]);
+      if (field.key.startsWith("note:")) setNoteValues((previous) => ({ ...previous, [id]: field.current }));
+      else theirRatings[id] = field.current;
+    }
+    if (Object.keys(theirRatings).length && formRef.current) {
+      // Rating inputs keep their own state, so rebuild them from what is selected now plus their values.
+      const merged = { ...ratingValuesFromForm(new FormData(formRef.current), editableRatingDefinitions), ...theirRatings };
+      setFreshEdit({
+        notes: freshEdit?.notes ?? entry.notes,
+        ratings: Object.entries(merged)
+          .filter(([, value]) => value)
+          .map(([definitionId, value]) => ({ definitionId: Number(definitionId), value })),
+      });
+      setRatingsKey((key) => key + 1);
+    }
+    rebaseConflicts();
+    setConflict(null);
   };
 
   const useCurrentLocation = () => {
@@ -160,6 +253,7 @@ export function RestaurantDetail({
   };
 
   const globalSummaryDefinitions = globalRatingDefinitions.filter((d) => d.active);
+  const formEntry = freshEdit ? { ...entry, notes: freshEdit.notes, ratings: freshEdit.ratings } : entry;
 
   const memberLists = lists
     .filter((list) => entry.memberships.some((membership) => membership.id === list.id))
@@ -181,40 +275,74 @@ export function RestaurantDetail({
 
   return (
     <div className="detail-content">
-      <div className="detail-head">
+      <header className="detail-head">
         <div className="detail-title-group">
           <h3>{entry.name}</h3>
-          {pending ? <span className="pending-change-badge">Pending sync</span> : null}
-          <span className="detail-location">{formatCityState(entry.address)}</span>
-          <RatingSummary entry={entry} definitions={globalSummaryDefinitions} />
-        </div>
-        <div className="detail-actions">
-          {canWrite && entryMode === "preview" ? (
-            <button type="button" className="ghost-button icon-button" onClick={() => setEditMode(true)} aria-label="Edit notes and ratings">
-              <Pencil size={16} />
-            </button>
+          {entry.address ? (
+            <span className="detail-location" title={entry.address}>
+              <MapPin size={14} aria-hidden="true" />
+              {formatCityState(entry.address) || entry.address}
+            </span>
           ) : null}
-          <a href={entry.googleMapsUrl || googleMapsUrl(entry)} target="_blank" rel="noreferrer" className="icon-link" aria-label="Open in Google Maps">
-            <GoogleMapsIcon />
-          </a>
-          <a href={entry.yelpUrl || yelpUrl(entry)} target="_blank" rel="noreferrer" className="icon-link" aria-label="Open in Yelp">
-            <YelpIcon />
-          </a>
+          {pending ? <span className="pending-change-badge">Pending sync</span> : null}
         </div>
-      </div>
+        {entryMode === "preview" ? (
+          // Secondary: where to look the place up. Icon-only, beside the title.
+          <div className="detail-links">
+            <a href={entry.googleMapsUrl || googleMapsUrl(entry)} target="_blank" rel="noreferrer" className="detail-link" aria-label="Open in Google Maps" title="Google Maps">
+              <GoogleMapsIcon />
+            </a>
+            <a href={entry.yelpUrl || yelpUrl(entry)} target="_blank" rel="noreferrer" className="detail-link" aria-label="Open in Yelp" title="Yelp">
+              <YelpIcon />
+            </a>
+          </div>
+        ) : null}
+        {entryMode === "preview" ? <RatingSummary entry={entry} definitions={globalSummaryDefinitions} /> : null}
+        {entryMode === "preview" && canWrite ? (
+          // Primary: the two things people do here, as an equal pair.
+          <div className="detail-primary-actions">
+            <QuickCheckIn entry={entry} />
+            <button type="button" className="detail-action" onClick={() => void openEdit()} disabled={openingEdit} aria-busy={openingEdit} aria-label="Edit notes and ratings">
+              <Pencil size={18} aria-hidden="true" />
+              <span>Edit</span>
+            </button>
+          </div>
+        ) : null}
+      </header>
 
       {canWrite && entryMode === "edit" ? (
         <>
           <form
+            ref={formRef}
             action="/mutate" method="post"
             className="entry-edit-form"
           >
             <input type="hidden" name="__action" value="updateEntryAndRatings" />
             <input type="hidden" name="restaurantId" value={entry.id} />
-            <div className="section-head"><h4>Edit notes and ratings</h4></div>
+            {noteSections.filter((s) => s.active).map((s) => (
+              <input key={`base-note-${s.id}`} type="hidden" name={`base:note:${s.id}`} value={editBase.notes[s.id] ?? ""} readOnly />
+            ))}
+            {[...new Map(ratingGroups.flatMap((g) => g.definitions).filter((d) => d.active).map((d) => [d.id, d])).values()].map((d) => (
+              <input key={`base-rating-${d.id}`} type="hidden" name={`base:rating:${d.id}`} value={editBase.ratings[d.id] ?? ""} readOnly />
+            ))}
+            {conflictFields.length ? (
+              <div className="conflict-banner" role="alert">
+                <strong>{conflict?.message}</strong>
+                <p>These now hold someone else&apos;s version. Nothing was saved, and your edits are still here.</p>
+                <ul>
+                  {conflictFields.map((field) => (
+                    <li key={field.key}><span>{field.label}</span>: {field.display}</li>
+                  ))}
+                </ul>
+                <div className="conflict-actions">
+                  <button type="button" onClick={keepMyChanges}>Keep my changes</button>
+                  <button type="button" className="ghost-button" onClick={useTheirVersion}>Use their version</button>
+                </div>
+              </div>
+            ) : null}
             <div className="entry-edit-grid">
               <section className="entry-edit-section">
-                <h5>Notes</h5>
+                <h5><NotebookText size={16} /> Notes</h5>
                 {noteSections.filter((s) => s.active).map((s) => (
                   <NotesEditField
                     key={s.id}
@@ -227,11 +355,11 @@ export function RestaurantDetail({
                 ))}
               </section>
               <section className="entry-edit-section">
-                <h5>Ratings</h5>
-                <RatingFields entry={entry} groups={ratingGroups} />
+                <h5><Star size={16} /> Ratings</h5>
+                <RatingFields key={ratingsKey} entry={formEntry} groups={ratingGroups} />
               </section>
               <section className="entry-edit-section">
-                <h5>Lists</h5>
+                <h5><LayoutList size={16} /> Lists</h5>
                 {lists.length === 0 ? (
                   <p className="muted" style={{ margin: 0 }}>No lists yet.</p>
                 ) : (
@@ -259,16 +387,15 @@ export function RestaurantDetail({
               </section>
             </div>
             <div className="form-actions entry-edit-actions">
-              <button>Save</button>
               <button type="button" className="ghost-button" onClick={resetEntryEdit}>Cancel</button>
+              <button>Save changes</button>
             </div>
           </form>
           <details className="danger-zone">
-            <summary>Danger zone</summary>
+            <summary>Name, location, and delete</summary>
             <form action="/mutate" method="post" className="stack-form">
               <input type="hidden" name="__action" value="updateRestaurantMetadata" />
               <input type="hidden" name="restaurantId" value={entry.id} />
-              <h5>Details</h5>
               <p className="microcopy">Changing these fields can move this restaurant on the Map and affect search labels.</p>
               <input name="name" defaultValue={entry.name} required placeholder="Restaurant name" />
               <input name="address" defaultValue={entry.address ?? ""} placeholder="Address" />
@@ -300,8 +427,8 @@ export function RestaurantDetail({
                 <input type="hidden" name="__action" value="deleteRestaurant" />
                 <input type="hidden" name="restaurantId" value={entry.id} />
                 {activeListId ? <input type="hidden" name="listId" value={activeListId} /> : null}
-                <button className="danger-button" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <Trash2 size={14} /> Delete restaurant
+                <button className="danger-button">
+                  <Trash2 size={16} /> Delete restaurant
                 </button>
               </form>
             ) : <p className="microcopy">Deleting a Restaurant needs a connection.</p>}
@@ -332,7 +459,10 @@ export function RestaurantDetail({
               <span className="detail-section-title"><CalendarClock size={16} /><h4>Check-ins</h4></span>
               {entry.checkInCount > 0 ? <span className="checkin-section-count">{entry.checkInCount} {entry.checkInCount === 1 ? "visit" : "visits"}</span> : null}
             </div>
-            {canWrite ? <CheckInForm entry={entry} /> : null}
+            {canWrite ? (
+              // "Check in" in the header is the everyday action; back-dating is secondary, so it stays closed by default.
+              <PastVisitForm entry={entry} />
+            ) : null}
             {entry.latestCheckIn ? (
               <div className="checkin-list">
                 {entry.checkIns.map((c) => (

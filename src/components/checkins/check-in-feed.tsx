@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarClock, UserRound } from "lucide-react";
+import { CalendarClock } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatCityState } from "@/lib/address";
 import { buildCheckInFeed, formatCheckInTime, groupCheckInFeed } from "@/lib/check-ins";
@@ -9,16 +9,15 @@ import type { Restaurant } from "@/lib/types";
 export function CheckInFeed({
   restaurants,
   activeListId,
-  activeListName,
   onOpenRestaurant,
 }: {
   restaurants: Restaurant[];
   activeListId: number | null;
-  activeListName: string;
   onOpenRestaurant?: () => void;
 }) {
   const checkIns = buildCheckInFeed(restaurants);
   const groups = groupCheckInFeed(checkIns);
+  const photoByRestaurant = new Map(restaurants.map((r) => [r.id, r.photos[0]?.thumbnailUrl ?? null]));
   const visitLabel = `${checkIns.length} ${checkIns.length === 1 ? "visit" : "visits"}`;
 
   return (
@@ -26,9 +25,8 @@ export function CheckInFeed({
       <header className="checkin-feed-header">
         <div>
           <h3 id="checkin-feed-title">Check-in history</h3>
-          <p>{activeListName}</p>
+          {checkIns.length > 0 ? <p>{visitLabel}</p> : null}
         </div>
-        {checkIns.length > 0 ? <span className="checkin-feed-count">{visitLabel}</span> : null}
       </header>
       {groups.length === 0 ? (
         <div className="checkin-feed-empty">
@@ -43,32 +41,38 @@ export function CheckInFeed({
             )}
           />
         </div>
-      ) : groups.map((group) => (
-        <section className="checkin-day-group" aria-labelledby={`checkin-day-${group.dateKey}`} key={group.dateKey}>
-          <h4 className="checkin-day-heading" id={`checkin-day-${group.dateKey}`}>{group.label}</h4>
-          <div className="checkin-history-list">
-            {group.checkIns.map((checkIn) => (
-              <Link
-                className="checkin-history-item"
-                href={checkInRestaurantHref(checkIn.restaurantId, activeListId)}
-                onClick={onOpenRestaurant}
-                key={checkIn.id}
-              >
-                <span className="checkin-history-marker" aria-hidden="true"><CalendarClock size={14} /></span>
-                <span className="checkin-history-content">
-                  <span className="checkin-history-heading">
-                    <strong>{checkIn.restaurantName}</strong>
-                    <time dateTime={checkIn.visitedAt}>{formatCheckInTime(checkIn.visitedAt)}</time>
-                  </span>
-                  {checkIn.restaurantAddress ? <small>{formatCityState(checkIn.restaurantAddress) || checkIn.restaurantAddress}</small> : null}
-                  {checkIn.notes ? <span className="checkin-feed-note">{checkIn.notes}</span> : null}
-                  <span className="checkin-feed-author"><UserRound size={12} /> {checkIn.authorName}</span>
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ))}
+      ) : groups.map((group) => {
+        const visits = group.checkIns.length;
+        return (
+          <section className="checkin-day" aria-labelledby={`checkin-day-${group.dateKey}`} key={group.dateKey}>
+            <header className="checkin-day-head">
+              <h4 id={`checkin-day-${group.dateKey}`}>{group.label}</h4>
+              <span>{visits} {visits === 1 ? "visit" : "visits"}</span>
+            </header>
+            <ol className="checkin-day-visits">
+              {group.checkIns.map((checkIn) => {
+                const address = checkIn.restaurantAddress ? formatCityState(checkIn.restaurantAddress) || checkIn.restaurantAddress : null;
+                return (
+                  <li key={checkIn.id}>
+                    <Link
+                      className="checkin-visit"
+                      href={checkInRestaurantHref(checkIn.restaurantId, activeListId)}
+                      onClick={onOpenRestaurant}
+                    >
+                      <time className="checkin-visit-time" dateTime={checkIn.visitedAt}>{formatCheckInTime(checkIn.visitedAt)}</time>
+                      <span className="checkin-visit-body">
+                        <strong>{checkIn.restaurantName}</strong>
+                        <small>{[address, checkIn.authorName].filter(Boolean).join(" · ")}</small>
+                        {checkIn.notes ? <span className="checkin-visit-note">{checkIn.notes}</span> : null}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        );
+      })}
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export function BottomSheet({
   open,
@@ -23,8 +24,12 @@ export function BottomSheet({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [open, onClose]);
 
-  if (!open) return null;
-  return (
+  if (!open || typeof document === "undefined") return null;
+  // Portalled to <body> so a sheet opened from inside a blurred or transformed
+  // ancestor (the top bar) is still positioned against the viewport. React
+  // events still bubble through the component tree, so `/mutate` forms inside
+  // reach AppShell's submit handler.
+  return createPortal(
     <div className="bottom-sheet-backdrop" onClick={onClose}>
       <div className={`bottom-sheet ${className}`.trim()} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="bottom-sheet-handle" />
@@ -40,7 +45,8 @@ export function BottomSheet({
         ) : null}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { type FormEvent, type ReactNode, type Ref } from "react";
-import { MapPin, Plus, Search } from "lucide-react";
+import { ChevronRight, MapPin, Plus, Search } from "lucide-react";
+import { formatStreetCity } from "@/lib/address";
 import type { PlaceSearchResult } from "@/lib/photon";
 import { restaurantHref } from "@/lib/routes";
 import type { AppState } from "@/lib/types";
@@ -9,7 +10,7 @@ import type { AppState } from "@/lib/types";
 export function ManualRestaurantForm({ listId }: { listId: number | null }) {
   return (
     <details className="manual-add">
-      <summary>Manually Add</summary>
+      <summary>Add manually</summary>
       <form action="/mutate" method="post" className="stack-form">
         <input type="hidden" name="__action" value="addRestaurant" />
         {listId ? <input type="hidden" name="listId" value={listId} /> : null}
@@ -79,6 +80,7 @@ export function AddRestaurantsPanel({
     <section className="tool-panel add-restaurants-panel">
       {showListContext && state.activeList ? <p className="kicker">{state.activeList.name}</p> : null}
       <form className="place-search" onSubmit={searchPlaces}>
+        <Search className="place-search-icon" size={18} aria-hidden="true" />
         <input
           ref={searchInputRef}
           type="search"
@@ -87,7 +89,7 @@ export function AddRestaurantsPanel({
           onChange={(e) => setPlaceQuery(e.target.value)}
           placeholder="Search for a restaurant"
         />
-        <button type="submit" aria-label="Search places"><Search size={16} /></button>
+        <button type="submit">Search</button>
       </form>
       <label className="place-search-scope">
         <input
@@ -119,8 +121,11 @@ export function AddRestaurantsPanel({
                       else window.location.href = restaurantHref(r.id, state.activeListId, { origin: "explore" });
                     }
                   }}>
-                    <strong>{r.name}</strong>
-                    <small>{alreadyInList ? "View restaurant" : `Add to ${targetLabel}`}</small>
+                    <span className="place-result-copy">
+                      <strong>{r.name}</strong>
+                      <small>{alreadyInList ? "Already saved · view restaurant" : `Add to ${targetLabel}`}</small>
+                    </span>
+                    <span className="place-result-icon" aria-hidden="true">{alreadyInList ? <ChevronRight size={18} /> : <Plus size={18} />}</span>
                   </button>
                 </form>
               );
@@ -139,8 +144,11 @@ export function AddRestaurantsPanel({
                 {state.activeListId ? <input type="hidden" name="listId" value={state.activeListId} /> : null}
                 {Object.entries(place).map(([k, v]) => (<input key={k} type="hidden" name={k} value={v} />))}
                 <button>
-                  <strong>{place.name}</strong>
-                  <small>{place.address}</small>
+                  <span className="place-result-copy">
+                    <strong>{place.name}</strong>
+                    <small>{formatStreetCity(place.address)}</small>
+                  </span>
+                  <span className="place-result-icon" aria-hidden="true"><Plus size={18} /></span>
                 </button>
               </form>
             ))}
@@ -158,8 +166,11 @@ export function AddRestaurantsPanel({
                 {state.activeListId ? <input type="hidden" name="listId" value={state.activeListId} /> : null}
                 {Object.entries(place).map(([k, v]) => (<input key={k} type="hidden" name={k} value={v} />))}
                 <button>
-                  <strong>{place.name}</strong>
-                  <small>{place.address}</small>
+                  <span className="place-result-copy">
+                    <strong>{place.name}</strong>
+                    <small>{formatStreetCity(place.address)}</small>
+                  </span>
+                  <span className="place-result-icon" aria-hidden="true"><Plus size={18} /></span>
                 </button>
               </form>
             ))}

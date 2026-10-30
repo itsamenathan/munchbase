@@ -16,6 +16,7 @@ import {
   getCachedLists,
   getCachedRestaurants,
   getQueuedActions,
+  rebaseQueuedAction,
   restaurantIdFromQueuedAction,
 } from "./offline-db";
 
@@ -120,6 +121,28 @@ describe("offline data isolation", () => {
     const queued = await getQueuedActions(1);
     expect(queued).toMatchObject([{ mutationId: "mutation-1", action: "updateRestaurantMetadata" }]);
     expect(restaurantIdFromQueuedAction(queued[0])).toBe(1);
+  });
+
+  it("moves a queued edit's base values forward without touching its other entries", async () => {
+    await cacheAppStateSnapshot(appState(1, "Old"));
+    await enqueueMutationWithState(1, "updateEntryAndRatings", [
+      ["__action", "updateEntryAndRatings"],
+      ["restaurantId", "1"],
+      ["note:2", "Mine"],
+      ["base:note:2", "Original"],
+      ["rating:7", "5"],
+      ["base:rating:7", "3"],
+    ], appState(1, "Old"), "mutation-2");
+    const [queued] = await getQueuedActions(1);
+
+    await rebaseQueuedAction(queued.id, [["base:note:2", "Theirs"]]);
+
+    const [rebased] = await getQueuedActions(1);
+    const entries = rebased.payload as Array<[string, string]>;
+    expect(entries.filter(([key]) => key === "base:note:2")).toEqual([["base:note:2", "Theirs"]]);
+    expect(entries).toContainEqual(["note:2", "Mine"]);
+    expect(entries).toContainEqual(["base:rating:7", "3"]);
+    expect(rebased.lastError).toBeNull();
   });
 
   it("clears the previous account when a different user becomes active", async () => {

@@ -13,6 +13,14 @@ export function formatWallDateTime(value: string) {
   return `${month}/${day}/${year} ${hour}:${minute}`;
 }
 
+/** Date only, for rows that show the time separately: "Wed, Oct 28, 2026". */
+export function formatCheckInDate(value: string) {
+  const [date = ""] = value.split("T");
+  const parsed = new Date(`${date}T00:00`);
+  if (!date || isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
 export function formatShortDateTime(value: string) {
   const [date = "", time = ""] = value.split("T");
   if (!date) return value;

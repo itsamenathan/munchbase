@@ -7,7 +7,7 @@ import {
   Search,
 } from "lucide-react";
 import { SidebarContent } from "@/components/layout/sidebar";
-import { Topbar } from "@/components/layout/topbar";
+import { Topbar, type TopbarBack } from "@/components/layout/topbar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { AddRestaurantsPanel } from "@/components/search/add-restaurants";
 import { AddRestaurantSheet } from "@/components/search/add-restaurant-sheet";
@@ -22,9 +22,13 @@ import { InstallPrompt } from "@/components/shared/install-prompt";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useHaptics } from "@/hooks/use-haptics";
 import { AppMutationProvider, type AppMutationResult } from "@/hooks/use-app-mutation";
+import { EditSessionProvider, type EditConflictState, type FreshEditStart } from "@/hooks/use-edit-session";
 import { useNetworkStatus } from "@/hooks/use-network-status";
 import { useOverlayRoute } from "@/hooks/use-overlay-route";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { ToastProvider } from "@/hooks/use-toast";
 import { useMutationSubmit } from "@/hooks/use-mutation-submit";
+import { useRefreshOnReturn } from "@/hooks/use-refresh-on-return";
 import { usePlaceSearch } from "@/hooks/use-place-search";
 import { useRestaurantFilter } from "@/hooks/use-restaurant-filter";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
@@ -52,6 +56,12 @@ import {
 import { compareRestaurantNames } from "@/lib/restaurant-sort";
 import type { AppState, RatingDefinition } from "@/lib/types";
 
+const ORIGIN_LABEL: Record<RestaurantOrigin, string> = {
+  explore: "Explore",
+  map: "Map",
+  checkins: "Check-ins",
+};
+
 function offlineMutationFailure(message: string, redirectTo: string): AppMutationResult {
   return { ok: false, code: "offline", message, redirectTo, queued: false };
 }
@@ -71,6 +81,7 @@ export default function AppShell({
   const {
     online,
     pendingRestaurantIds,
+    queuedCount,
     queueMutation,
     createMutationId,
     reportBlocked,
@@ -178,6 +189,13 @@ export default function AppShell({
     () => [...activeState.globalRatingDefinitions, ...activeState.ratingDefinitions],
     [activeState.globalRatingDefinitions, activeState.ratingDefinitions],
   );
+
+  // Matches the 760px breakpoint in layout.css. Phones show a Restaurant or List settings in place of the list;
+  // wider screens show it beside the list. Only the one that is visible is rendered.
+  const isSplitLayout = useMediaQuery("(min-width: 760px)");
+
+  // Not while changes are waiting to sync (a refresh would replace them with the server's older copy) or while editing.
+  useRefreshOnReturn(navigate.refresh, online && queuedCount === 0 && !initialEntryEdit);
 
   const navigateRoot = (tab: BottomTab) => {
     prepareRootNavigation(tab);
@@ -340,6 +358,19 @@ export default function AppShell({
     }
   };
 
+  // While editing, back returns to the Restaurant preview rather than the origin tab.
+  const topbarBack: TopbarBack | null = settingsOpen
+    ? { label: "Lists", onClick: closeSettings }
+    : selectedEntryId !== null
+      ? { label: initialEntryEdit ? "Restaurant" : ORIGIN_LABEL[selectedEntryOrigin], onClick: backFromRestaurant }
+      : null;
+
+  const switcherLists = useMemo(() => state.lists.map((list) => ({
+    id: list.id,
+    name: list.name,
+    count: state.allRestaurants.filter((r) => r.memberships.some((m) => m.id === list.id)).length,
+  })), [state.allRestaurants, state.lists]);
+
   const selectPhoto = (photoId: number) => {
     navigate.replace(hrefWithParams({ photo: String(photoId) }));
   };
@@ -425,6 +456,23 @@ export default function AppShell({
     }
   }, [createMutationId, markOriginUnavailable, online, queueMutation, reportBlocked]);
 
+  // Global ratings (go back, price, stars) are kept apart from the list-level ones.
+  const ratingDefinitionsForEdit = useMemo(
+    () => [...activeState.globalRatingDefinitions, ...activeState.allRatingDefinitions],
+    [activeState.globalRatingDefinitions, activeState.allRatingDefinitions],
+  );
+  const [editConflict, setEditConflict] = useState<EditConflictState | null>(null);
+  const [freshEditStart, setFreshEditStart] = useState<FreshEditStart | null>(null);
+  const editSessionValue = useMemo(
+    () => ({ conflict: editConflict, setConflict: setEditConflict, freshStart: freshEditStart, setFreshStart: setFreshEditStart }),
+    [editConflict, freshEditStart],
+  );
+  // The submit handler clears the conflict once an edit is saved; that also ends the edit session.
+  const handleEditConflict = useCallback((conflict: EditConflictState | null) => {
+    setEditConflict(conflict);
+    if (conflict === null) setFreshEditStart(null);
+  }, []);
+
   const handleMutationSubmit = useMutationSubmit({
     activeListId: activeState.activeListId,
     restaurantOrigin: selectedEntryOrigin,
@@ -432,6 +480,8 @@ export default function AppShell({
     addListOpenedInApp,
     markPendingEditRefresh,
     submitMutation: submitAppMutation,
+    ratingDefinitions: ratingDefinitionsForEdit,
+    onEditConflict: handleEditConflict,
     navigate,
   });
 
@@ -453,7 +503,11 @@ export default function AppShell({
 
   return (
     <AppMutationProvider submit={submitAppMutation}>
-    <main className="app" onSubmit={handleMutationSubmit} onClickCapture={handleOfflineLinkClick}>
+    <EditSessionProvider value={editSessionValue}>
+    <ToastProvider>
+    <main
+      className={`app${selectedEntry && initialEntryEdit ? " is-editing" : ""}${settingsOpen || selectedEntry ? " has-detail" : ""}`}
+      onSubmit={handleMutationSubmit} onClickCapture={handleOfflineLinkClick}>
       <NetworkStatus />
       <aside className="sidebar">
         <SidebarContent
@@ -476,17 +530,17 @@ export default function AppShell({
           user={activeState.user}
           activeTab={activeTab}
           activeListId={activeState.activeListId}
-          restaurantOpen={selectedEntryId !== null}
-          restaurantOrigin={selectedEntryOrigin}
-          restaurantEditing={initialEntryEdit}
+          activeListName={activeListName}
+          lists={switcherLists}
+          totalCount={activeState.allRestaurants.length}
+          back={topbarBack}
           theme={theme}
-          onNavigateToExplore={() => prepareRootNavigation("explore")}
           onNavigateRoot={navigateRoot}
-          onBackFromRestaurant={backFromRestaurant}
+          onSelectList={(listId) => prepareRootNavigation(activeTab, listId)}
           onOpenAdmin={openAdmin}
         />
 
-        {settingsOpen ? (
+        {isSplitLayout ? null : settingsOpen ? (
           <section className="mobile-detail-view">
             <ListSettingsPanel state={activeState} onClose={closeSettings} />
           </section>
@@ -511,13 +565,6 @@ export default function AppShell({
         <div className={settingsOpen || selectedEntry ? "mobile-hidden-when-detail" : undefined}>
           {activeTab === "lists" && !settingsOpen ? (
             <section className="mobile-lists-view">
-              <header className="lists-page-header">
-                <div>
-                  <p className="kicker">Your restaurant collections</p>
-                  <h2>Lists</h2>
-                  <p>Choose a list to explore it, or open its settings to customize attributes.</p>
-                </div>
-              </header>
               <SidebarContent
                 state={activeState}
                 canWrite={canWrite}
@@ -534,14 +581,13 @@ export default function AppShell({
               <CheckInFeed
                 restaurants={activeState.restaurants}
                 activeListId={activeState.activeListId}
-                activeListName={activeListName}
                 onOpenRestaurant={() => {
                   rememberRootScroll("checkins");
                   restaurantOpenedInAppRef.current = true;
                 }}
               />
               <section className="detail">
-                {selectedEntry ? (
+                {!isSplitLayout ? null : selectedEntry ? (
                   <RestaurantDetailPane
                     restaurant={selectedEntry}
                     state={activeState}
@@ -580,7 +626,7 @@ export default function AppShell({
               onSelectRestaurant={selectEntry}
               onSelectFromMap={openEntryFromMap}
               detail={
-                settingsOpen ? (
+                !isSplitLayout ? null : settingsOpen ? (
                   <ListSettingsPanel state={activeState} onClose={closeSettings} />
                 ) : selectedEntry ? (
                   <RestaurantDetailPane
@@ -654,6 +700,8 @@ export default function AppShell({
       <InstallPrompt />
       {children ? <span hidden>{children}</span> : null}
     </main>
+    </ToastProvider>
+    </EditSessionProvider>
     </AppMutationProvider>
   );
 }
