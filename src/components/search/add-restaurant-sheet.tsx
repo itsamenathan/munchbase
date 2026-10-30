@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { AddRestaurantsPanel, type AddRestaurantsPanelProps } from "./add-restaurants";
 
 export function AddRestaurantSheet({
@@ -27,17 +28,14 @@ export function AddRestaurantSheet({
 
   useEffect(() => {
     if (!overlayEnabled) return;
-    const previousOverflow = document.body.style.overflow;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
-    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose, overlayEnabled]);
+
+  useBodyScrollLock(overlayEnabled);
 
   useEffect(() => {
     if (!overlayEnabled) return;

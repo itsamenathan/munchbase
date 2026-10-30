@@ -8,11 +8,21 @@
 import { startTransition, useEffect, useRef, useState, type TouchEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, ChevronLeft, ChevronRight, ImagePlus, Images, Pencil, Trash2, X } from "lucide-react";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { useToast } from "@/hooks/use-toast";
 import { appendCsrfToken } from "@/lib/csrf-client";
 import { formatShortDateTime } from "@/lib/datetime";
+import { submitMutationData } from "@/lib/mutation-client";
 import type { Restaurant, RestaurantPhoto } from "@/lib/types";
 
-type SelectedPhoto = { file: File; description: string; preview: string };
+type PendingPhoto = {
+  key: string;
+  file: File;
+  preview: string;
+  status: "uploading" | "failed" | "done";
+  photoId: number | null;
+  error: string | null;
+};
 
 export function RestaurantPhotos({
   canWrite,
@@ -31,79 +41,63 @@ export function RestaurantPhotos({
 }) {
   const router = useRouter();
   const viewerIndex = activePhotoId ? entry.photos.findIndex((photo) => photo.id === activePhotoId) : -1;
-  const [selectedPhotos, setSelectedPhotos] = useState<SelectedPhoto[]>([]);
-  const selectedPhotosRef = useRef<SelectedPhoto[]>([]);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
+  const [pending, setPending] = useState<PendingPhoto[]>([]);
+  const pendingRef = useRef<PendingPhoto[]>([]);
+  const nextKey = useRef(0);
 
   useEffect(() => {
-    selectedPhotosRef.current = selectedPhotos;
-  }, [selectedPhotos]);
+    pendingRef.current = pending;
+  }, [pending]);
 
   useEffect(() => () => {
-    selectedPhotosRef.current.forEach((p) => URL.revokeObjectURL(p.preview));
+    pendingRef.current.forEach((p) => URL.revokeObjectURL(p.preview));
   }, []);
+
+  function patchPending(key: string, patch: Partial<PendingPhoto>) {
+    setPending((prev) => prev.map((p) => (p.key === key ? { ...p, ...patch } : p)));
+  }
+
+  // A finished upload stays in the list until the grid shows the saved photo, so the tile never blinks out.
+  const visiblePending = pending.filter((p) => p.status !== "done" || !entry.photos.some((photo) => photo.id === p.photoId));
+
+  async function uploadPending(item: PendingPhoto) {
+    patchPending(item.key, { status: "uploading", error: null });
+    const fd = new FormData();
+    fd.append("__action", "uploadRestaurantPhoto");
+    fd.append("restaurantId", String(entry.id));
+    fd.append("photo", item.file);
+    try {
+      const result = await submitMutationData(fd);
+      if (!result.ok) throw new Error(result.message);
+      patchPending(item.key, { status: "done", photoId: result.photoId ?? null });
+      router.refresh();
+    } catch (error) {
+      patchPending(item.key, { status: "failed", error: error instanceof Error ? error.message : "Photo failed to upload." });
+    }
+  }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
-    setSelectedPhotos((prev) => [
-      ...prev,
-      ...files.map((file) => ({ file, description: "", preview: URL.createObjectURL(file) })),
-    ]);
     e.currentTarget.value = "";
-    setUploadError(null);
-  }
-
-  async function handleUpload(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    if (!selectedPhotos.length) { setUploadError("Choose at least one image to upload."); return; }
-
-    const restaurantId = (form.elements.namedItem("restaurantId") as HTMLInputElement).value;
-
-    setUploadProgress({ done: 0, total: selectedPhotos.length });
-    setUploadError(null);
-
-    const results = await Promise.allSettled(selectedPhotos.map(async ({ file, description }) => {
-      const fd = new FormData();
-      fd.append("__action", "uploadRestaurantPhoto");
-      appendCsrfToken(fd);
-      fd.append("restaurantId", restaurantId);
-      fd.append("photo", file);
-      if (description) fd.append("description", description);
-      const res = await fetch("/mutate", { method: "POST", body: fd });
-      const finalUrl = new URL(res.url);
-      const mutationError = finalUrl.searchParams.get("message");
-      if (mutationError) throw new Error(mutationError);
-      setUploadProgress((prev) => prev ? { ...prev, done: prev.done + 1 } : null);
+    const added: PendingPhoto[] = files.map((file) => ({
+      key: String(nextKey.current++),
+      file,
+      preview: URL.createObjectURL(file),
+      status: "uploading",
+      photoId: null,
+      error: null,
     }));
-
-    const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
-    const anySuccess = results.some((r) => r.status === "fulfilled");
-
-    if (failures.length) {
-      const msg = failures.length === 1
-        ? failures[0].reason instanceof Error ? failures[0].reason.message : "One photo failed to upload."
-        : `${failures.length} photos failed to upload.`;
-      setUploadError(msg);
-    }
-
-    if (anySuccess) {
-      selectedPhotosRef.current.forEach((p) => URL.revokeObjectURL(p.preview));
-      setSelectedPhotos([]);
-      form.reset();
-      router.refresh();
-    }
-
-    setUploadProgress(null);
+    setPending((prev) => [...prev, ...added]);
+    added.forEach((item) => void uploadPending(item));
   }
 
-  const count = selectedPhotos.length;
-  const uploading = uploadProgress !== null;
-  const buttonLabel = uploading
-    ? `Uploading ${uploadProgress.done + 1} of ${uploadProgress.total}…`
-    : count > 1 ? `Upload ${count} photos` : "Upload photo";
+  function removePending(key: string) {
+    const item = pendingRef.current.find((p) => p.key === key);
+    if (item) URL.revokeObjectURL(item.preview);
+    setPending((prev) => prev.filter((p) => p.key !== key));
+  }
+
+  const hasPhotos = entry.photos.length > 0 || visiblePending.length > 0;
 
   return (
     <section className="detail-section-card photo-section">
@@ -112,96 +106,104 @@ export function RestaurantPhotos({
         {entry.photos.length ? <span className="pill">{entry.photos.length}</span> : null}
       </div>
 
-      {entry.photos.length ? (
-        <>
-          <div className="photo-grid">
-            {entry.photos.map((photo, index) => (
-              <PhotoCard
-                canWrite={canWrite}
-                key={photo.id}
-                photo={photo}
-                onOpen={() => onOpenPhoto(photo.id)}
-                onDelete={() => { if (activePhotoId === photo.id) onClosePhoto(); }}
-              />
-            ))}
-          </div>
-          {viewerIndex >= 0 ? (
-            <PhotoViewer
-              key={viewerIndex}
-              photos={entry.photos}
-              initialIndex={viewerIndex}
-              onSelect={(photoId) => onSelectPhoto(photoId)}
-              onClose={onClosePhoto}
+      {!hasPhotos && canWrite ? <p className="muted">No photos yet. Take or choose one below.</p> : null}
+      {hasPhotos ? (
+        <div className="photo-grid">
+          {visiblePending.map((item) => (
+            <PendingPhotoTile
+              key={item.key}
+              item={item}
+              onRetry={() => void uploadPending(item)}
+              onRemove={() => removePending(item.key)}
             />
-          ) : null}
-        </>
+          ))}
+          {entry.photos.map((photo) => (
+            <PhotoCard
+              canWrite={canWrite}
+              key={photo.id}
+              photo={photo}
+              onOpen={() => onOpenPhoto(photo.id)}
+              onDelete={() => { if (activePhotoId === photo.id) onClosePhoto(); }}
+            />
+          ))}
+        </div>
       ) : !canWrite ? (
         <p className="muted">No photos yet.</p>
       ) : null}
 
+      {viewerIndex >= 0 ? (
+        <PhotoViewer
+          key={viewerIndex}
+          photos={entry.photos}
+          initialIndex={viewerIndex}
+          onSelect={(photoId) => onSelectPhoto(photoId)}
+          onClose={onClosePhoto}
+        />
+      ) : null}
+
       {canWrite ? (
-        <form onSubmit={handleUpload} className="photo-upload-form">
-          <input type="hidden" name="restaurantId" value={entry.id} />
-          <div className="photo-upload-actions">
-            <label className="photo-upload-zone">
-              <input
-                name="cameraPhoto"
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/*"
-                capture="environment"
-                className="photo-upload-input"
-                onChange={handleFileChange}
-              />
-              <Camera size={18} />
-              <div className="photo-upload-zone-text">
-                <span>Take photo</span>
-                <small>Use camera</small>
-              </div>
-            </label>
-            <label className="photo-upload-zone">
-              <input
-                name="photo"
-                type="file"
-                multiple
-                accept="image/jpeg,image/png,image/webp,image/*"
-                className="photo-upload-input"
-                onChange={handleFileChange}
-              />
-              <ImagePlus size={18} />
-              <div className="photo-upload-zone-text">
-                <span>Choose photos</span>
-                <small>From library</small>
-              </div>
-            </label>
-          </div>
-          {count > 0 ? <p className="photo-upload-selection">{count === 1 ? "1 photo selected" : `${count} photos selected`}</p> : null}
-          {uploadError ? <p className="upload-error">{uploadError}</p> : null}
-          {count > 0 ? (
-            <>
-              <ul className="photo-preview-list">
-                {selectedPhotos.map((photo, index) => (
-                  <li key={photo.preview} className="photo-preview-item">
-                    <img src={photo.preview} alt="" className="photo-preview-thumb" />
-                    <input
-                      type="text"
-                      className="photo-preview-field"
-                      placeholder="Description (optional)"
-                      maxLength={280}
-                      value={photo.description}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setSelectedPhotos((prev) => prev.map((p, i) => i === index ? { ...p, description: value } : p));
-                      }}
-                    />
-                  </li>
-                ))}
-              </ul>
-              <button type="submit" className="compact-button" disabled={uploading}>{buttonLabel}</button>
-            </>
-          ) : null}
-        </form>
+        <div className="photo-upload-actions">
+          <label className="photo-upload-zone">
+            <input
+              name="cameraPhoto"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/*"
+              capture="environment"
+              className="photo-upload-input"
+              onChange={handleFileChange}
+            />
+            <Camera size={18} />
+            <div className="photo-upload-zone-text">
+              <span>Take photo</span>
+              <small>Use camera</small>
+            </div>
+          </label>
+          <label className="photo-upload-zone">
+            <input
+              name="photo"
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,image/*"
+              className="photo-upload-input"
+              onChange={handleFileChange}
+            />
+            <ImagePlus size={18} />
+            <div className="photo-upload-zone-text">
+              <span>Choose photos</span>
+              <small>From library</small>
+            </div>
+          </label>
+        </div>
       ) : null}
     </section>
+  );
+}
+
+function PendingPhotoTile({
+  item,
+  onRetry,
+  onRemove,
+}: {
+  item: PendingPhoto;
+  onRetry: () => void;
+  onRemove: () => void;
+}) {
+  const failed = item.status === "failed";
+  return (
+    <article className={`photo-card photo-card-pending ${item.status}`}>
+      <div className="photo-thumb-button">
+        <img src={item.preview} alt="" className="photo-thumb" />
+        {item.status !== "done" ? (
+          <span className="photo-pending-overlay">{failed ? "Didn't upload" : "Uploading…"}</span>
+        ) : null}
+      </div>
+      {failed ? (
+        <div className="photo-pending-actions">
+          <button type="button" className="compact-button" onClick={onRetry}>Try again</button>
+          <button type="button" className="ghost-button compact-button" onClick={onRemove}>Remove</button>
+        </div>
+      ) : null}
+    </article>
   );
 }
 
@@ -217,64 +219,113 @@ function PhotoCard({
   onDelete: () => void;
 }) {
   const router = useRouter();
+  const savedDescription = photo.description ?? "";
+  // Null until the description is edited, so the card shows the saved text otherwise.
+  const [draft, setDraft] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [description, setDescription] = useState(photo.description ?? "");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [removed, setRemoved] = useState(false);
+  const { show } = useToast();
+  const shownDescription = draft ?? savedDescription;
 
-  async function handleDelete() {
+  // The photo hides at once but is only deleted when the toast lapses, so Undo can bring it back.
+  function handleDelete() {
+    setRemoved(true);
+    show({
+      message: "Photo deleted",
+      actionLabel: "Undo",
+      durationMs: 6000,
+      onAction: () => setRemoved(false),
+      onExpire: () => void deletePhoto(),
+    });
+  }
+
+  async function deletePhoto() {
     const fd = new FormData();
     fd.append("__action", "deleteRestaurantPhoto");
     appendCsrfToken(fd);
     fd.append("photoId", String(photo.id));
-    await fetch("/mutate", { method: "POST", body: fd });
+    try {
+      // keepalive lets the request finish if the page is closed while the toast is still showing.
+      await fetch("/mutate", { method: "POST", body: fd, keepalive: true });
+    } catch {
+      // The photo comes back on the next refresh if this did not go through.
+    }
     onDelete();
     router.refresh();
   }
 
-  async function handleSaveDescription(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function startEditing() {
+    setDraft(shownDescription);
+    setSaveError(null);
+    setEditing(true);
+  }
+
+  async function finishEditing() {
+    setEditing(false);
+    const next = (draft ?? savedDescription).trim();
+    if (next === savedDescription) return;
     const fd = new FormData();
     fd.append("__action", "updateRestaurantPhotoDescription");
-    appendCsrfToken(fd);
     fd.append("photoId", String(photo.id));
-    fd.append("description", description);
-    await fetch("/mutate", { method: "POST", body: fd });
-    setEditing(false);
-    router.refresh();
+    fd.append("description", next);
+    try {
+      const result = await submitMutationData(fd);
+      if (!result.ok) throw new Error(result.message);
+      setDraft(next);
+      router.refresh();
+    } catch (error) {
+      setDraft(null);
+      setSaveError(error instanceof Error ? error.message : "Couldn't save the description.");
+    }
   }
+
+  if (removed) return null;
 
   return (
     <article className="photo-card">
-      <button type="button" className="photo-thumb-button" onClick={onOpen} aria-label={`Open photo uploaded by ${photo.uploadedByName}`}>
-        <img src={photo.thumbnailUrl} alt={photo.description || "Restaurant photo"} className="photo-thumb" loading="lazy" />
-      </button>
-      {canWrite && !editing ? (
-        <div className="photo-card-toolbar">
-          <button type="button" className="ghost-button icon-button compact-icon-button" onClick={() => setEditing(true)} aria-label="Edit photo description">
-            <Pencil size={14} />
-          </button>
-          <button type="button" className="ghost-button icon-button compact-icon-button photo-delete-button" onClick={handleDelete} aria-label="Delete photo">
-            <Trash2 size={14} />
-          </button>
-        </div>
-      ) : null}
-      {editing ? (
-        <form className="photo-card-edit" onSubmit={handleSaveDescription}>
-          <label className="photo-upload-field">
-            <span>Description</span>
-            <textarea name="description" rows={2} value={description} onChange={(event) => setDescription(event.target.value)} maxLength={280} />
-          </label>
-          <div className="photo-card-actions">
-            <button type="submit" className="compact-button">Save</button>
-            <button type="button" className="ghost-button compact-button" onClick={() => { setDescription(photo.description ?? ""); setEditing(false); }}>
-              Cancel
+      <div className="photo-thumb-wrap">
+        <button type="button" className="photo-thumb-button" onClick={onOpen} aria-label={`Open photo uploaded by ${photo.uploadedByName}`}>
+          <img src={photo.thumbnailUrl} alt={shownDescription || "Restaurant photo"} className="photo-thumb" loading="lazy" />
+        </button>
+        {canWrite ? (
+          <div className="photo-card-toolbar">
+            <button type="button" className="ghost-button icon-button compact-icon-button photo-delete-button" onClick={handleDelete} aria-label="Delete photo">
+              <Trash2 size={14} />
             </button>
           </div>
-        </form>
-      ) : (
-        <div className="photo-card-copy">
-          <strong>{photo.description || "No description yet"}</strong>
+        ) : null}
+      </div>
+      {canWrite ? (
+        <div className="photo-description-box">
+          {editing ? (
+            <input
+              type="text"
+              className="photo-description-input"
+              aria-label="Photo description"
+              placeholder="Add a description"
+              maxLength={280}
+              autoFocus
+              value={draft ?? savedDescription}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => void finishEditing()}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+            />
+          ) : (
+            <button type="button" className="photo-description-text" onClick={startEditing} aria-label="Edit description">
+              <span className={`photo-description-label${shownDescription ? "" : " empty"}`}>
+                {shownDescription || "Add a description"}
+              </span>
+              <Pencil size={14} aria-hidden="true" />
+            </button>
+          )}
         </div>
-      )}
+      ) : shownDescription ? (
+        <div className="photo-card-copy">
+          <strong>{shownDescription}</strong>
+        </div>
+      ) : null}
+      {saveError ? <small className="photo-save-status error">{saveError}</small> : null}
     </article>
   );
 }
@@ -313,16 +364,7 @@ function PhotoViewer({
   // Double-tap ref
   const lastTap = useRef(0);
 
-  useEffect(() => {
-    const { body } = document;
-    const prev = { overflow: body.style.overflow, touchAction: body.style.touchAction };
-    body.style.overflow = "hidden";
-    body.style.touchAction = "none";
-    return () => {
-      body.style.overflow = prev.overflow;
-      body.style.touchAction = prev.touchAction;
-    };
-  }, []);
+  useBodyScrollLock(true, { touchNone: true });
 
 
   const index = currentIndex >= 0 && currentIndex < photos.length ? currentIndex : 0;

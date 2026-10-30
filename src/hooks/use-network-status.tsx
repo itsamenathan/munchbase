@@ -17,16 +17,21 @@ import {
   getOfflineMetadata,
   getQueuedActions,
   markOfflineDataSynced,
+  rebaseQueuedAction,
   removeQueuedAction,
   restaurantIdFromQueuedAction,
   updateQueuedActionFailure,
   type SerializedFormData,
 } from "@/lib/offline-db";
+import { BASE_PREFIX, type EditConflict } from "@/lib/entry-edit";
 import { restoreMutationFormData } from "@/lib/offline-mutations";
 import { submitMutationData } from "@/lib/mutation-client";
 import { CSRF_FIELD } from "@/lib/csrf-constants";
 import { readCsrfToken } from "@/lib/csrf-client";
 import type { AppState } from "@/lib/types";
+
+/** A queued edit the server refused because someone else changed the same fields first. */
+export type SyncConflict = { actionId: number; message: string; fields: EditConflict[] };
 
 type NetworkState = {
   online: boolean;
@@ -35,6 +40,9 @@ type NetworkState = {
   blockedMessage: string | null;
   syncedMessage: string | null;
   syncError: string | null;
+  syncConflict: SyncConflict | null;
+  /** "keep" sends the queued edit over theirs; "discard" drops it and reloads the server's version. */
+  resolveSyncConflict: (choice: "keep" | "discard") => Promise<void>;
   syncing: boolean;
   lastSyncedAt: number | null;
   queueMutation: (
@@ -97,6 +105,9 @@ export function NetworkProvider({
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
   const [syncedMessage, setSyncedMessage] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncConflict, setSyncConflict] = useState<SyncConflict | null>(null);
+  // Bumped to run the sync again after a conflict has been resolved.
+  const [drainTick, setDrainTick] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const draining = useRef(false);
@@ -200,6 +211,7 @@ export function NetworkProvider({
     draining.current = true;
     setSyncing(true);
     setSyncError(null);
+    setSyncConflict(null);
 
     void (async () => {
       let succeeded = 0;
@@ -211,6 +223,12 @@ export function NetworkProvider({
           formData.set("__mutationId", action.mutationId || createOfflineMutationId());
           try {
             const result = await submitQueuedMutation(formData);
+            if (!result.ok && result.code === "conflict") {
+              // Keep the edit queued and ask; the rest of the queue waits behind it.
+              await updateQueuedActionFailure(action.id, result.message);
+              setSyncConflict({ actionId: action.id, message: result.message, fields: result.conflicts ?? [] });
+              break;
+            }
             if (!result.ok) {
               await updateQueuedActionFailure(action.id, result.message);
               setSyncError(result.message);
@@ -242,7 +260,24 @@ export function NetworkProvider({
         await refreshQueueState().catch(() => undefined);
       }
     })();
-  }, [online, refreshQueueState, router, userId]);
+  }, [drainTick, online, refreshQueueState, router, userId]);
+
+  const resolveSyncConflict = useCallback(async (choice: "keep" | "discard") => {
+    if (!syncConflict) return;
+    if (choice === "keep") {
+      // Their values become this edit's starting point, so it now replaces them.
+      await rebaseQueuedAction(
+        syncConflict.actionId,
+        syncConflict.fields.map((field): [string, string] => [BASE_PREFIX + field.key, field.current]),
+      );
+    } else {
+      await removeQueuedAction(syncConflict.actionId);
+    }
+    setSyncConflict(null);
+    await refreshQueueState().catch(() => undefined);
+    if (choice === "discard") router.refresh();
+    setDrainTick((tick) => tick + 1);
+  }, [refreshQueueState, router, syncConflict]);
 
   return (
     <NetworkContext.Provider value={{
@@ -252,6 +287,8 @@ export function NetworkProvider({
       blockedMessage,
       syncedMessage,
       syncError,
+      syncConflict,
+      resolveSyncConflict,
       syncing,
       lastSyncedAt,
       queueMutation,

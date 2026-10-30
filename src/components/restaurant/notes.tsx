@@ -15,7 +15,8 @@ export function NotePreview({ sections, values }: {
         const value = values[s.id] ?? "";
         return value.trim() ? (
           <section key={s.id} className="detail-subsection markdown-content">
-            <h5>{s.name}</h5>
+            {/* The "Notes" section sits under a "Notes" card title, so the repeat is dropped. */}
+            {s.name.trim().toLowerCase() === "notes" ? null : <h5>{s.name}</h5>}
             <ReactMarkdown>{value}</ReactMarkdown>
           </section>
         ) : null;

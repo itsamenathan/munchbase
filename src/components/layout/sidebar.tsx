@@ -1,7 +1,13 @@
 import Link from "next/link";
-import { LogOut, Plus, Settings, Utensils } from "lucide-react";
+import type { CSSProperties } from "react";
+import { ChevronRight, Layers, LogOut, Plus, Settings, SlidersHorizontal, Utensils } from "lucide-react";
+import { avatarHue, monogram } from "@/lib/avatar";
 import { tabHref } from "@/lib/routes";
 import type { AppState } from "@/lib/types";
+
+function restaurantCount(count: number) {
+  return `${count} ${count === 1 ? "restaurant" : "restaurants"}`;
+}
 
 export function SidebarContent({
   state,
@@ -31,29 +37,24 @@ export function SidebarContent({
     <>
       {showBrand ? (
         <div className="brand">
-          <Utensils size={24} />
+          <span className="brand-mark" aria-hidden="true"><Utensils size={20} /></span>
           <div>
             <h1>Munchbase</h1>
             <p>{state.user.name}</p>
           </div>
         </div>
       ) : null}
+      <p className="list-nav-label">Lists</p>
       <nav className="list-nav">
         <div className={`list-nav-row ${state.activeListId === null ? "active" : ""}`}>
           <Link href={tabHref("explore", null)} replace onClick={() => { onNavigateToExplore?.(null); onCloseDrawer?.(); }}>
-            All restaurants
-            <span>{state.allRestaurants.length}</span>
+            <span className="list-icon all" aria-hidden="true"><Layers size={18} /></span>
+            <span className="list-nav-copy">
+              <strong>All restaurants</strong>
+              <small>{restaurantCount(state.allRestaurants.length)}</small>
+            </span>
+            <ChevronRight className="list-nav-chevron" size={18} aria-hidden="true" />
           </Link>
-          {showListSettings && onOpenListSettings ? (
-            <button
-              type="button"
-              className="list-settings-link"
-              onClick={() => onOpenListSettings(null)}
-              aria-label="Global ratings"
-            >
-              <Settings size={15} />
-            </button>
-          ) : null}
         </div>
         {state.lists.map((list) => (
           <div
@@ -65,34 +66,59 @@ export function SidebarContent({
               replace
               onClick={() => { onNavigateToExplore?.(list.id); onCloseDrawer?.(); }}
             >
-              {list.name}
-              <span>{restaurantCountForList(list.id)}</span>
+              <span className="list-icon" style={{ "--avatar-hue": avatarHue(list.name) } as CSSProperties} aria-hidden="true">
+                {monogram(list.name)}
+              </span>
+              <span className="list-nav-copy">
+                <strong>{list.name}</strong>
+                <small>{restaurantCount(restaurantCountForList(list.id))}</small>
+              </span>
+              <ChevronRight className="list-nav-chevron" size={18} aria-hidden="true" />
             </Link>
             {showListSettings && onOpenListSettings ? (
               <button
                 type="button"
                 className="list-settings-link"
                 onClick={() => onOpenListSettings(list.id)}
-                aria-label={`Settings for ${list.name}`}
+                aria-label={`List settings for ${list.name}`}
               >
-                <Settings size={15} />
+                <Settings size={18} />
               </button>
             ) : null}
           </div>
         ))}
       </nav>
-      <button
-        type="button"
-        className="ghost-button add-list-button"
-        onClick={() => {
-          onOpenAddList();
-          onCloseDrawer?.();
-        }}
-      >
-        <Plus size={16} /> Add List
-      </button>
+      {canWrite ? (
+        <button
+          type="button"
+          className="ghost-button add-list-button"
+          onClick={() => {
+            onOpenAddList();
+            onCloseDrawer?.();
+          }}
+        >
+          <Plus size={18} /> Add list
+        </button>
+      ) : null}
+      {showListSettings && onOpenListSettings ? (
+        <>
+          <p className="list-nav-label">Settings</p>
+          <nav className="list-nav">
+            <div className="list-nav-row">
+              <button type="button" className="list-nav-button" onClick={() => onOpenListSettings(null)}>
+                <span className="list-icon settings" aria-hidden="true"><SlidersHorizontal size={18} /></span>
+                <span className="list-nav-copy">
+                  <strong>Global attributes</strong>
+                  <small>Ratings and note headings for every restaurant</small>
+                </span>
+                <ChevronRight className="list-nav-chevron" size={18} aria-hidden="true" />
+              </button>
+            </div>
+          </nav>
+        </>
+      ) : null}
       {showAccountActions ? (
-        <form action="/logout" method="post">
+        <form action="/logout" method="post" className="sidebar-signout">
           <button className="ghost-button">
             <LogOut size={16} /> Sign out
           </button>

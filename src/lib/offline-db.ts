@@ -296,6 +296,20 @@ export async function updateQueuedActionFailure(id: number, message: string) {
   });
 }
 
+/** Replaces entries in a queued action's payload, e.g. to move a conflicting edit's base values forward. */
+export async function rebaseQueuedAction(id: number, replacements: SerializedFormData) {
+  const db = await getDb();
+  const action = await db.get("sync-queue", id) as QueuedAction | undefined;
+  if (!action) return;
+  const keys = new Set(replacements.map(([key]) => key));
+  const entries: SerializedFormData = Array.isArray(action.payload) ? action.payload : Object.entries(action.payload);
+  await db.put("sync-queue", {
+    ...action,
+    payload: [...entries.filter(([key]) => !keys.has(key)), ...replacements],
+    lastError: null,
+  });
+}
+
 export async function removeQueuedAction(id: number) {
   const db = await getDb();
   await db.delete("sync-queue", id);

@@ -6,12 +6,12 @@ export type ThemeChoice = "system" | "light" | "dark" | "lavender" | "lavender-d
 type EffectiveTheme = "light" | "dark";
 
 const THEME_STORAGE_KEY = "munchbase-theme";
-const DARK_THEME_COLOR = "#1e2029";
-const LIGHT_THEME_COLOR = "#f8f8f2";
-const LAVENDER_THEME_COLOR = "#9fa1ff";
-const LAVENDER_DARK_THEME_COLOR = "#0d0b1e";
-const ROSE_THEME_COLOR = "#fb6f92";
-const ROSE_DARK_THEME_COLOR = "#190812";
+const DARK_THEME_COLOR = "#282a36";
+const LIGHT_THEME_COLOR = "#fffbeb";
+const LAVENDER_THEME_COLOR = "#f5f5fb";
+const LAVENDER_DARK_THEME_COLOR = "#0e0d19";
+const ROSE_THEME_COLOR = "#fdf4f6";
+const ROSE_DARK_THEME_COLOR = "#160a10";
 
 type ThemeContextValue = {
   choice: ThemeChoice;
