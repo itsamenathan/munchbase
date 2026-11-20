@@ -94,6 +94,15 @@ Two people can edit the same Restaurant, so saving the edit form (`updateEntryAn
 ### Toasts and Undo
 `ToastProvider` (`src/hooks/use-toast.tsx`, mounted in AppShell) shows one toast at a time. A toast with an action holds a change back: `onExpire` runs when it times out, is replaced by another toast, or the page is hidden; pressing the action runs `onAction` and skips `onExpire`. Photo delete uses this (the photo hides at once and is deleted when the toast lapses, with a `keepalive` request). Check in creates the visit right away, and Undo deletes it using the `checkInId` that `createCheckIn` returns.
 
+### In-app camera
+Take photo (in `restaurant-photos.tsx`) opens a full-screen camera (`src/components/restaurant/photo-camera.tsx`, getUserMedia), so several photos can be taken in a row without the page going to the background, where the phone may close it. Done passes them to the same upload path as the file inputs (`addFiles`), so failed uploads get the usual retry tiles. Photo uploads are not queued offline. The live camera needs `navigator.mediaDevices` on https or localhost, plus `camera=(self)` in the `Permissions-Policy` header (`next.config.ts`). Without these, or once the camera has been refused, Take photo uses the `capture="environment"` file input (the phone's camera app). The overlay's Camera app and Gallery buttons call `input.click()` inside the tap; browsers block it otherwise.
+
+- `src/lib/camera-pick.ts` has no React and is unit-tested with fake devices. It picks the camera: when the back camera that opens can't focus (often the ultra-wide), it tries the others one at a time, and remembers the choice in localStorage. It also handles tap to focus and `warmCamera`: the tap starts `getUserMedia` (about 1 s on a phone) while the overlay appears, and stops it if nobody takes it within 8 s. Don't warm on touchstart, and don't lazy-load the overlay, because Suspense holds it back about 300 ms.
+- A photo is the current video frame (`createImageBitmap(video)`, then a JPEG at 0.9 quality), not `ImageCapture.takePhoto()`, which refocuses and takes 2–4 s per shot on Android. Photos are kept only as JPEG `File`s.
+- All camera tracks stop on unmount and when the page is hidden, so the camera light goes off.
+- The photos taken and the open state live in `cameraSession` (`src/hooks/use-camera-session.ts`), not in component state. Turning a phone sideways crosses the 760px breakpoint and remounts the Restaurant detail; the camera reopens there with its photos kept.
+- Back closes only the overlay. `useBackCloses` (`src/hooks/use-back-closes.ts`) calls `pushState` from the tap, keeping Next's history state and adding a `munchbaseCamera` marker; closing from the UI calls `history.back()`. Escape closes it too, in a capture listener.
+
 ### One layout at a time
 The Restaurant detail and List settings appear in place of the list on phones and beside it from 760px up. AppShell renders only the one that is showing (`useMediaQuery("(min-width: 760px)")`), since mounting every layout and hiding the rest with CSS duplicated state and caused bugs. Keep that media query in step with the breakpoint in `layout.css`.
 

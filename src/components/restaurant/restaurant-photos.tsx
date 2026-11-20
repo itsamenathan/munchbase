@@ -8,8 +8,12 @@
 import { startTransition, useEffect, useRef, useState, type TouchEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, ChevronLeft, ChevronRight, ImagePlus, Images, Pencil, Trash2, X } from "lucide-react";
+import { PhotoCamera } from "@/components/restaurant/photo-camera";
+import { useBackCloses } from "@/hooks/use-back-closes";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { cameraSession, useCameraSession } from "@/hooks/use-camera-session";
 import { useToast } from "@/hooks/use-toast";
+import { canUseCamera, warmCamera } from "@/lib/camera-pick";
 import { appendCsrfToken } from "@/lib/csrf-client";
 import { formatShortDateTime } from "@/lib/datetime";
 import { submitMutationData } from "@/lib/mutation-client";
@@ -44,6 +48,25 @@ export function RestaurantPhotos({
   const [pending, setPending] = useState<PendingPhoto[]>([]);
   const pendingRef = useRef<PendingPhoto[]>([]);
   const nextKey = useRef(0);
+  // The camera session outlives this component (a layout change remounts it), so it is open while it is ours.
+  const camera = useCameraSession();
+  const cameraOpen = camera?.restaurantId === entry.id;
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  // The camera is refused for this site: Take photo goes straight to the phone's camera app.
+  const cameraRefused = useRef(false);
+  const cameraHistory = useBackCloses("munchbaseCamera", () => void cameraSession.end());
+
+  useEffect(() => {
+    if (!canWrite || !canUseCamera() || !navigator.permissions?.query) return;
+    let status: PermissionStatus | null = null;
+    const update = () => { cameraRefused.current = status?.state === "denied"; };
+    navigator.permissions
+      .query({ name: "camera" as PermissionName })
+      .then((result) => { status = result; update(); result.addEventListener("change", update); })
+      .catch(() => {}); // Firefox and older Safari cannot query the camera: the overlay finds out instead.
+    return () => status?.removeEventListener("change", update);
+  }, [canWrite]);
 
   useEffect(() => {
     pendingRef.current = pending;
@@ -79,6 +102,12 @@ export function RestaurantPhotos({
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     e.currentTarget.value = "";
+    addFiles(files);
+  }
+
+  // Every way of adding photos (camera, camera app, library) uploads through here, with the same retry tiles.
+  function addFiles(files: File[]) {
+    if (!files.length) return;
     const added: PendingPhoto[] = files.map((file) => ({
       key: String(nextKey.current++),
       file,
@@ -89,6 +118,30 @@ export function RestaurantPhotos({
     }));
     setPending((prev) => [...prev, ...added]);
     added.forEach((item) => void uploadPending(item));
+  }
+
+  function openCamera() {
+    if (!canUseCamera() || cameraRefused.current) {
+      cameraInputRef.current?.click();
+      return;
+    }
+    // The camera starts opening on the tap, while the overlay appears. (Not on touch-down: a touch that turns into a
+    // scroll would switch the camera on for a moment, and phones show a camera-in-use light.)
+    warmCamera();
+    cameraHistory.push();
+    cameraSession.start(entry.id);
+  }
+
+  /** Close the camera, returning the photos taken. */
+  function closeCamera() {
+    cameraHistory.close();
+    return cameraSession.end();
+  }
+
+  /** Leave the camera for a file input, keeping the photos taken. The click runs inside the tap, or browsers block it. */
+  function handOver(input: HTMLInputElement | null) {
+    input?.click();
+    addFiles(closeCamera());
   }
 
   function removePending(key: string) {
@@ -143,23 +196,25 @@ export function RestaurantPhotos({
 
       {canWrite ? (
         <div className="photo-upload-actions">
-          <label className="photo-upload-zone">
-            <input
-              name="cameraPhoto"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/*"
-              capture="environment"
-              className="photo-upload-input"
-              onChange={handleFileChange}
-            />
+          <button type="button" className="photo-upload-zone" onClick={openCamera}>
             <Camera size={18} />
             <div className="photo-upload-zone-text">
               <span>Take photo</span>
               <small>Use camera</small>
             </div>
-          </label>
+          </button>
+          <input
+            ref={cameraInputRef}
+            name="cameraPhoto"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/*"
+            capture="environment"
+            hidden
+            onChange={handleFileChange}
+          />
           <label className="photo-upload-zone">
             <input
+              ref={galleryInputRef}
               name="photo"
               type="file"
               multiple
@@ -174,6 +229,17 @@ export function RestaurantPhotos({
             </div>
           </label>
         </div>
+      ) : null}
+
+      {cameraOpen ? (
+        <PhotoCamera
+          shots={camera.shots}
+          onClose={() => void closeCamera()}
+          onDone={() => addFiles(closeCamera())}
+          onCameraApp={() => handOver(cameraInputRef.current)}
+          onGallery={() => handOver(galleryInputRef.current)}
+          onRefused={() => { cameraRefused.current = true; }}
+        />
       ) : null}
     </section>
   );
