@@ -34,7 +34,8 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" },
+  // camera=(self): the in-app camera (photo-camera.tsx) uses getUserMedia on this origin.
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(self)" },
   ...(process.env.NODE_ENV === "production"
     ? [
         {

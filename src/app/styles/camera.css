@@ -1,0 +1,316 @@
+/*
+ * The in-app camera (photo-camera.tsx). It is always dark, like a phone camera
+ * app, whatever the theme, so its colors are fixed here rather than tokens.
+ */
+
+.camera-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-toast) + 10);
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: #f4f4f2;
+  overscroll-behavior: contain;
+  touch-action: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.camera-overlay button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.camera-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+}
+
+.camera-head h2 {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 650;
+}
+
+.camera-head-count {
+  color: #b9b8b3;
+  font-weight: 500;
+}
+
+.camera-head-button {
+  width: 44px;
+  height: 44px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+}
+
+/* Thumbnails of the photos taken so far */
+.camera-shots {
+  list-style: none;
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 14px 6px;
+  overflow-x: auto;
+  touch-action: pan-x;
+}
+
+.camera-shots li {
+  position: relative;
+  flex: none;
+}
+
+.camera-shots img {
+  display: block;
+  height: 56px;
+  width: auto;
+  max-width: 96px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.camera-shots button {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: #2b2b29;
+  color: #f4f4f2;
+  box-shadow: 0 0 0 2px #000;
+}
+
+.camera-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-message {
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  color: #d8d7d2;
+}
+
+.camera-message p {
+  margin: 0;
+  max-width: 28rem;
+}
+
+/* The stage is a size container, so the frame can be sized to the picture inside it */
+.camera-live {
+  position: relative;
+  container-type: size;
+}
+
+/* Exactly the picture's size within the stage (like object-fit: contain), so overlays land on the image */
+.camera-frame {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  aspect-ratio: var(--shape);
+  width: min(100cqw, 100cqh * var(--shape));
+  overflow: hidden;
+}
+
+.camera-frame video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camera-focus-ring {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  margin: -36px 0 0 -36px;
+  border: 2px solid #ffd54a;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: camera-focus 0.9s ease-out forwards;
+}
+
+@keyframes camera-focus {
+  0% { transform: scale(1.5); opacity: 1; }
+  40% { transform: scale(1); }
+  100% { opacity: 0; }
+}
+
+.camera-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  pointer-events: none;
+  animation: camera-flash 0.25s ease-out forwards;
+}
+
+@keyframes camera-flash {
+  from { opacity: 0.7; }
+  to { opacity: 0; }
+}
+
+/* A frosted hint over the bottom of the picture that fades away */
+.camera-hint {
+  position: absolute;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgb(20 20 18 / 55%);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 25%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #f6f5f1;
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+  animation: camera-hint 4s ease-in forwards;
+}
+
+@keyframes camera-hint {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.camera-starting {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #b9b8b3;
+  font-size: var(--font-size-sm);
+}
+
+.camera-spinner {
+  animation: camera-spin 0.9s linear infinite;
+}
+
+@keyframes camera-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Footer: side buttons | shutter | side buttons, like a phone camera app */
+.camera-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 12px 18px;
+}
+
+.camera-side {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+
+.camera-side-button {
+  flex-direction: column;
+  gap: 5px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: #f4f4f2;
+  font-weight: 500;
+}
+
+.camera-side-button:active {
+  transform: none;
+}
+
+.camera-side-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 13%);
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+.camera-side-button:active:not(:disabled) .camera-side-icon {
+  transform: scale(0.92);
+  background: rgb(255 255 255 / 22%);
+}
+
+.camera-side-button.primary .camera-side-icon {
+  background: #3fb07f;
+  color: #06170f;
+}
+
+.camera-side-button.primary:active:not(:disabled) .camera-side-icon {
+  background: #36996e;
+}
+
+.camera-side-label {
+  font-size: 0.72rem;
+  color: #cfcec8;
+}
+
+.camera-side-count {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #f4f4f2;
+  color: #111;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+.camera-shutter {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  min-height: 0;
+  padding: 0;
+  border: 3px solid #f4f4f2;
+  border-radius: 50%;
+  background: none;
+}
+
+.camera-shutter:active {
+  transform: none;
+}
+
+.camera-shutter > span {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #f4f4f2;
+  transition: transform 0.1s ease;
+}
+
+.camera-shutter:active:not(:disabled) > span {
+  transform: scale(0.86);
+}
+
+.camera-shutter:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
